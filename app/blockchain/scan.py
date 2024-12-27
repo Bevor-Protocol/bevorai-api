@@ -70,7 +70,7 @@ async def fetch_contract_source_code(address: str):
                     client, platform, address
                 )
                 if source_code:
-                    return {"platform": platform, "sourceCode": source_code}
+                    return {"platform": platform, "source_code": source_code}
 
         raise HTTPException(
             status_code=404,
