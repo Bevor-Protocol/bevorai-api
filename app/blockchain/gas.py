@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse
 
 async def fetch_gas():
     api_key = os.getenv("ETHERSCAN_API_KEY")
-    print(api_key)
     url = "https://api.etherscan.io/api"
     params = {
         "module": "gastracker",

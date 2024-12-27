@@ -34,6 +34,7 @@ async def stream_iterator(iterator):
 async def process_evaluation(data: EvalBody) -> StreamingResponse:
     contract = data.contract
     prompt = data.prompt
+
     if not contract or not prompt:
         raise HTTPException(status_code=400, detail="Must provide input")
 
