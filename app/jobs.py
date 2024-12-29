@@ -20,7 +20,6 @@ logging.basicConfig(level=logging.INFO)
 # pool = ConnectionPool(host="0.0.0.0", port="6379", db=0)
 queue = Queue(connection=redis_client)  # use default queue
 scheduler = AsyncIOScheduler()
-# scheduler = Scheduler(queue=queue, connection=queue.connection)
 
 
 def schedule_submited_callback(event: JobEvent):
