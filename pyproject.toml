@@ -13,8 +13,10 @@ uvicorn = {extras = ["standard"], version = "^0.34.0"}
 replicate = "^1.0.4"
 python-dotenv = "^1.0.1"
 redis = "^5.2.1"
-rq-scheduler = "^0.14.0"
 rq = "^2.1.0"
+apscheduler = "^3.11.0"
+tortoise-orm = {extras = ["asyncpg"], version = "^0.23.0"}
+aerich = {extras = ["toml"], version = "^0.8.1"}
 
 
 [tool.poetry.group.dev.dependencies]

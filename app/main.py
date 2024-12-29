@@ -1,19 +1,22 @@
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from .ai.routes import router as ai_router
 from .blockchain.routes import router as blockchain_router
-from .jobs import runner
+from .jobs import scheduler
 
 load_dotenv()
 
 
-@contextmanager
-def lifespan(app: FastAPI):
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # scheduler runs upon startup
-    runner()
+    scheduler.start()
+    yield
+    print("shutting down")
+    scheduler.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)

@@ -1,9 +1,15 @@
+import json
+import logging
 import os
 from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import HTTPException
+
+from app.cache import redis_client
+
+logging.basicConfig(level=logging.INFO)
 
 
 def get_api_key_for_platform(platform: str) -> Optional[str]:
@@ -58,6 +64,12 @@ async def fetch_contract_source_code_from_explorer(
 
 
 async def fetch_contract_source_code(address: str):
+    KEY = f"scan|{address}"
+    res = redis_client.get(KEY)
+    if res:
+        data = json.loads(res)
+        logging.info(f"CACHE KEY HIT {KEY}")
+        return data
     try:
         platforms = ["etherscan.io", "bscscan.com", "polygonscan.com", "basescan.org"]
 
@@ -70,12 +82,17 @@ async def fetch_contract_source_code(address: str):
                     client, platform, address
                 )
                 if source_code:
-                    return {"platform": platform, "source_code": source_code}
+                    data = {"platform": platform, "source_code": source_code}
+                    redis_client.set(KEY, json.dumps(data))
+                    return data
 
         raise HTTPException(
             status_code=404,
             detail="No source code found for the given address on any platform",
         )
-
+    except HTTPException as http_error:
+        # don't want to lose granularity by pass to next statement
+        raise http_error
     except Exception as error:
+        logging.error(error)
         raise HTTPException(status_code=500, detail=str(error))
