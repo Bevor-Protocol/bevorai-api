@@ -25,7 +25,7 @@ input_template = {
 async def stream_iterator(iterator):
     try:
         async for value in iterator:
-            print(value, end="")
+
             yield str(value).encode("utf-8")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -42,7 +42,6 @@ async def process_evaluation(data: EvalBody) -> StreamingResponse:
     audit_prompt = prompt.replace("<{prompt}>", contract)
 
     input_data = {**input_template, "prompt": audit_prompt}
-
     try:
         # Initialize Replicate client
         client = replicate.Client(api_token=os.getenv("REPLICATE_API_KEY"))

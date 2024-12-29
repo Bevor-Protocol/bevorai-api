@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Peter Simone <plssimone@gmail.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.9.0"
@@ -11,7 +12,13 @@ fastapi = {extras = ["standard"], version = "^0.115.6"}
 uvicorn = {extras = ["standard"], version = "^0.34.0"}
 replicate = "^1.0.4"
 python-dotenv = "^1.0.1"
+redis = "^5.2.1"
+rq-scheduler = "^0.14.0"
+rq = "^2.1.0"
 
+
+[tool.poetry.group.dev.dependencies]
+rq-dashboard = "^0.8.2.2"
 
 [build-system]
 requires = ["poetry-core"]
