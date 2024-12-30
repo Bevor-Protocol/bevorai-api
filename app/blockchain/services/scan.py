@@ -71,7 +71,7 @@ async def fetch_contract_source_code(address: str):
                     client, platform, address
                 )
                 if source_code:
-                    data = {"platform": platform, "source_code": source_code}
+                    data = {"platform": platform.value, "source_code": source_code}
                     redis_client.set(KEY, json.dumps(data))
                     return data
 

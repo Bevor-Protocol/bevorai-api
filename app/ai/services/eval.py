@@ -1,9 +1,18 @@
+import datetime
+import json
+import logging
 import os
+import re
 
 import replicate
 from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 
+from app.ai.markdown.gas import markdown as gas_markdown
+from app.ai.markdown.security import markdown as security_markdown
+from app.ai.prompts.gas import prompt as gas_prompt
+from app.ai.prompts.security import prompt as security_prompt
+from app.utils.enums import AuditTypeEnum
 from app.utils.types import EvalBody
 
 input_template = {
@@ -22,40 +31,99 @@ input_template = {
 }
 
 
-async def stream_iterator(iterator):
-    try:
-        async for value in iterator:
+def parse_branded_markdown(
+    audit_type: AuditTypeEnum, findings: dict, encode_code: bool
+):
+    result = gas_markdown if audit_type == AuditTypeEnum.GAS else security_markdown
 
-            yield str(value).encode("utf-8")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    formatter = {
+        "project_name": findings["audit_summary"].get("project_name", "Unknown"),
+        "address": "Unknown",
+        "date": datetime.datetime.now().strftime("%Y-%m-%d"),
+        "introduction": findings["introduction"],
+        "scope": findings["scope"],
+        "conclusion": findings["conclusion"],
+    }
+
+    pattern = r"<<(.*?)>>"
+
+    rec_string = ""
+    for rec in findings["recommendations"]:
+        rec_string += f"- {rec}\n"
+    formatter["recommendations"] = rec_string.strip()
+
+    for k, v in findings["findings"].items():
+        key = f"findings_{k}"
+        finding_str = ""
+        if not v:
+            finding_str = "None Identified"
+        else:
+            for finding in v:
+                if encode_code:
+                    finding = re.sub(pattern, r"`\1`", finding)
+                finding_str += f"- {finding}\n"
+        logging.info(key)
+        logging.info(finding_str)
+        formatter[key] = finding_str.strip()
+
+    return result.format(**formatter)
 
 
-async def process_evaluation(data: EvalBody) -> StreamingResponse:
+async def process_evaluation(data: EvalBody) -> JSONResponse:
     contract = data.contract
-    prompt = data.prompt
+    audit_type = data.audit_type
+    encode_code = data.encode_code
+    as_markdown = data.as_markdown
+
+    prompt = gas_prompt if audit_type == AuditTypeEnum.GAS else security_prompt
 
     if not contract or not prompt:
         raise HTTPException(status_code=400, detail="Must provide input")
 
     # Insert the code text into the audit prompt
     audit_prompt = prompt.replace("<{prompt}>", contract)
+    if encode_code:
+        audit_prompt = audit_prompt.replace(
+            "<{code_structured}>",
+            (
+                "If you reference a function or variable directly, wrap it"
+                " in place, such that it looks like this <<{code}>>"
+                " Do not tack on arbitrary code snippets at the end"
+                " of your description.\nie, instead of: "
+                "'The use of delegatecall in the _delegate function',"
+                " give me: "
+                "'The use of delegatecall in the <<_delegate>> function'"
+            ),
+        )
+    else:
+        audit_prompt = audit_prompt.replace("<{code_structured}>", "\n")
+
+    logging.info(audit_prompt)
 
     input_data = {**input_template, "prompt": audit_prompt}
     try:
         # Initialize Replicate client
         client = replicate.Client(api_token=os.getenv("REPLICATE_API_KEY"))
 
-        # Start the streaming prediction
-        iterator = await client.async_stream(
+        # this model returns an iterator
+        response = await client.async_run(
             "meta/meta-llama-3-70b-instruct", input=input_data
         )
 
-        return StreamingResponse(
-            stream_iterator(iterator),
-            media_type="text/event-stream",
-            headers={"Access-Control-Allow-Origin": "app.certaik.xyz"},
-        )
+        response_completed = ""
+        for r in response:
+            response_completed += r
+
+        parsed = json.loads(response_completed)
+
+        if as_markdown:
+            parsed = parse_branded_markdown(
+                audit_type=audit_type, findings=parsed, encode_code=encode_code
+            )
+
+        return parsed
 
     except Exception as error:
+        logging.fatal(error)
+        logging.fatal(error.__traceback__)
         raise HTTPException(status_code=500, detail=str(error))
