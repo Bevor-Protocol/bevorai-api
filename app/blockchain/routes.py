@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from .gas import fetch_gas
-from .scan import fetch_contract_source_code
+from .services.gas import fetch_gas
+from .services.scan import fetch_contract_source_code
 
 router = APIRouter()
 

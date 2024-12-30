@@ -1,7 +1,7 @@
 from tortoise import fields
 
 from app.db.models.abstract import AbstractModel
-from app.enums import AuditTypeEnum, PlatformEnum
+from app.utils.enums import AuditTypeEnum, PlatformEnum
 
 
 class Contract(AbstractModel):

@@ -12,6 +12,11 @@ class PlatformEnum(Enum):
     BASE_SEPOLIA = "BASE_SEPOLIA"
 
 
+class NetworkTypeEnum(Enum):
+    TESTNET = "TESTNET"
+    MAINNET = "MAINNET"
+
+
 class AuditTypeEnum(Enum):
     SECURITY = "SECURITY"
     GAS = "GAS"

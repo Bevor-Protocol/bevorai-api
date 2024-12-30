@@ -4,7 +4,7 @@ import replicate
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.types import EvalBody
+from app.utils.types import EvalBody
 
 input_template = {
     "min_tokens": 512,

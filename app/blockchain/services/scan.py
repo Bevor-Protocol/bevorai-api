@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -8,41 +7,31 @@ import httpx
 from fastapi import HTTPException
 
 from app.cache import redis_client
+from app.utils.enums import NetworkTypeEnum, PlatformEnum
+from app.utils.mappers import (
+    platform_explorer_apikey_mapper,
+    platform_explorer_mapper,
+    platform_types,
+)
 
 logging.basicConfig(level=logging.INFO)
 
 
-def get_api_key_for_platform(platform: str) -> Optional[str]:
-    platform_keys = {
-        "etherscan.io": os.getenv("ETHERSCAN_API_KEY"),
-        "api-sepolia.etherscan.io": os.getenv("ETHERSCAN_API_KEY"),
-        "bscscan.com": os.getenv("BSCSCAN_API_KEY"),
-        "api-testnet.bscscan.com": os.getenv("BSCSCAN_API_KEY"),
-        "polygonscan.com": os.getenv("POLYGONSCAN_API_KEY"),
-        "api-amoy.polygonscan.com": os.getenv("POLYGONSCAN_API_KEY"),
-        "basescan.org": os.getenv("BASESCAN_API_KEY"),
-        "api-sepolia.basescan.org": os.getenv("BASESCAN_API_KEY"),
-    }
-    return platform_keys.get(platform)
-
-
 async def fetch_contract_source_code_from_explorer(
-    client: httpx.AsyncClient, platform: str, address: str
+    client: httpx.AsyncClient, platform: PlatformEnum, address: str
 ) -> Optional[str]:
+    platform_route = platform_explorer_mapper[platform]
+    api_key = platform_explorer_apikey_mapper[platform]
+
+    url = f"https://{platform_route}/api"
+    params = {
+        "module": "contract",
+        "action": "getsourcecode",
+        "address": address,
+        "apikey": api_key,
+    }
+
     try:
-        api_key = get_api_key_for_platform(platform)
-        if not api_key:
-            print(f"No API key found for platform: {platform}")
-            return
-
-        url = f"https://api.{platform}/api"
-        params = {
-            "module": "contract",
-            "action": "getsourcecode",
-            "address": address,
-            "apikey": api_key,
-        }
-
         response = await client.get(f"{url}?{urlencode(params)}")
         response.raise_for_status()
         data = response.json()
@@ -52,8 +41,7 @@ async def fetch_contract_source_code_from_explorer(
             source_code = result[0].get("SourceCode")
             if source_code:
                 return source_code
-
-        print(f"No source code found for contract {address} on {platform}")
+        raise Exception("No source code found")
 
     except Exception as error:
         print(
@@ -64,6 +52,9 @@ async def fetch_contract_source_code_from_explorer(
 
 
 async def fetch_contract_source_code(address: str):
+    if not address:
+        raise HTTPException(status_code=400, detail="Address parameter is required")
+
     KEY = f"scan|{address}"
     res = redis_client.get(KEY)
     if res:
@@ -71,13 +62,11 @@ async def fetch_contract_source_code(address: str):
         logging.info(f"CACHE KEY HIT {KEY}")
         return data
     try:
-        platforms = ["etherscan.io", "bscscan.com", "polygonscan.com", "basescan.org"]
-
-        if not address:
-            raise HTTPException(status_code=400, detail="Address parameter is required")
+        platforms = platform_types[NetworkTypeEnum.MAINNET]
 
         async with httpx.AsyncClient() as client:
             for platform in platforms:
+                # we want this to be blocking so we can early exit
                 source_code = await fetch_contract_source_code_from_explorer(
                     client, platform, address
                 )

@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from app.types import EvalBody
+from app.utils.types import EvalBody
 
-from .eval import process_evaluation
+from .services.eval import process_evaluation
 
 router = APIRouter()
 
