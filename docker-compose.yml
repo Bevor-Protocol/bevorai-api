@@ -16,6 +16,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - REDIS_HOST=${REDIS_HOST}
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
     volumes:
       - ./poetry.lock:/app/poetry.lock
       - ./pyproject.toml:/app/pyproject.toml
@@ -59,8 +60,14 @@ services:
     command: rq worker --url redis://redis:6379
     environment:
       - REDIS_HOST=${REDIS_HOST}
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
     links:
       - redis
+    volumes:
+      - ./poetry.lock:/app/poetry.lock
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./app:/app/app
+    restart: always
 
 volumes:
   redis_data:
