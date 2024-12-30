@@ -4,6 +4,7 @@ import logging
 import os
 import re
 
+import httpx
 import replicate
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
@@ -12,6 +13,7 @@ from app.ai.markdown.gas import markdown as gas_markdown
 from app.ai.markdown.security import markdown as security_markdown
 from app.ai.prompts.gas import prompt as gas_prompt
 from app.ai.prompts.security import prompt as security_prompt
+from app.blockchain.services.scan import fetch_contract_source_code_from_explorer
 from app.utils.enums import AuditTypeEnum
 from app.utils.types import EvalBody
 
@@ -62,18 +64,33 @@ def parse_branded_markdown(
                 if encode_code:
                     finding = re.sub(pattern, r"`\1`", finding)
                 finding_str += f"- {finding}\n"
-        logging.info(key)
-        logging.info(finding_str)
+
         formatter[key] = finding_str.strip()
 
     return result.format(**formatter)
 
 
 async def process_evaluation(data: EvalBody) -> JSONResponse:
-    contract = data.contract
+    contract_code = data.contract_code
+    contract_address = data.contract_address
+    network = data.network
     audit_type = data.audit_type
     encode_code = data.encode_code
     as_markdown = data.as_markdown
+
+    if not contract_code:
+        async with httpx.AsyncClient() as client:
+            response = await fetch_contract_source_code_from_explorer(
+                client, network, contract_address
+            )
+            if not response:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No source code found for the given address on any platform",
+                )
+            contract = response
+    else:
+        contract = contract_code
 
     prompt = gas_prompt if audit_type == AuditTypeEnum.GAS else security_prompt
 
@@ -97,8 +114,6 @@ async def process_evaluation(data: EvalBody) -> JSONResponse:
         )
     else:
         audit_prompt = audit_prompt.replace("<{code_structured}>", "\n")
-
-    logging.info(audit_prompt)
 
     input_data = {**input_template, "prompt": audit_prompt}
     try:
