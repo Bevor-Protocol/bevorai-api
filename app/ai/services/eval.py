@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import os
 import re
 
@@ -35,7 +36,6 @@ input_template = {
 
 
 async def compute_eval(input_data, audit_type, as_markdown, encode_code):
-    raise Exception("testing retry")
     client = replicate.Client(api_token=os.getenv("REPLICATE_API_KEY"))
 
     # this model returns an iterator
@@ -46,6 +46,8 @@ async def compute_eval(input_data, audit_type, as_markdown, encode_code):
     response_completed = ""
     for r in response:
         response_completed += r
+
+    logging.info(f"RAW CONTENT {response_completed}")
 
     parsed = json.loads(response_completed)
 
