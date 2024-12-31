@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+from uuid import uuid4
 
 import httpx
 import replicate
@@ -14,6 +15,8 @@ from app.ai.markdown.security import markdown as security_markdown
 from app.ai.prompts.gas import prompt as gas_prompt
 from app.ai.prompts.security import prompt as security_prompt
 from app.blockchain.services.scan import fetch_contract_source_code_from_explorer
+from app.cache import redis_client
+from app.queues import queue_high
 from app.utils.enums import AuditTypeEnum
 from app.utils.types import EvalBody
 
@@ -31,6 +34,42 @@ input_template = {
     {prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     """,
 }
+
+
+async def compute_eval(input_data, audit_type, as_markdown, encode_code, identifier):
+    client = replicate.Client(api_token=os.getenv("REPLICATE_API_KEY"))
+
+    # this model returns an iterator
+    response = await client.async_run(
+        "meta/meta-llama-3-70b-instruct", input=input_data
+    )
+
+    response_completed = ""
+    for r in response:
+        response_completed += r
+
+    parsed = json.loads(response_completed)
+
+    if as_markdown:
+        parsed = parse_branded_markdown(
+            audit_type=audit_type, findings=parsed, encode_code=encode_code
+        )
+
+    redis_client.hset("eval_set", identifier, parsed)
+    message = json.dumps(
+        {
+            "ws_identifier": identifier,
+            "result": parsed,
+        }
+    )
+    redis_client.publish(
+        "evals",
+        message,
+    )
+
+    logging.info(f"Published message {message}")
+
+    return parsed
 
 
 def parse_branded_markdown(
@@ -116,29 +155,11 @@ async def process_evaluation(data: EvalBody) -> JSONResponse:
         audit_prompt = audit_prompt.replace("<{code_structured}>", "\n")
 
     input_data = {**input_template, "prompt": audit_prompt}
-    try:
-        # Initialize Replicate client
-        client = replicate.Client(api_token=os.getenv("REPLICATE_API_KEY"))
 
-        # this model returns an iterator
-        response = await client.async_run(
-            "meta/meta-llama-3-70b-instruct", input=input_data
-        )
+    identifier = str(uuid4())
 
-        response_completed = ""
-        for r in response:
-            response_completed += r
+    job = queue_high.enqueue(
+        compute_eval, input_data, audit_type, as_markdown, encode_code, identifier
+    )
 
-        parsed = json.loads(response_completed)
-
-        if as_markdown:
-            parsed = parse_branded_markdown(
-                audit_type=audit_type, findings=parsed, encode_code=encode_code
-            )
-
-        return parsed
-
-    except Exception as error:
-        logging.fatal(error)
-        logging.fatal(error.__traceback__)
-        raise HTTPException(status_code=500, detail=str(error))
+    return {"job_id": job.id, "ws_identifier": identifier}

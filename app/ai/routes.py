@@ -9,5 +9,4 @@ router = APIRouter()
 
 @router.post("/eval")
 async def evaluate_contract_raw(data: EvalBody):
-    print(data)
     return await process_evaluation(data)

@@ -11,17 +11,15 @@ from apscheduler.events import (
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from rq import Queue
 
 from app.utils.enums import PlatformEnum
 from app.web3.provider import get_provider
 
-from .cache import redis_client
+from .queues import queue_low
 
 logging.basicConfig(level=logging.INFO)
 
-# pool = ConnectionPool(host="0.0.0.0", port="6379", db=0)
-queue = Queue(connection=redis_client)  # use default queue
+
 scheduler = AsyncIOScheduler()
 
 
@@ -62,7 +60,7 @@ async def get_deployment_contracts():
 
 def enqueue_job(func, *args, **kwargs):
     # Enqueue job in Redis Queues
-    queue.enqueue(func, *args, **kwargs)
+    queue_low.enqueue(func, *args, **kwargs)
 
 
 async def my_simple_task():
