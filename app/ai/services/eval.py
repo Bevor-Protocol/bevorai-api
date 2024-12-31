@@ -35,6 +35,7 @@ input_template = {
 
 
 async def compute_eval(input_data, audit_type, as_markdown, encode_code):
+    raise Exception("testing retry")
     client = replicate.Client(api_token=os.getenv("REPLICATE_API_KEY"))
 
     # this model returns an iterator

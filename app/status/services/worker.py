@@ -10,6 +10,7 @@ MAX_RETRIES = 3
 def fetch_job_status(job_id: str):
     cur_retry_counter = redis_client.get("retries|{job_id}")
     if cur_retry_counter:
+        cur_retry_counter = int(cur_retry_counter.decode("utf-8"))
         if cur_retry_counter >= 3:
             return {"status": "failed", "allow_retry": False}
     job = queue_high.fetch_job(job_id)
@@ -24,6 +25,7 @@ def retry_failed_job(job_id):
     registry = FailedJobRegistry(queue=queue_high)
     cur_retry_counter = redis_client.get("retries|{job_id}")
     if cur_retry_counter:
+        cur_retry_counter = int(cur_retry_counter.decode("utf-8"))
         if cur_retry_counter >= 3:
             return {"success": False}
 
