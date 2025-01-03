@@ -2,11 +2,13 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from tortoise.contrib.fastapi import register_tortoise
 
-from .ai.routes import router as ai_router
-from .blockchain.routes import router as blockchain_router
+import app.api.routers as routers
+from app.api.middleware.auth import AuthenticationMiddleware
+from app.db.config import TORTOISE_ORM
+
 from .jobs import scheduler
-from .status.routes import router as status_router
 
 load_dotenv()
 
@@ -22,17 +24,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+register_tortoise(
+    app=app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
+)
 
-@app.get("/")
-async def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/health")
-async def health_check():
-    return True
-
-
-app.include_router(prefix="/blockchain", router=blockchain_router)
-app.include_router(prefix="/ai", router=ai_router)
-app.include_router(prefix="/status", router=status_router)
+app.add_middleware(AuthenticationMiddleware)
+app.include_router(routers.health_router)
+app.include_router(routers.blockchain_router)
+app.include_router(routers.ai_router)
+app.include_router(routers.status_router)
+app.include_router(routers.websocket_router)

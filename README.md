@@ -15,3 +15,4 @@ Install `poetry`
 Redis queue is used for background processing, and to enable cron tasks.
 
 To observe the queue, `poetry shell` followed by `rq info`
+

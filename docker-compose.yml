@@ -6,17 +6,8 @@ services:
       context: .
     ports:
       - "8000:8000"
-    environment:
-      - REPLICATE_API_KEY=${REPLICATE_API_KEY}
-      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
-      - BSCSCAN_API_KEY=${BSCSCAN_API_KEY}
-      - POLYGONSCAN_API_KEY=${POLYGONSCAN_API_KEY}
-      - BASESCAN_API_KEY=${BASESCAN_API_KEY}
-      - GAME_API_KEY=${GAME_API_KEY}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - REDIS_HOST=${REDIS_HOST}
-      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+    env_file:
+      - .env
     volumes:
       - ./poetry.lock:/app/poetry.lock
       - ./pyproject.toml:/app/pyproject.toml
@@ -58,10 +49,8 @@ services:
     depends_on:
       - redis
     command: rq worker high low --url redis://redis:6379
-    environment:
-      - REPLICATE_API_KEY=${REPLICATE_API_KEY}
-      - REDIS_HOST=${REDIS_HOST}
-      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+    env_file:
+      - .env
     links:
       - redis
     volumes:

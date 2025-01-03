@@ -18,5 +18,17 @@ class NetworkTypeEnum(Enum):
 
 
 class AuditTypeEnum(Enum):
-    SECURITY = "SECURITY"
-    GAS = "GAS"
+    SECURITY = "security"
+    GAS = "gas"
+
+
+class AuditStatusEnum(Enum):
+    WAITING = "waiting"
+    SUCCESS = "success"
+    FAILED = "failed"
+
+
+class ResponseStructureEnum(Enum):
+    RAW = "raw"
+    JSON = "json"
+    MARKDOWN = "markdown"

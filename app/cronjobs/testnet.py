@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.blockchain.services.scan import fetch_contract_source_code_from_explorer
+from app.api.blockchain.scan import fetch_contract_source_code_from_explorer
 from app.utils.enums import NetworkTypeEnum, PlatformEnum
 from app.utils.mappers import (
     platform_apikey_mapper,

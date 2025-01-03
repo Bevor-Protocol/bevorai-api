@@ -4,12 +4,13 @@ import logging
 from collections import defaultdict
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
+from redis.client import PubSub
 
 from .cache import redis_client
 
 router = APIRouter()
 
-HEARTBEAT_INTERVAL = 1
+HEARTBEAT_INTERVAL = 5
 
 
 class ConnectionManager:
@@ -22,7 +23,10 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logging.info(self.active_connections)
+        logging.info(
+            "New WS connection, current connection count:"
+            f" {len(self.active_connections)}"
+        )
         self.heartbeat_check[websocket] = False
         asyncio.create_task(self.heartbeat(websocket))
 
@@ -33,12 +37,13 @@ class ConnectionManager:
     def is_job_owner(self, job_id: str, websocket: WebSocket):
         return job_id in self.inverse_jobs[websocket]
 
-    async def disconnect(self, websocket: WebSocket):
+    async def disconnect(self, websocket: WebSocket, pubsub: PubSub):
         self.active_connections.remove(websocket)
         for job_id in self.inverse_jobs[websocket]:
             del self.pending_jobs[job_id]
         del self.inverse_jobs[websocket]
         del self.heartbeat_check[websocket]
+        pubsub.unsubscribe("evals")
 
     async def send_personal_message(self, data: str, websocket: WebSocket):
         await websocket.send_json(data)
@@ -50,8 +55,6 @@ class ConnectionManager:
             try:
                 if websocket.client_state.name == "DISCONNECTED":
                     return
-                logging.info(self.heartbeat_check)
-                logging.info("SENDING HB")
                 await self.send_personal_message({"type": "heartbeat"}, websocket)
                 self.heartbeat_check[websocket] = True
 
@@ -61,7 +64,7 @@ class ConnectionManager:
                     websocket in self.heartbeat_check
                     and self.heartbeat_check[websocket]
                 ):
-                    print("FAILURE TO SEND PONG")
+                    print("Client unresponsive, closing connection")
                     raise WebSocketException(code=1001)
             except WebSocketException:
                 # Don't know what this id is actually based off of.
@@ -70,6 +73,11 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+"""
+Only intended to be used via the certaik App.
+All 3rd party developers will rely on Polling OR Webhooks
+"""
 
 
 @router.websocket("/ws")
@@ -80,9 +88,11 @@ async def websocket(websocket: WebSocket):
 
     try:
         while True:
-            message = await websocket.receive_text()
+            raw_message = await websocket.receive_text()
+            message = str(raw_message).strip()
             if message.startswith("subscribe:"):
                 job_id = message.split(":")[1]
+                logging.info(f"WS subscribed to job {job_id}")
                 manager.assign_job(job_id, websocket)
             elif message == "PONG":
                 manager.heartbeat_check[websocket] = False
@@ -90,11 +100,11 @@ async def websocket(websocket: WebSocket):
 
             if message:
                 data = json.loads(message["data"])
-                identifier = data["ws_identifier"]
+                identifier = data["job_id"]
                 if manager.is_job_owner(identifier, websocket):
                     await manager.send_personal_message(
                         {"type": "data", "result": data["result"]}, websocket
                     )
 
     except WebSocketDisconnect:
-        await manager.disconnect(websocket)
+        await manager.disconnect(websocket, pubsub)

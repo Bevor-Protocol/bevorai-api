@@ -28,8 +28,11 @@ The JSON structure that you must follow is here:
 
 
 Be certain in how you classify each finding. A classification can have 0 to many findings, but do not hallucinate a category.
+
 It's also important that each component of the finding should be as specific as possible, with references to the provided code within the description.
-<{code_structured}>
+If you reference a function or variable directly, wrap it in place, such that it looks like this <<{code}>>. Do not tack on arbitrary code snippets at the end of your description.
+ie, instead of: 'The use of delegatecall in the _delegate function', give me: 'The use of <<delegatecall>> in the <<_delegate>> function'
+
 
 The code to be audited for the Security Audit is found below:
 

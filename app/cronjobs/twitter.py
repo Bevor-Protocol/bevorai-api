@@ -1,6 +1,7 @@
 # TODO: Integrate cron job that checks for recent tweets and replies to then with an audit.
 # Make sure to change the starting messages contents so the tweets aren't hidden for spam.
 
+
 def compose_tweet_message(twitter_handle: str, coin_name: str, summary: dict) -> str:
     return (
         f"Hi @{twitter_handle}!\n\n"
@@ -14,9 +15,10 @@ def compose_tweet_message(twitter_handle: str, coin_name: str, summary: dict) ->
         f"#{coin_name.replace(' ', '')} #Crypto #CertaiK #Audit"
     )
 
+
 async def post_tweet(message: str):
     try:
         await twitter_client.v2.tweet(message)
-        print('Tweet posted successfully.')
+        print("Tweet posted successfully.")
     except Exception as error:
-        print('Error posting tweet:', error)
+        print("Error posting tweet:", error)

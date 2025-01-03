@@ -12,8 +12,8 @@ from apscheduler.events import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from app.api.web3.provider import get_provider
 from app.utils.enums import PlatformEnum
-from app.web3.provider import get_provider
 
 from .queues import queue_low
 

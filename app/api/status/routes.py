@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from .services.worker import fetch_job_status, retry_failed_job
+from .worker import fetch_job_status, retry_failed_job
 
 router = APIRouter()
 

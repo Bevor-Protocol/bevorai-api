@@ -2,29 +2,61 @@
 name = "certaik-api"
 version = "0.1.0"
 description = ""
-authors = ["Peter Simone <plssimone@gmail.com>"]
+authors = [
+    "Peter Simone <plssimone@gmail.com>",
+]
 readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = {extras = ["standard"], version = "^0.115.6"}
-uvicorn = {extras = ["standard"], version = "^0.34.0"}
 replicate = "^1.0.4"
 python-dotenv = "^1.0.1"
 redis = "^5.2.1"
 rq = "^2.1.0"
 apscheduler = "^3.11.0"
-tortoise-orm = {extras = ["asyncpg"], version = "^0.23.0"}
-aerich = {extras = ["toml"], version = "^0.8.1"}
-tweepy = {extras = ["async"], version = "^4.14.0"}
 web3 = "^7.6.1"
 
+[tool.poetry.dependencies.fastapi]
+extras = [
+    "standard",
+]
+version = "^0.115.6"
+
+[tool.poetry.dependencies.uvicorn]
+extras = [
+    "standard",
+]
+version = "^0.34.0"
+
+[tool.poetry.dependencies.tortoise-orm]
+extras = [
+    "asyncpg",
+]
+version = "^0.23.0"
+
+[tool.poetry.dependencies.aerich]
+extras = [
+    "toml",
+]
+version = "^0.8.1"
+
+[tool.poetry.dependencies.tweepy]
+extras = [
+    "async",
+]
+version = "^4.14.0"
 
 [tool.poetry.group.dev.dependencies]
 rq-dashboard = "^0.8.2.2"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.aerich]
+tortoise_orm = "app.db.config.TORTOISE_ORM"
+location = "app/db/migrations"
+src_folder = "./."
 
+[build-system]
+requires = [
+    "poetry-core",
+]
+build-backend = "poetry.core.masonry.api"

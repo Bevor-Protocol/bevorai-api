@@ -8,10 +8,9 @@ from app.utils.enums import AuditTypeEnum, PlatformEnum
 class EvalBody(BaseModel):
     contract_code: Optional[str] = Field(default=None)
     contract_address: Optional[str] = Field(default=None)
-    network: Optional[PlatformEnum] = Field(default=None)
+    contract_network: Optional[PlatformEnum] = Field(default=None)
     audit_type: AuditTypeEnum = Field(default=AuditTypeEnum.GAS)
-    encode_code: bool = Field(default=False)
-    as_markdown: bool = Field(default=False)
+    webhook_url: Optional[str] = Field(default=None)
 
     @model_validator(mode="after")
     def validate_contract_inputs(self) -> "EvalBody":
