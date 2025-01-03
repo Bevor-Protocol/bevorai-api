@@ -7,6 +7,7 @@ import re
 import httpx
 import replicate
 from openai import OpenAI
+from anthropic import Anthropic
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from rq import Retry
@@ -49,6 +50,16 @@ async def get_model_response(model_type, input_data):
                 }
             ],
             model="gpt-o1",
+        ),
+        "CLAUDE": lambda: Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY")).messages.create(
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "user",
+                    "content": input_data,
+                }
+            ],
+            model="claude-3-5-sonnet-latest",
         ),
     }
 
