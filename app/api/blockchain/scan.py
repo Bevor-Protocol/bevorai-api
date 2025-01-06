@@ -68,7 +68,6 @@ async def fetch_contract_source_code(
     res = redis_client.get(KEY)
     if res:
         data = json.loads(res)
-        logging.info(f"CACHE KEY HIT {KEY}")
         return data
 
     contract = await get_or_create_contract(

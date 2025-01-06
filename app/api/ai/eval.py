@@ -176,7 +176,9 @@ async def get_eval(id: str, response_type: ResponseStructureEnum) -> EvalRespons
                     as_markdown=response_type == ResponseStructureEnum.MARKDOWN,
                 )
             except json.JSONDecodeError as err:
-                logging.error(f"Unable to parse the output correctly: {err}")
+                logging.error(
+                    f"Unable to parse the output correctly for {str(audit.id)}: {err}"
+                )
 
     response.result = EvalResponseData(**data)
 

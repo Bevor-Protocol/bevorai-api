@@ -1,5 +1,4 @@
 import hashlib
-import logging
 
 from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -24,8 +23,6 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
         authorization = request.headers.get("authorization")
         address = request.headers.get("x-user-identifier")
-
-        logging.info(f"REQUEST -- {authorization} --- {address}")
 
         if not authorization:
             raise HTTPException(
