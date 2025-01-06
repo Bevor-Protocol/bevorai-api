@@ -49,7 +49,7 @@ class WebsocketRouter:
 
                 if message:
                     data = json.loads(message["data"])
-                    identifier = data["job_id"]
+                    identifier = data["id"]
                     if self.is_job_owner(identifier, websocket):
                         await self.send_personal_message(
                             {"type": "data", "result": data["result"]}, websocket

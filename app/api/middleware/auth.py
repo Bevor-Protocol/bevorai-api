@@ -1,39 +1,74 @@
 import hashlib
-import hmac
-import os
-from datetime import datetime
+import logging
 
-from fastapi import HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from tortoise.exceptions import DoesNotExist
+
+from app.db.models import Auth, User
+from app.utils.enums import AppTypeEnum, ClientTypeEnum
 
 
 class AuthenticationMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app: FastAPI):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in ["/docs", "/openapi.json"]:
+        if request.url.path in ["/docs", "/openapi.json", "/", "/health"]:
             return await call_next(request)
 
-        secret = os.getenv("SHARED_SECRET")
+        if "webhook" in request.url.path:
+            return await call_next(request)
 
-        signature = request.headers.get("X-Signature")
-        timestamp = request.headers.get("X-Timestamp")
+        use_identifier = request.url.path in ["/auth/user"]
 
-        if signature and timestamp:
-            current_time = int(datetime.now().timestamp() * 1000)
-            timestamp_int = int(timestamp)
-            if abs(current_time - timestamp_int) > 3000:
-                raise HTTPException(status_code=401, detail="Request timestamp expired")
-            payload = f"{timestamp}:{request.url.path}"
-            expected_signature = hmac.new(
-                secret.encode(), payload.encode(), hashlib.sha256
-            ).hexdigest()
-            if not hmac.compare_digest(signature, expected_signature):
-                raise HTTPException(status_code=401, detail="Invalid signature")
+        authorization = request.headers.get("authorization")
+        address = request.headers.get("x-user-identifier")
 
-            request.state.user = "certaik"
+        logging.info(f"REQUEST -- {authorization} --- {address}")
+
+        if not authorization:
+            raise HTTPException(
+                status_code=401, detail="proper authorization headers not provided"
+            )
+
+        api_key = authorization.split(" ")[1]
+        try:
+            auth = await Auth.get(
+                hashed_key=hashlib.sha256(api_key.encode()).hexdigest()
+            ).select_related("user", "app__owner")
+
+            if auth.is_revoked:
+                raise HTTPException(status_code=401, detail="This token was revoked")
+
+            # request made on behalf of themselves
+            if auth.client_type == ClientTypeEnum.USER:
+                request.state.user = auth.user
+                request.state.require_credit_and_limit = True
+            else:
+                request.state.app = auth.app
+                if auth.app.type == AppTypeEnum.FIRST_PARTY:
+                    if use_identifier:
+                        request.state.user = address
+                    else:
+                        user = await User.get(address=address)
+                        request.state.user = user
+                    request.state.require_credit_and_limit = False
+                else:
+                    request.state.require_credit_and_limit = True
+                    if address:
+                        if use_identifier:
+                            request.state.user = address
+                        else:
+                            user = await User.get(address=address)
+                            request.state.user = user
+                    else:
+                        request.state.user = auth.app.owner
+
+        except DoesNotExist:
+            raise HTTPException(status_code=401, detail="Invalid authentication")
+        except HTTPException as err:
+            raise err
 
         response = await call_next(request)
         return response

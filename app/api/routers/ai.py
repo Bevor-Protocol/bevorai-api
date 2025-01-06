@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
+from replicate.prediction import Prediction
 
 from app.api.ai.eval import get_eval, process_evaluation
 from app.api.ai.webhook import process_webhook_replicate
@@ -16,11 +18,18 @@ class AiRouter:
         self.router.add_api_route("/eval", self.evaluate_contract_raw, methods=["POST"])
         self.router.add_api_route("/eval/{id}", self.get_eval_by_id, methods=["GET"])
         self.router.add_api_route(
-            "/eval/webhook", self.process_webhook, methods=["POST"]
+            "/eval/webhook",
+            self.process_webhook,
+            methods=["POST"],
+            include_in_schema=False,
         )
 
     async def evaluate_contract_raw(self, request: Request, data: EvalBody):
-        return await process_evaluation(request.state.user, data)
+        response = await process_evaluation(
+            app=request.state.app, user=request.state.user, data=data
+        )
+
+        return JSONResponse(response, status_code=202)
 
     async def get_eval_by_id(self, request: Request, id: str) -> EvalResponse:
         response_type = request.query_params.get(
@@ -41,10 +50,10 @@ class AiRouter:
         to deliver prediction results.
         """
 
-        response_type = request.query_params.get("response_type")
         chained_call = request.query_params.get("chained_call")
 
         body = await request.json()
-        return await process_webhook_replicate(
-            data=body, response_type=response_type, webhook_url=chained_call
+        response = await process_webhook_replicate(
+            data=Prediction(**body), webhook_url=chained_call
         )
+        return response

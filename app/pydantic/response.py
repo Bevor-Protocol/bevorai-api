@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.utils.enums import AuditStatusEnum, PlatformEnum, ResponseStructureEnum
+from app.utils.enums import AuditStatusEnum, NetworkEnum, ResponseStructureEnum
 
 
 class EvalResponseData(BaseModel):
@@ -10,7 +10,7 @@ class EvalResponseData(BaseModel):
     status: AuditStatusEnum
     contract_code: Optional[str] = Field(default=None)
     contract_address: Optional[str] = Field(default=None)
-    contract_network: Optional[PlatformEnum] = Field(default=None)
+    contract_network: Optional[NetworkEnum] = Field(default=None)
     response_type: ResponseStructureEnum
     result: Optional[Union[str, dict]] = Field(default=None)
 
@@ -37,3 +37,14 @@ class EvalResponse(BaseModel):
 
     def model_dump(self, *args, **kwargs) -> Dict[str, Any]:
         return self.model_dump(exclude_none=True)
+
+
+class WebhookResponseData(BaseModel):
+    status: AuditStatusEnum
+    id: str
+
+
+class WebhookResponse(BaseModel):
+    success: bool
+    error: Optional[str] = Field(default=None)
+    result: Optional[WebhookResponseData] = Field(default=None)

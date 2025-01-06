@@ -7,5 +7,5 @@ run:
 init-db:
 	poetry run aerich init-db
 
-init-db2:
+init-config:
 	poetry run aerich init -t app.db.config.TORTOISE_ORM --location app/db/migrations

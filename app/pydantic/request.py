@@ -2,14 +2,15 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.utils.enums import AuditTypeEnum, PlatformEnum
+from app.utils.enums import AuditTypeEnum, ModelTypeEnum, NetworkEnum
 
 
 class EvalBody(BaseModel):
     contract_code: Optional[str] = Field(default=None)
     contract_address: Optional[str] = Field(default=None)
-    contract_network: Optional[PlatformEnum] = Field(default=None)
+    contract_network: Optional[NetworkEnum] = Field(default=None)
     audit_type: AuditTypeEnum = Field(default=AuditTypeEnum.GAS)
+    model_type: Optional[ModelTypeEnum] = Field(default=ModelTypeEnum.LLAMA3)
     webhook_url: Optional[str] = Field(default=None)
 
     @model_validator(mode="after")
@@ -18,8 +19,5 @@ class EvalBody(BaseModel):
             raise ValueError(
                 "Either contract_code or contract_address must be provided"
             )
-
-        if self.contract_address and not self.network:
-            raise ValueError("network is required when contract_address is provided")
 
         return self

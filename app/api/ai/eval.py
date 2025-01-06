@@ -5,14 +5,13 @@ import os
 import re
 from typing import Optional
 
-import httpx
 import replicate
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
-from app.api.blockchain.scan import fetch_contract_source_code_from_explorer
-from app.db.models import Audit, Contract
+from app.api.blockchain.scan import get_or_create_contract
+from app.db.models import App, Audit, User
 from app.lib.markdown.gas import markdown as gas_markdown
 from app.lib.markdown.security import markdown as security_markdown
 from app.lib.prompts.gas import prompt as gas_prompt
@@ -43,7 +42,7 @@ replicate_client = replicate.Client(api_token=os.getenv("REPLICATE_API_KEY"))
 def sanitize_data(raw_data: str, audit_type: AuditTypeEnum, as_markdown: bool):
     # sanitizing backslashes/escapes for code blocks
     pattern = r"<<(.*?)>>"
-    raw_data = re.sub(pattern, "`", raw_data)
+    raw_data = re.sub(pattern, r"`\1`", raw_data)
 
     parsed = json.loads(raw_data)
 
@@ -87,46 +86,32 @@ def parse_branded_markdown(audit_type: AuditTypeEnum, findings: dict):
     return result.format(**formatter)
 
 
-async def process_evaluation(user: Optional[str], data: EvalBody) -> JSONResponse:
+async def process_evaluation(
+    app: Optional[App], user: Optional[User], data: EvalBody
+) -> JSONResponse:
     contract_code = data.contract_code
     contract_address = data.contract_address
     contract_network = data.contract_network
     audit_type = data.audit_type
     webhook_url = data.webhook_url
 
-    if contract_address:
-        contract: Optional[Contract] = await Contract.first(
-            contract_address=contract_address, contract_network=contract_network
-        )
-        if contract:
-            contract_code = contract.contract_code
+    contract = await get_or_create_contract(
+        contract_code=contract_code,
+        contract_address=contract_address,
+        contract_network=contract_network,
+    )
 
-    if not contract_code:
-        async with httpx.AsyncClient() as client:
-            response = await fetch_contract_source_code_from_explorer(
-                client, contract_network, contract_address
-            )
-            if not response:
-                raise HTTPException(
-                    status_code=404,
-                    detail="No source code found for the given address on any platform",
-                )
-            contract = response
-        new_contract_instance = Contract(
-            contract_address=contract_address,
-            contract_network=contract_network,
-            contract_code=response,
+    if not contract:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "no verified source code found for the contract information provided"
+            ),
         )
-        await new_contract_instance.save()
-    else:
-        contract = contract_code
 
     prompt = gas_prompt if audit_type == AuditTypeEnum.GAS else security_prompt
 
-    if not contract or not prompt:
-        raise HTTPException(status_code=400, detail="Must provide input")
-
-    audit_prompt = prompt.replace("<{prompt}>", contract)
+    audit_prompt = prompt.replace("<{prompt}>", contract_code)
     input_data = {**input_template, "prompt": audit_prompt}
 
     internal_webhook_url = os.getenv("API_URL")
@@ -144,10 +129,12 @@ async def process_evaluation(user: Optional[str], data: EvalBody) -> JSONRespons
 
     audit = await Audit.create(
         job_id=response.id,
-        contract_address=contract_address,
-        contract_network=network,
-        contract_code=contract_code,
+        contract=contract,
+        app=app,
+        user=user,
         audit_type=audit_type,
+        prompt_version=1,
+        model="meta/meta-llama-3-70b-instruct",
     )
 
     return {"job_id": str(audit.id)}
@@ -156,7 +143,7 @@ async def process_evaluation(user: Optional[str], data: EvalBody) -> JSONRespons
 async def get_eval(id: str, response_type: ResponseStructureEnum) -> EvalResponse:
 
     try:
-        audit = await Audit.get(id=id)
+        audit = await Audit.get(id=id).select_related("contract")
     except DoesNotExist as err:
         logging.error(err)
         response = EvalResponse(
@@ -172,9 +159,9 @@ async def get_eval(id: str, response_type: ResponseStructureEnum) -> EvalRespons
     data = {
         "id": str(audit.id),
         "response_type": response_type,
-        "contract_address": audit.contract_address,
-        "contract_code": audit.contract_code,
-        "contract_network": audit.contract_network,
+        "contract_address": audit.contract.contract_address,
+        "contract_code": audit.contract.contract_code,
+        "contract_network": audit.contract.contract_network,
         "status": audit.results_status,
     }
 

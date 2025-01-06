@@ -3,13 +3,13 @@ from urllib.parse import urlencode
 import httpx
 from fastapi.responses import JSONResponse
 
-from app.utils.enums import PlatformEnum
-from app.utils.mappers import platform_explorer_apikey_mapper, platform_explorer_mapper
+from app.utils.enums import NetworkEnum
+from app.utils.mappers import network_explorer_apikey_mapper, network_explorer_mapper
 
 
 async def fetch_gas():
-    api_key = platform_explorer_apikey_mapper[PlatformEnum.ETH]
-    route = platform_explorer_mapper[PlatformEnum.ETH]
+    api_key = network_explorer_apikey_mapper[NetworkEnum.ETH]
+    route = network_explorer_mapper[NetworkEnum.ETH]
     url = f"https://{route}/api"
     params = {
         "module": "gastracker",

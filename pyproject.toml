@@ -16,6 +16,8 @@ redis = "^5.2.1"
 rq = "^2.1.0"
 apscheduler = "^3.11.0"
 web3 = "^7.6.1"
+openai = "^1.59.2"
+anthropic = "^0.42.0"
 
 [tool.poetry.dependencies.fastapi]
 extras = [

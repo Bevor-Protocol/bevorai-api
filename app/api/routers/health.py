@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from tortoise import Tortoise
 
 
 class HealthRouter:
@@ -11,7 +12,12 @@ class HealthRouter:
         self.router.add_api_route("/health", self.health_check, methods=["GET"])
 
     async def read_root(self):
+
         return {"Hello": "World"}
 
     async def health_check(self):
-        return True
+        try:
+            await Tortoise.get_connection("default").execute_query("SELECT 1;")
+            return {"status": "healthy"}
+        except Exception as e:
+            return {"status": "unhealthy", "error": str(e)}
