@@ -1,5 +1,7 @@
+import logging
 from contextlib import asynccontextmanager
 
+from aerich import Command
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from tortoise.contrib.fastapi import register_tortoise
@@ -16,7 +18,18 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # scheduler runs upon startup
+    logging.info("Running Migrations...")
+    aerich_command = Command(
+        tortoise_config=TORTOISE_ORM, location="./app/db/migrations"
+    )
+    await aerich_command.init()
+    migrations = await aerich_command.upgrade()
+    if migrations:
+        str_migrations = "\n".join(migrations)
+        logging.info(f"Ran the following migrations:\n{str_migrations}")
+    else:
+        logging.info("No migrations detected")
+
     scheduler.start()
     yield
     print("shutting down")
