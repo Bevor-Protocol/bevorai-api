@@ -9,9 +9,3 @@ init-db:
 
 init-config:
 	poetry run aerich init -t app.db.config.TORTOISE_ORM --location app/db/migrations
-
-deploy-prod:
-	fly deploy --config fly.prod.toml
-
-deploy-staging:
-	fly deploy --config fly.staging.toml
