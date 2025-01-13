@@ -4,13 +4,13 @@ from .enums import NetworkEnum, NetworkTypeEnum
 
 network_explorer_mapper = {
     NetworkEnum.BASE: "api.basescan.org",
-    NetworkEnum.BASE_SEPOLIA: "api.api-sepolia.basescan.org",
+    NetworkEnum.BASE_SEPOLIA: "api-sepolia.basescan.org",
     NetworkEnum.BSC: "api.bscscan.com",
-    NetworkEnum.BSC_TEST: "api.api-testnet.bscscan.com",
+    NetworkEnum.BSC_TEST: "api-testnet.bscscan.com",
     NetworkEnum.ETH: "api.etherscan.io",
-    NetworkEnum.ETH_SEPOLIA: "api.api-sepolia.etherscan.io",
+    NetworkEnum.ETH_SEPOLIA: "api-sepolia.etherscan.io",
     NetworkEnum.POLYGON: "api.polygonscan.com",
-    NetworkEnum.POLYGON_AMOY: "api.api-amoy.polygonscan.com",
+    NetworkEnum.POLYGON_AMOY: "api-amoy.polygonscan.com",
 }
 
 network_explorer_apikey_mapper = {

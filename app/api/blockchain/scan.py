@@ -34,6 +34,8 @@ async def fetch_contract_source_code_from_explorer(
         "apikey": api_key,
     }
 
+    logging.info(f"SCANNING {network} for address {address} at url {url}")
+
     try:
         response = await client.get(f"{url}?{urlencode(params)}")
         response.raise_for_status()
@@ -51,7 +53,7 @@ async def fetch_contract_source_code_from_explorer(
         )
         return None
     except Exception as error:
-        print(
+        logging.warn(
             f"Error fetching contract source code from {network} "
             f"for address {address}: {error}"
         )

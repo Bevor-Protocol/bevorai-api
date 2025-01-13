@@ -2,11 +2,11 @@ from app.api.routers.auth import AuthRouter
 
 from .ai import AiRouter
 from .blockchain import BlockchainRouter
-from .health import HealthRouter
+from .health import BaseRouter
 from .status import StatusRouter
 from .websocket import WebsocketRouter
 
-health_router = HealthRouter().router
+base_router = BaseRouter().router
 ai_router = AiRouter().router
 blockchain_router = BlockchainRouter().router
 status_router = StatusRouter().router

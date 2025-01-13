@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.api.auth.generate import request_access
-from app.api.auth.user import insert_user
+from app.api.auth.user import upsert_user
+from app.api.depends.auth import require_app
 from app.utils.enums import AppTypeEnum
 
 
@@ -27,13 +28,10 @@ class AuthRouter:
 
         raise HTTPException(status_code=401, detail="missing address header")
 
-    async def get_or_create_user(self, request: Request):
+    async def get_or_create_user(self, user_identifier: str = Depends(require_app)):
+
         # Users can be created via apps, which all go through our first-party servicer
-        if request.state.app:
-            if request.state.app.type == AppTypeEnum.FIRST_PARTY:
-                address = request.state.user
-                response = await insert_user(address)
 
-                return JSONResponse({"user_id": str(response.id)}, status_code=200)
+        response = await upsert_user(user_identifier)
 
-        raise HTTPException(status_code=401, detail="missing address header")
+        return JSONResponse({"user_id": str(response.id)}, status_code=200)

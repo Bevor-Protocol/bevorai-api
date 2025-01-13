@@ -14,7 +14,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.window_seconds = 60
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in ["/docs", "/openapi.json", "/", "/health"]:
+        if request.url.path in [
+            "/docs",
+            "/openapi.json",
+            "/",
+            "/health",
+            "/metrics",
+            "/favicon.ico",
+        ]:
             response = await call_next(request)
             return response
         if "webhook" in request.url.path:

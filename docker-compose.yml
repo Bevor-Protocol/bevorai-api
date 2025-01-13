@@ -1,5 +1,6 @@
 services:
   api:
+    container_name: api
     build:
       context: .
     ports:
@@ -7,9 +8,9 @@ services:
     env_file:
       - .env
     environment:
-      - DOPPLER_TOKEN=${DOPPLER_TOKEN}
-      - DOPPLER_PROJECT=${DOPPLER_PROJECT}
-      - DOPPLER_ENVIRONMENT=${DOPPLER_ENVIRONMENT}
+    #   - DOPPLER_TOKEN=${DOPPLER_TOKEN}
+    #   - DOPPLER_PROJECT=${DOPPLER_PROJECT}
+    #   - DOPPLER_ENVIRONMENT=${DOPPLER_ENVIRONMENT}
       - DB_HOST=postgres:5432
     volumes:
       - ./poetry.lock:/app/poetry.lock
@@ -23,22 +24,35 @@ services:
     restart: always
 
   postgres:
+    container_name: postgres
     image: postgres:latest
     environment:
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
+      - POSTGRES_USER=certaik        # Create a user named 'certaik'
+      - POSTGRES_PASSWORD=testing    # Set password for 'certaik'
+      - POSTGRES_DB=certaik          # Create a database named 'certaik'
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+
   redis:
+    container_name: redis
     image: redis:alpine
     ports:
       - "6379:6379"
@@ -49,12 +63,15 @@ services:
     command: redis-server --bind 0.0.0.0
 
   worker:
+    container_name: worker
     build:
       context: .
     depends_on:
       - redis
+      - postgres
     # command: doppler run -- rq worker high low --url redis://redis:6379
-    command: rq worker high low --url redis://redis:6379
+    command: dramatiq app.worker --queues high low --processes 1 --threads 4 --watch .
+    # command: rq worker high low --url redis://redis:6379
     env_file:
       - .env
     links:
@@ -64,6 +81,8 @@ services:
       - ./pyproject.toml:/app/pyproject.toml
       - ./app:/app/app
     restart: always
+    ports:
+      - "9192:9192"
 
 volumes:
   redis_data:

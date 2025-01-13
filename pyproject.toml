@@ -18,6 +18,8 @@ apscheduler = "^3.11.0"
 web3 = "^7.6.1"
 openai = "^1.59.2"
 anthropic = "^0.42.0"
+dramatiq = {extras = ["redis", "watch"], version = "^1.17.1"}
+prometheus-client = "^0.21.1"
 
 [tool.poetry.dependencies.fastapi]
 extras = [

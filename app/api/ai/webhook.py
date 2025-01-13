@@ -2,15 +2,13 @@ import json
 import logging
 from typing import Optional
 
-import httpx
 from replicate.prediction import Prediction
 
 from app.cache import redis_client
 from app.db.models import Audit
-from app.pydantic.response import WebhookResponse, WebhookResponseData
-from app.queues import queue_high
 from app.utils.enums import AppTypeEnum, AuditStatusEnum
 from app.utils.helpers import parse_datetime
+from app.worker import process_webhook
 
 from .eval import sanitize_data
 
@@ -63,9 +61,9 @@ async def process_webhook_replicate(
     await audit.save()
 
     if webhook_url:
-        queue_high.enqueue(
-            handle_outgoing_webhook,
-            audit=audit,
+        process_webhook.send(
+            audit_id=str(audit.id),
+            audit_status=audit.results_status,
             webhook_url=webhook_url,
         )
 
@@ -88,33 +86,3 @@ async def process_webhook_replicate(
                 "evals",
                 message,
             )
-
-
-# async def handle_outgoing_webhook_failure(
-#     webhook_url: str,
-# ):
-#     response = EvalResponse(success=False, error="Issue processing this response")
-
-#     async with httpx.AsyncClient() as client:
-#         body = response.model_dump()
-#         await client.post(webhook_url, json=body)
-
-
-async def handle_outgoing_webhook(
-    audit: Audit,
-    webhook_url: str,
-):
-    response = WebhookResponse(
-        success=True,
-    )
-
-    data = {
-        "id": str(audit.id),
-        "status": audit.results_status,
-    }
-
-    response.result = WebhookResponseData(**data)
-
-    async with httpx.AsyncClient() as client:
-        body = response.model_dump()
-        await client.post(webhook_url, json=body)

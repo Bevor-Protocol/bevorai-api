@@ -9,3 +9,6 @@ init-db:
 
 init-config:
 	poetry run aerich init -t app.db.config.TORTOISE_ORM --location app/db/migrations
+
+migrate:
+	poetry run aerich migrate $(filter-out $@,$(MAKECMDGOALS))

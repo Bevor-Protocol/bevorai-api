@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-from typing import Optional
 
 import replicate
 from fastapi import HTTPException
@@ -11,7 +10,8 @@ from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
 from app.api.blockchain.scan import get_or_create_contract
-from app.db.models import App, Audit, User
+from app.api.middleware.auth import UserDict
+from app.db.models import Audit
 from app.lib.markdown.gas import markdown as gas_markdown
 from app.lib.markdown.security import markdown as security_markdown
 from app.lib.prompts.gas import prompt as gas_prompt
@@ -86,9 +86,7 @@ def parse_branded_markdown(audit_type: AuditTypeEnum, findings: dict):
     return result.format(**formatter)
 
 
-async def process_evaluation(
-    app: Optional[App], user: Optional[User], data: EvalBody
-) -> JSONResponse:
+async def process_evaluation(user: UserDict, data: EvalBody) -> JSONResponse:
     contract_code = data.contract_code
     contract_address = data.contract_address
     contract_network = data.contract_network
@@ -130,8 +128,8 @@ async def process_evaluation(
     audit = await Audit.create(
         job_id=response.id,
         contract=contract,
-        app=app,
-        user=user,
+        app=user["app"],
+        user=user["user"],
         audit_type=audit_type,
         prompt_version=1,
         model="meta/meta-llama-3-70b-instruct",
