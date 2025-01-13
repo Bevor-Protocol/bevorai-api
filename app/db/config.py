@@ -10,8 +10,6 @@ db_name = os.getenv("POSTGRES_DB")
 db_host = os.getenv("DB_HOST", "postgres:5432")
 db_scheme = os.getenv("DB_SCHEME")
 
-print(f"{db_scheme}://{db_user}:{db_pswd}@{db_host}/{db_name}")
-
 TORTOISE_ORM = {
     "connections": {
         "default": f"{db_scheme}://{db_user}:{db_pswd}@{db_host}/{db_name}"

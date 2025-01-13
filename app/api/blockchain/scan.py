@@ -77,8 +77,8 @@ async def fetch_contract_source_code(
     )
     if contract:
         data = {
-            "source_code": contract.contract_code,
-            "network": contract.contract_network,
+            "source_code": contract.raw_code,
+            "network": contract.network,
         }
         redis_client.set(KEY, json.dumps(data))
         return data
@@ -100,13 +100,13 @@ async def get_contract(
     filter_obj = {}
 
     if contract_address:
-        filter_obj["contract_address"] = contract_address
+        filter_obj["address"] = contract_address
         if contract_network:
-            filter_obj["contract_network"] = contract_network
+            filter_obj["network"] = contract_network
         contract = await Contract.filter(**filter_obj).first()
     else:
         hashed_content = hashlib.sha256(contract_code.encode()).hexdigest()
-        contract = await Contract.filter(contract_hash=hashed_content).first()
+        contract = await Contract.filter(hash_code=hashed_content).first()
 
     return contract
 
@@ -143,15 +143,15 @@ async def get_or_create_contract(
 
     # More granular logic below to still scan, but not update instead of create.
     if contract:
-        if contract.contract_code:
+        if contract.raw_code:
             return contract
 
     if not contract:
         if contract_code:
             contract = await Contract.create(
                 method=ContractMethodEnum.UPLOAD,
-                contract_code=contract_code,
-                contract_hash=hashlib.sha256(contract_code.encode()).hexdigest(),
+                raw_code=contract_code,
+                hash_code=hashlib.sha256(contract_code.encode()).hexdigest(),
             )
             return contract
 
@@ -173,17 +173,17 @@ async def get_or_create_contract(
                 if not contract:
                     contract = await Contract.create(
                         method=ContractMethodEnum.SCAN,
-                        contract_address=contract_address,
-                        contract_network=network,
-                        contract_code=source_code,
-                        contract_hash=contract_hash,
+                        address=contract_address,
+                        network=network,
+                        raw_code=source_code,
+                        hash_code=contract_hash,
                     )
                 else:
                     # We might override the network here, which is fine.
                     contract.is_available = True
-                    contract.contract_code = source_code
-                    contract.contract_hash = contract_hash
-                    contract.contract_network = network
+                    contract.raw_code = source_code
+                    contract.hash_code = contract_hash
+                    contract.network = network
                     await contract.save()
                 return contract
 

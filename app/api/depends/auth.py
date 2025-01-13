@@ -86,3 +86,30 @@ async def require_app(request: Request) -> str:
         raise HTTPException(status_code=401, detail="Invalid authentication")
     except HTTPException as err:
         raise err
+
+
+async def protected_first_party_app(request: Request) -> None:
+    authorization = request.headers.get("authorization")
+    if not authorization:
+        raise HTTPException(
+            status_code=401, detail="proper authorization headers not provided"
+        )
+    api_key = authorization.split(" ")[1]
+
+    try:
+        auth = await Auth.get(
+            hashed_key=hashlib.sha256(api_key.encode()).hexdigest()
+        ).select_related("user", "app__owner")
+
+        if auth.is_revoked:
+            raise HTTPException(status_code=401, detail="This token was revoked")
+
+        if auth.client_type == ClientTypeEnum.APP:
+            if auth.app.type == AppTypeEnum.FIRST_PARTY:
+                return
+        raise DoesNotExist()
+
+    except DoesNotExist:
+        raise HTTPException(status_code=401, detail="Invalid authentication")
+    except HTTPException as err:
+        raise err

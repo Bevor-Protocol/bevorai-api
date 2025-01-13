@@ -6,7 +6,7 @@ Please adhere strictly to the following guidelines and don't make mistakes:
 
 The output must match the provided JSON structure exactly, each field has descriptions. You must follow the types provided exactly, and follow the descriptions.
 
-The JSON structure that you must follow is here:
+The JSON structure that you must follow is here, do not return me anything except JSON:
 
 
 {

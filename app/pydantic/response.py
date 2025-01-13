@@ -2,7 +2,13 @@ from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.utils.enums import AuditStatusEnum, NetworkEnum, ResponseStructureEnum
+from app.utils.enums import (
+    AuditStatusEnum,
+    AuditTypeEnum,
+    ContractMethodEnum,
+    NetworkEnum,
+    ResponseStructureEnum,
+)
 
 
 class EvalResponseData(BaseModel):
@@ -18,14 +24,16 @@ class EvalResponseData(BaseModel):
     def validate_result_type(self) -> "EvalResponseData":
         if not self.result:
             return self
-        if self.response_type == ResponseStructureEnum.JSON and not isinstance(
-            self.result, dict
-        ):
-            raise ValueError("Result must be a dictionary when response_type is JSON")
-        elif not isinstance(self.result, str):
-            raise ValueError(
-                "Result must be a string when response_type is RAW or MARKDOWN"
-            )
+        if self.response_type == ResponseStructureEnum.JSON:
+            if not isinstance(self.result, dict):
+                raise ValueError(
+                    "Result must be a dictionary when response_type is JSON"
+                )
+        else:
+            if not isinstance(self.result, str):
+                raise ValueError(
+                    "Result must be a string when response_type is RAW or MARKDOWN"
+                )
         return self
 
 
@@ -36,7 +44,7 @@ class EvalResponse(BaseModel):
     result: Optional[EvalResponseData] = Field(default=None)
 
     def model_dump(self, *args, **kwargs) -> Dict[str, Any]:
-        return self.model_dump(exclude_none=True)
+        return super().model_dump(exclude_none=True)
 
 
 class WebhookResponseData(BaseModel):
@@ -48,3 +56,32 @@ class WebhookResponse(BaseModel):
     success: bool
     error: Optional[str] = Field(default=None)
     result: Optional[WebhookResponseData] = Field(default=None)
+
+
+class AnalyticsContract(BaseModel):
+    method: ContractMethodEnum
+    address: Optional[str]
+    network: Optional[NetworkEnum]
+
+
+class AnalyticsAudit(BaseModel):
+    id: str
+    app_id: Optional[str]
+    user_id: Optional[str]
+    audit_type: AuditTypeEnum
+    results_status: AuditStatusEnum
+    contract: AnalyticsContract
+
+
+class AnalyticsResponse(BaseModel):
+    results: list[AnalyticsAudit]
+    more: bool
+
+
+class StatsResponse(BaseModel):
+    n_audits: int
+    n_auths: int
+    n_contracts: int
+    n_users: int
+    n_apps: int
+    findings: dict

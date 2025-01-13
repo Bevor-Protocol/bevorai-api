@@ -37,19 +37,21 @@ class AiRouter:
 
         return JSONResponse(response, status_code=202)
 
-    async def get_eval_by_id(
-        self, request: Request, id: str, user: UserDict = Depends(require_auth)
-    ) -> EvalResponse:
+    async def get_eval_by_id(self, request: Request, id: str) -> EvalResponse:
         response_type = request.query_params.get(
             "response_type", ResponseStructureEnum.JSON.name
         )
+
         try:
-            response_type = ResponseStructureEnum[response_type]
+            response_type = ResponseStructureEnum._value2member_map_[response_type]
         except Exception:
             raise HTTPException(
                 status_code=400, detail="Invalid response_type parameter"
             )
-        return await get_eval(id, response_type=response_type)
+
+        response = await get_eval(id, response_type=response_type)
+
+        return JSONResponse(response.model_dump()["result"]["result"], status_code=200)
 
     async def process_webhook(self, request: Request):
         """

@@ -103,7 +103,7 @@ class Transaction(AbstractModel):
 class Audit(AbstractModel):
     job_id = fields.CharField(max_length=255, unique=True)
     app = fields.ForeignKeyField("models.App", null=True)
-    user = fields.ForeignKeyField("models.User")
+    user = fields.ForeignKeyField("models.User", null=True)
     contract = fields.ForeignKeyField("models.Contract")
     prompt_version = fields.IntField()
     model = fields.CharField(max_length=255)
@@ -133,12 +133,10 @@ class Contract(AbstractModel):
         auto_now=True,
         description="if source code unavailable, next timestamp to allow scan",
     )
-    contract_address = fields.CharField(max_length=255, null=True, default=None)
-    contract_network = fields.CharEnumField(
-        enum_type=NetworkEnum, null=True, default=None
-    )
-    contract_code = fields.TextField(null=True, default=None)
-    contract_hash = fields.CharField(max_length=255, null=True, default=None)
+    address = fields.CharField(max_length=255, null=True, default=None)
+    network = fields.CharEnumField(enum_type=NetworkEnum, null=True, default=None)
+    raw_code = fields.TextField(null=True, default=None)
+    hash_code = fields.CharField(max_length=255, null=True, default=None)
 
     class Meta:
         table = "contract"

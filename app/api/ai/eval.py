@@ -44,6 +44,12 @@ def sanitize_data(raw_data: str, audit_type: AuditTypeEnum, as_markdown: bool):
     pattern = r"<<(.*?)>>"
     raw_data = re.sub(pattern, r"`\1`", raw_data)
 
+    # corrects for occassional leading non-json text...
+    pattern = r"\{.*\}"
+    match = re.search(pattern, raw_data, re.DOTALL)
+    if match:
+        raw_data = match.group(0)
+
     parsed = json.loads(raw_data)
 
     if as_markdown:
@@ -157,9 +163,9 @@ async def get_eval(id: str, response_type: ResponseStructureEnum) -> EvalRespons
     data = {
         "id": str(audit.id),
         "response_type": response_type,
-        "contract_address": audit.contract.contract_address,
-        "contract_code": audit.contract.contract_code,
-        "contract_network": audit.contract.contract_network,
+        "contract_address": audit.contract.address,
+        "contract_code": audit.contract.raw_code,
+        "contract_network": audit.contract.network,
         "status": audit.results_status,
     }
 
