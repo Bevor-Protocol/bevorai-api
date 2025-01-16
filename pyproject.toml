@@ -10,7 +10,6 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-replicate = "^1.0.4"
 python-dotenv = "^1.0.1"
 redis = "^5.2.1"
 rq = "^2.1.0"

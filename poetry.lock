@@ -2067,17 +2067,6 @@ datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
 realtime = ["websockets (>=13,<15)"]
 
 [[package]]
-name = "packaging"
-version = "24.2"
-description = "Core utilities for Python packages"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "packaging-24.2-py3-none-any.whl", hash = "sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759"},
-    {file = "packaging-24.2.tar.gz", hash = "sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f"},
-]
-
-[[package]]
 name = "parsimonious"
 version = "0.10.0"
 description = "(Soon to be) the fastest pure-Python PEG parser I could muster"
@@ -2689,23 +2678,6 @@ files = [
     {file = "regex-2024.11.6-cp39-cp39-win_amd64.whl", hash = "sha256:b2837718570f95dd41675328e111345f9b7095d821bac435aac173ac80b19983"},
     {file = "regex-2024.11.6.tar.gz", hash = "sha256:7ab159b063c52a0333c884e4679f8d7a85112ee3078fe3d9004b2dd875585519"},
 ]
-
-[[package]]
-name = "replicate"
-version = "1.0.4"
-description = "Python client for Replicate"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "replicate-1.0.4-py3-none-any.whl", hash = "sha256:f568f6271ff715067901b6094c23c37373bbcfd7de0ff9b85e9c9ead567e09e7"},
-    {file = "replicate-1.0.4.tar.gz", hash = "sha256:f718601863ef1f419aa7dcdab1ea8770ba5489b571b86edf840cd506d68758ef"},
-]
-
-[package.dependencies]
-httpx = ">=0.21.0,<1"
-packaging = "*"
-pydantic = ">1.10.7"
-typing_extensions = ">=4.5.0"
 
 [[package]]
 name = "requests"
@@ -3630,4 +3602,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "c2157f9c56f96ff4dc420e9b1fd4cba79c368ca5a7de54e31ca8bdf7d399ac83"
+content-hash = "286aefe60d96b18daa132be17399c525a927b6ac0166a5cbfc120e470f98bc44"

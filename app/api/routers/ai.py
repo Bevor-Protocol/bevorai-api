@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-from replicate.prediction import Prediction
 
 from app.api.ai.eval import get_eval, process_evaluation
-from app.api.ai.webhook import process_webhook_replicate
+
+# from app.api.ai.webhook import process_webhook_replicate
 from app.api.depends.auth import UserDict, require_auth
 from app.api.depends.rate_limit import rate_limit
 from app.pydantic.request import EvalBody
@@ -19,12 +19,12 @@ class AiRouter:
     def register_routes(self):
         self.router.add_api_route("/eval", self.process_ai_eval, methods=["POST"])
         self.router.add_api_route("/eval/{id}", self.get_eval_by_id, methods=["GET"])
-        self.router.add_api_route(
-            "/eval/webhook",
-            self.process_webhook,
-            methods=["POST"],
-            include_in_schema=False,
-        )
+        # self.router.add_api_route(
+        #     "/eval/webhook",
+        #     self.process_webhook,
+        #     methods=["POST"],
+        #     include_in_schema=False,
+        # )
 
     async def process_ai_eval(
         self,
@@ -33,7 +33,7 @@ class AiRouter:
         user: UserDict = Depends(require_auth),
     ):
         response = await process_evaluation(user=user, data=data)
-        rate_limit(request=request, user=user)
+        await rate_limit(request=request, user=user)
 
         return JSONResponse(response, status_code=202)
 
@@ -53,17 +53,17 @@ class AiRouter:
 
         return JSONResponse(response.model_dump()["result"]["result"], status_code=200)
 
-    async def process_webhook(self, request: Request):
-        """
-        Internal webhook endpoint for Replicate model predictions.
-        This route should not be called directly - it is used by the Replicate service
-        to deliver prediction results.
-        """
+    # async def process_webhook(self, request: Request):
+    #     """
+    #     Internal webhook endpoint for Replicate model predictions.
+    #     This route should not be called directly - it is used by the Replicate service
+    #     to deliver prediction results.
+    #     """
 
-        chained_call = request.query_params.get("chained_call")
+    #     chained_call = request.query_params.get("chained_call")
 
-        body = await request.json()
-        response = await process_webhook_replicate(
-            data=Prediction(**body), webhook_url=chained_call
-        )
-        return response
+    #     body = await request.json()
+    #     response = await process_webhook_replicate(
+    #         data=Prediction(**body), webhook_url=chained_call
+    #     )
+    #     return response
