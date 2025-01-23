@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
@@ -23,10 +25,15 @@ class AnalyticsRouter:
         """
         user_id = request.query_params.get("user_id")
         page = int(request.query_params.get("page", 0))
-        page_size = int(request.query_params.get("page_size", 25))
+        page_size = int(request.query_params.get("page_size", 10))
         search = request.query_params.get("search")
         audit_type = request.query_params.get("audit_type")
         results_status = request.query_params.get("status")
+        network = request.query_params.get("network")
+        contract_address = request.query_params.get("contract_address")
+
+        audit_type = audit_type.split(",") if audit_type else []
+        network = network.split(",") if network else []
 
         return FilterParams(
             user_id=user_id,
@@ -35,6 +42,8 @@ class AnalyticsRouter:
             search=search,
             audit_type=audit_type,
             results_status=results_status,
+            network=network,
+            contract_address=contract_address,
         )
 
     async def fetch_audits(

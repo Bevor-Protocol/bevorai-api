@@ -82,7 +82,7 @@ class LlmPipeline:
         response = await self.client.beta.chat.completions.parse(
             model="gpt-4o-mini",
             max_completion_tokens=1200,
-            temperature=0.2,
+            temperature=0.1,
             messages=[
                 {"role": "developer", "content": report_prompt},
                 {"role": "user", "content": report_user_input},

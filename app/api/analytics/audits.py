@@ -18,27 +18,29 @@ from app.utils.typed import FilterParams
 
 async def get_audits(user: UserDict, query: FilterParams):
 
-    page_size = query.pop("page_size")
-    page = query.pop("page")
-    search = query.pop("search")
-
-    limit = page_size
-    offset = (page) * page_size
+    limit = query.page_size
+    offset = (query.page) * limit
 
     filter = {}
-    for k, v in query.items():
-        if v:
-            filter[k] = v
 
-    if search:
-        filter["results_raw_output__icontains"] = search
+    if query.search:
+        filter["results_raw_output__icontains"] = query.search
+    if query.audit_type:
+        filter["audit_type__in"] = query.audit_type
+    if query.network:
+        filter["contract__network__in"] = query.network
+    if query.contract_address:
+        filter["contract__address__icontains"] = query.contract_address
+    if query.user_id:
+        logging.info(f"HIT {query.user_id}")
+        filter["user__address__icontains"] = query.user_id
 
     if user["app"]:
         filter["app_id"] = user["app"].id
     else:
         filter["user_id"] = user["user"].id
 
-    await anyio.sleep(5)
+    await anyio.sleep(2)
 
     results = (
         await Audit.filter(**filter)
@@ -46,6 +48,7 @@ async def get_audits(user: UserDict, query: FilterParams):
         .offset(offset)
         .values(
             "id",
+            "created_at",
             "app_id",
             "user__address",
             "audit_type",
@@ -57,14 +60,16 @@ async def get_audits(user: UserDict, query: FilterParams):
     )[: (limit + 1)]
 
     data = []
-    for result in results[:-1]:
+    for i, result in enumerate(results[:-1]):
         contract = AnalyticsContract(
             method=result["contract__method"],
             address=result["contract__address"],
             network=result["contract__network"],
         )
         response = AnalyticsAudit(
+            n=i + offset,
             id=str(result["id"]),
+            created_at=result["created_at"],
             app_id=str(result["app_id"]),
             user_id=result["user__address"],
             audit_type=result["audit_type"],
@@ -73,10 +78,11 @@ async def get_audits(user: UserDict, query: FilterParams):
         )
         data.append(response)
 
-    return AnalyticsResponse(results=data, more=len(results) > page_size)
+    return AnalyticsResponse(results=data, more=len(results) > query.page_size)
 
 
 async def get_stats():
+    await anyio.sleep(3)
     n_audits = 0
     n_contracts = await Contract.all().count()
     n_users = await User.all().count()

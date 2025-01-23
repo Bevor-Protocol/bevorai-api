@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_serializer, model_validator
 
 from app.utils.enums import (
     AuditStatusEnum,
@@ -65,12 +66,18 @@ class AnalyticsContract(BaseModel):
 
 
 class AnalyticsAudit(BaseModel):
+    n: int
     id: str
+    created_at: datetime
     app_id: Optional[str]
     user_id: Optional[str]
     audit_type: AuditTypeEnum
     results_status: AuditStatusEnum
     contract: AnalyticsContract
+
+    @field_serializer("created_at")
+    def serialize_dt(self, dt: datetime, _info):
+        return dt.astimezone(timezone.utc).isoformat()
 
 
 class AnalyticsResponse(BaseModel):
