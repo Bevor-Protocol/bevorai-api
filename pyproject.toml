@@ -19,6 +19,8 @@ openai = "^1.59.2"
 anthropic = "^0.42.0"
 dramatiq = {extras = ["redis", "watch"], version = "^1.17.1"}
 prometheus-client = "^0.21.1"
+pytest-asyncio = "^0.25.2"
+pytest-mock = "^3.14.0"
 
 [tool.poetry.dependencies.fastapi]
 extras = [
@@ -52,6 +54,8 @@ version = "^4.14.0"
 
 [tool.poetry.group.dev.dependencies]
 rq-dashboard = "^0.8.2.2"
+pytest = "^8.3.4"
+black = "^24.10.0"
 
 [tool.aerich]
 tortoise_orm = "app.db.config.TORTOISE_ORM"
