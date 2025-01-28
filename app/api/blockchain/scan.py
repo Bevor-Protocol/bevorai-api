@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import json
 import logging
@@ -45,19 +46,21 @@ async def fetch_contract_source_code_from_explorer(
         if result and isinstance(result, list) and len(result) > 0:
             source_code = result[0].get("SourceCode")
             if source_code:
-                return source_code
+                return {"found": True, "source_code": source_code}
         raise NoSourceCodeError()
     except NoSourceCodeError:
         logging.warn(
             f"Call succeeded for {address} on {network}, but no source code found"
         )
-        return None
+        return {
+            "found": True,
+        }
     except Exception as error:
         logging.warn(
             f"Error fetching contract source code from {network} "
             f"for address {address}: {error}"
         )
-        return None
+        return {"found": False}
 
 
 async def fetch_contract_source_code(
@@ -79,6 +82,7 @@ async def fetch_contract_source_code(
         data = {
             "source_code": contract.raw_code,
             "network": contract.network,
+            "is_available": contract.is_available,
         }
         redis_client.set(KEY, json.dumps(data))
         return data
@@ -165,26 +169,43 @@ async def get_or_create_contract(
     async with httpx.AsyncClient() as client:
         for network in networks_scan:
             # we want this to be blocking so we can early exit
-            source_code = await fetch_contract_source_code_from_explorer(
+            scanned = await fetch_contract_source_code_from_explorer(
                 client, network, contract_address
             )
-            if source_code:
-                contract_hash = hashlib.sha256(source_code.encode()).hexdigest()
-                if not contract:
-                    contract = await Contract.create(
-                        method=ContractMethodEnum.SCAN,
-                        address=contract_address,
-                        network=network,
-                        raw_code=source_code,
-                        hash_code=contract_hash,
-                    )
+            if scanned["found"]:
+                if scanned["source_code"]:
+                    contract_hash = hashlib.sha256(
+                        scanned["source_code"].encode()
+                    ).hexdigest()
+                    if not contract:
+                        contract = Contract(
+                            method=ContractMethodEnum.SCAN,
+                            address=contract_address,
+                            network=network,
+                            raw_code=scanned["source_code"],
+                            hash_code=contract_hash,
+                        )
+                    else:
+                        # We might override the network here, which is fine.
+                        contract.is_available = True
+                        contract.raw_code = scanned["source_code"]
+                        contract.hash_code = contract_hash
+                        contract.network = network
+
                 else:
-                    # We might override the network here, which is fine.
-                    contract.is_available = True
-                    contract.raw_code = source_code
-                    contract.hash_code = contract_hash
-                    contract.network = network
-                    await contract.save()
+                    if not contract:
+                        contract = Contract(
+                            method=ContractMethodEnum.SCAN,
+                            address=contract_address,
+                            network=network,
+                            is_available=False,
+                        )
+                    else:
+                        contract.n_retries = contract.n_retries + 1
+                        contract.next_attempt = (
+                            datetime.datetime.now()
+                        )  # come back to this.
+                await contract.save()
                 return contract
 
     return

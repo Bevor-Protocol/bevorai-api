@@ -32,8 +32,8 @@ class AiRouter:
         data: EvalBody,
         user: UserDict = Depends(require_auth),
     ):
-        response = await process_evaluation(user=user, data=data)
         await rate_limit(request=request, user=user)
+        response = await process_evaluation(user=user, data=data)
 
         return JSONResponse(response, status_code=202)
 
