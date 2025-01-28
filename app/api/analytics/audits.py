@@ -1,4 +1,6 @@
+import base64
 import logging
+import math
 from collections import defaultdict
 
 import anyio
@@ -16,10 +18,18 @@ from app.utils.enums import AuditTypeEnum
 from app.utils.typed import FilterParams
 
 
-async def get_audits(user: UserDict, query: FilterParams):
+def encode_cursor(cursor: str) -> str:
+    return base64.urlsafe_b64encode(cursor.encode()).decode()
+
+
+def decode_cursor(cursor: str) -> str:
+    return base64.urlsafe_b64decode(cursor.encode()).decode()
+
+
+async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
 
     limit = query.page_size
-    offset = (query.page) * limit
+    offset = query.page * limit
 
     filter = {}
 
@@ -32,7 +42,6 @@ async def get_audits(user: UserDict, query: FilterParams):
     if query.contract_address:
         filter["contract__address__icontains"] = query.contract_address
     if query.user_id:
-        logging.info(f"HIT {query.user_id}")
         filter["user__address__icontains"] = query.user_id
 
     if user["app"]:
@@ -42,10 +51,18 @@ async def get_audits(user: UserDict, query: FilterParams):
 
     await anyio.sleep(2)
 
+    total = await Audit.all().count()
+
+    total_pages = math.ceil(total / query.page_size)
+
+    if total <= offset:
+        return AnalyticsResponse(results=[], more=False, total_pages=total_pages)
+
     results = (
         await Audit.filter(**filter)
         .order_by("created_at")
         .offset(offset)
+        .limit(limit + 1)
         .values(
             "id",
             "created_at",
@@ -53,22 +70,24 @@ async def get_audits(user: UserDict, query: FilterParams):
             "user__address",
             "audit_type",
             "results_status",
+            "contract__id",
             "contract__method",
             "contract__address",
             "contract__network",
         )
-    )[: (limit + 1)]
+    )
 
     data = []
     for i, result in enumerate(results[:-1]):
         contract = AnalyticsContract(
+            id=result["contract__id"],
             method=result["contract__method"],
             address=result["contract__address"],
             network=result["contract__network"],
         )
         response = AnalyticsAudit(
             n=i + offset,
-            id=str(result["id"]),
+            id=result["id"],
             created_at=result["created_at"],
             app_id=str(result["app_id"]),
             user_id=result["user__address"],
@@ -78,7 +97,9 @@ async def get_audits(user: UserDict, query: FilterParams):
         )
         data.append(response)
 
-    return AnalyticsResponse(results=data, more=len(results) > query.page_size)
+    return AnalyticsResponse(
+        results=data, more=len(results) > query.page_size, total_pages=total_pages
+    )
 
 
 async def get_stats():
@@ -123,3 +144,31 @@ async def get_stats():
     )
 
     return response
+
+
+async def get_audit(id: str) -> str:
+    audit = await Audit.get(id=id).select_related("contract", "user")
+
+    result = sanitize_data(
+        raw_data=audit.results_raw_output,
+        audit_type=audit.audit_type,
+        as_markdown=True,
+    )
+
+    return {
+        "contract": {
+            "address": audit.contract.address,
+            "network": audit.contract.network,
+            "code": audit.contract.raw_code,
+        },
+        "user": {
+            "id": str(audit.user.id),
+            "address": audit.user.address,
+        },
+        "audit": {
+            "model": audit.model,
+            "prompt_version": audit.prompt_version,
+            "audit_type": audit.audit_type,
+            "result": result,
+        },
+    }

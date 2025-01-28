@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Union
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_serializer, model_validator
 
@@ -60,14 +61,21 @@ class WebhookResponse(BaseModel):
 
 
 class AnalyticsContract(BaseModel):
+    id: Union[str, UUID]
     method: ContractMethodEnum
     address: Optional[str]
     network: Optional[NetworkEnum]
 
+    @field_serializer("id")
+    def convert_uuid_to_string(self, id):
+        if isinstance(id, UUID):
+            return str(id)
+        return id
+
 
 class AnalyticsAudit(BaseModel):
     n: int
-    id: str
+    id: Union[str, UUID]
     created_at: datetime
     app_id: Optional[str]
     user_id: Optional[str]
@@ -79,10 +87,17 @@ class AnalyticsAudit(BaseModel):
     def serialize_dt(self, dt: datetime, _info):
         return dt.astimezone(timezone.utc).isoformat()
 
+    @field_serializer("id")
+    def convert_uuid_to_string(self, id):
+        if isinstance(id, UUID):
+            return str(id)
+        return id
+
 
 class AnalyticsResponse(BaseModel):
     results: list[AnalyticsAudit]
     more: bool
+    total_pages: int
 
 
 class StatsResponse(BaseModel):
@@ -92,3 +107,39 @@ class StatsResponse(BaseModel):
     n_users: int
     n_apps: int
     findings: dict
+
+
+class UserInfo(BaseModel):
+    id: Union[str, UUID]
+    address: str
+    created_at: datetime
+    total_credits: float
+    remaining_credits: float
+
+    @field_serializer("created_at")
+    def serialize_dt(self, dt: datetime, _info):
+        return dt.astimezone(timezone.utc).isoformat()
+
+    @field_serializer("id")
+    def convert_uuid_to_string(self, id):
+        if isinstance(id, UUID):
+            return str(id)
+        return id
+
+
+class AuthInfo(BaseModel):
+    exists: bool
+    is_active: bool
+
+
+class AppInfo(BaseModel):
+    exists: bool
+    name: Optional[str]
+
+
+class UserInfoResponse(BaseModel):
+    user: UserInfo
+    auth: AuthInfo
+    app: AppInfo
+    audits: list[AnalyticsAudit]
+    n_contracts: int

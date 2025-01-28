@@ -1,9 +1,8 @@
-import logging
-
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from app.api.analytics.audits import get_audits, get_stats
+from app.api.analytics.audits import get_audit, get_audits, get_stats
+from app.api.analytics.user import get_user_info
 from app.api.depends.auth import UserDict, protected_first_party_app, require_auth
 from app.pydantic.response import AnalyticsResponse
 from app.utils.typed import FilterParams
@@ -17,6 +16,8 @@ class AnalyticsRouter:
     def register_routes(self):
         self.router.add_api_route("/audits", self.fetch_audits, methods=["GET"])
         self.router.add_api_route("/stats", self.fetch_stats, methods=["GET"])
+        self.router.add_api_route("/audit/{id}", self.get_audit, methods=["GET"])
+        self.router.add_api_route("/user", self.get_user_info, methods=["GET"])
 
     def _parse_query_params(self, request: Request) -> FilterParams:
         """
@@ -25,7 +26,7 @@ class AnalyticsRouter:
         """
         user_id = request.query_params.get("user_id")
         page = int(request.query_params.get("page", 0))
-        page_size = int(request.query_params.get("page_size", 10))
+        page_size = int(request.query_params.get("page_size", 15))
         search = request.query_params.get("search")
         audit_type = request.query_params.get("audit_type")
         results_status = request.query_params.get("status")
@@ -70,3 +71,11 @@ class AnalyticsRouter:
         response = await get_stats()
 
         return JSONResponse(response.model_dump(), status_code=200)
+
+    async def get_audit(self, id: str):
+        audit = await get_audit(id)
+        return JSONResponse({"result": audit}, status_code=200)
+
+    async def get_user_info(self, user: UserDict = Depends(require_auth)):
+        user_info = await get_user_info(user)
+        return JSONResponse(user_info.model_dump(), status_code=200)

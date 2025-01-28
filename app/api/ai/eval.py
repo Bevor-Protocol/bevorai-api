@@ -12,9 +12,9 @@ from app.api.ai.pipeline import LlmPipeline
 from app.api.blockchain.scan import get_or_create_contract
 from app.api.middleware.auth import UserDict
 from app.db.models import Audit
+from app.lib.v1.markdown.gas import markdown as gas_markdown
+from app.lib.v1.markdown.security import markdown as security_markdown
 
-# from app.lib.markdown.gas import markdown as gas_markdown
-# from app.lib.markdown.security import markdown as security_markdown
 # from app.lib.prompts.gas import prompt as gas_prompt
 # from app.lib.prompts.security import prompt as security_prompt
 from app.pydantic.request import EvalBody
@@ -56,38 +56,38 @@ def sanitize_data(raw_data: str, audit_type: AuditTypeEnum, as_markdown: bool):
     return parsed
 
 
-# def parse_branded_markdown(audit_type: AuditTypeEnum, findings: dict):
-#     result = gas_markdown if audit_type == AuditTypeEnum.GAS else security_markdown
+def parse_branded_markdown(audit_type: AuditTypeEnum, findings: dict):
+    result = gas_markdown if audit_type == AuditTypeEnum.GAS else security_markdown
 
-#     formatter = {
-#         "project_name": findings["audit_summary"].get("project_name", "Unknown"),
-#         "address": "Unknown",
-#         "date": datetime.datetime.now().strftime("%Y-%m-%d"),
-#         "introduction": findings["introduction"],
-#         "scope": findings["scope"],
-#         "conclusion": findings["conclusion"],
-#     }
+    formatter = {
+        "project_name": findings["audit_summary"].get("project_name", "Unknown"),
+        "address": "Unknown",
+        "date": datetime.datetime.now().strftime("%Y-%m-%d"),
+        "introduction": findings["introduction"],
+        "scope": findings["scope"],
+        "conclusion": findings["conclusion"],
+    }
 
-#     pattern = r"<<(.*?)>>"
+    pattern = r"<<(.*?)>>"
 
-#     rec_string = ""
-#     for rec in findings["recommendations"]:
-#         rec_string += f"- {rec}\n"
-#     formatter["recommendations"] = rec_string.strip()
+    rec_string = ""
+    for rec in findings["recommendations"]:
+        rec_string += f"- {rec}\n"
+    formatter["recommendations"] = rec_string.strip()
 
-#     for k, v in findings["findings"].items():
-#         key = f"findings_{k}"
-#         finding_str = ""
-#         if not v:
-#             finding_str = "None Identified"
-#         else:
-#             for finding in v:
-#                 finding = re.sub(pattern, r"`\1`", finding)
-#                 finding_str += f"- {finding}\n"
+    for k, v in findings["findings"].items():
+        key = f"findings_{k}"
+        finding_str = ""
+        if not v:
+            finding_str = "None Identified"
+        else:
+            for finding in v:
+                finding = re.sub(pattern, r"`\1`", finding)
+                finding_str += f"- {finding}\n"
 
-#         formatter[key] = finding_str.strip()
+        formatter[key] = finding_str.strip()
 
-#     return result.format(**formatter)
+    return result.format(**formatter)
 
 
 async def process_evaluation(user: UserDict, data: EvalBody) -> JSONResponse:
