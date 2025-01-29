@@ -1,9 +1,10 @@
 import logging
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.api.blockchain.gas import fetch_gas
-from app.api.blockchain.scan import fetch_contract_source_code
+from app.api.blockchain.scan import ContractService
 from app.utils.enums import NetworkEnum
 
 
@@ -23,12 +24,17 @@ class BlockchainRouter:
         self.router.add_api_route("/gas", self.get_gas, methods=["GET"])
 
     async def scan_contract(self, address: str):
-        return await fetch_contract_source_code(address)
+        contract_service = ContractService()
+        response = await contract_service.fetch_from_source(address=address)
+
+        return JSONResponse(response, status_code=200)
 
     async def scan_contract_on_network(self, address: str, network: str):
         try:
             network = NetworkEnum[network.upper()]
-            return await fetch_contract_source_code(address, network=network)
+            contract_service = ContractService()
+            response = await contract_service.fetch_from_source(address=address)
+            return response
         except KeyError:
             raise HTTPException(status_code=500, detail="invalid network")
         except Exception as error:

@@ -22,7 +22,7 @@ async def rate_limit(request: Request, user: UserDict) -> None:
     await redis_client.ltrim(redis_key, 0, MAX_LIMIT_PER_MINUTE)
     await redis_client.lrem(redis_key, 0, current_time - WINDOW_SECONDS)
 
-    request_count = redis_client.llen(redis_key)
+    request_count = await redis_client.llen(redis_key)
 
     if request_count >= MAX_LIMIT_PER_MINUTE:
         raise HTTPException(status_code=429, detail="Too many requests in a minute")

@@ -4,7 +4,7 @@ import logging
 
 import httpx
 
-from app.api.blockchain.scan import fetch_contract_source_code_from_explorer
+from app.api.blockchain.scan import ContractService
 from app.api.web3.provider import get_provider
 from app.db.models import Contract
 from app.utils.enums import ContractMethodEnum, NetworkEnum
@@ -36,11 +36,14 @@ async def get_deployment_contracts(network: NetworkEnum):
         return
 
     tasks = []
+    contract_service = ContractService()
     async with httpx.AsyncClient() as client:
         for address in deployment_addresses:
             tasks.append(
                 asyncio.create_task(
-                    fetch_contract_source_code_from_explorer(client, network, address)
+                    contract_service.fetch_contract_source_code_from_explorer(
+                        client, network, address
+                    )
                 )
             )
         results = await asyncio.gather(*tasks)

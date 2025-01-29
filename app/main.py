@@ -1,34 +1,24 @@
-from contextlib import asynccontextmanager
-
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from tortoise.contrib.fastapi import register_tortoise
 
 import app.api.routers as routers
+from app.db.config import TORTOISE_ORM
 
 # from app.api.middleware.auth import AuthenticationMiddleware
 # from app.api.middleware.rate_limit import RateLimitMiddleware
-from app.db.config import TORTOISE_ORM
 
-from .cron import scheduler
 
 load_dotenv()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    scheduler.start()
-    yield
-    print("shutting down")
-    scheduler.shutdown()
-
-
-app = FastAPI(lifespan=lifespan, debug=False)
+app = FastAPI(debug=False)
 
 
 register_tortoise(
     app=app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
 )
+
 
 # # order matters. Runs in reverse order.
 # app.add_middleware(RateLimitMiddleware)

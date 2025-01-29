@@ -101,12 +101,11 @@ class Transaction(AbstractModel):
 
 
 class Audit(AbstractModel):
-    job_id = fields.CharField(max_length=255, unique=True)
     app = fields.ForeignKeyField("models.App", null=True)
     user = fields.ForeignKeyField("models.User", null=True)
     contract = fields.ForeignKeyField("models.Contract")
     prompt_version = fields.IntField()
-    model = fields.CharField(max_length=255)
+    model = fields.CharField(max_length=255, null=True, default=None)
     audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
     processing_time_seconds = fields.IntField(null=True, default=None)
     results_status = fields.CharEnumField(

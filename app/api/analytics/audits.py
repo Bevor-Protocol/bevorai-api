@@ -5,7 +5,7 @@ from collections import defaultdict
 
 import anyio
 
-from app.api.ai.eval import sanitize_data
+from app.api.ai.eval import EvalService
 from app.api.depends.auth import UserDict
 from app.db.models import App, Audit, Auth, Contract, User
 from app.pydantic.response import (
@@ -116,7 +116,7 @@ async def get_stats():
     for audit in await Audit.all():
         n_audits += 1
         try:
-            parsed = sanitize_data(
+            parsed = EvalService.sanitize_data(
                 raw_data=audit.results_raw_output,
                 audit_type=audit.audit_type,
                 as_markdown=False,
@@ -149,7 +149,7 @@ async def get_stats():
 async def get_audit(id: str) -> str:
     audit = await Audit.get(id=id).select_related("contract", "user")
 
-    result = sanitize_data(
+    result = EvalService.sanitize_data(
         raw_data=audit.results_raw_output,
         audit_type=audit.audit_type,
         as_markdown=True,

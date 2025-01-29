@@ -6,9 +6,9 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime
+from typing import List
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
-from redis.client import PubSub
 
 from app.cache import redis_client
 
@@ -21,9 +21,11 @@ class WebsocketRouter:
     def __init__(self):
         self.router = APIRouter(include_in_schema=False)
         self.active_connections: list[WebSocket] = []
-        self.pending_jobs = {}
-        self.inverse_jobs = defaultdict(list)
+        self.pending_jobs: dict[str, WebSocket] = {}
+        self.inverse_jobs: defaultdict[WebSocket, List[str]] = defaultdict(list)
         self.heartbeat_check = {}
+        self.pubsub_task = None
+
         self.register_routes()
 
     def register_routes(self):
@@ -32,8 +34,8 @@ class WebsocketRouter:
     async def websocket(self, websocket: WebSocket):
         try:
             await self.require_auth(websocket)
-            pubsub = redis_client.pubsub()
-            pubsub.subscribe("evals")
+            await self.connect(websocket)
+
             while True:
                 raw_message = await websocket.receive_text()
                 message = str(raw_message).strip()
@@ -43,23 +45,40 @@ class WebsocketRouter:
                     self.assign_job(job_id, websocket)
                 elif message == "PONG":
                     self.heartbeat_check[websocket] = False
-                message = pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
-
-                if message:
-                    data = json.loads(message["data"])
-                    identifier = data["id"]
-                    if self.is_job_owner(identifier, websocket):
-                        await self.send_personal_message(
-                            {"type": "data", "result": data["result"]}, websocket
-                        )
-
         except WebSocketDisconnect:
-            await self.disconnect(websocket, pubsub)
+            await self.disconnect(websocket)
         except WebSocketException as e:
             logging.error(f"WebSocket error: {e}")
             await websocket.close(code=4001)
+
+    async def listen_to_pubsub(self):
+        """
+        Continuously listen to Redis pub/sub and send messages to WebSocket clients.
+        """
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe("evals")
+        try:
+            while True:
+                message = await pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=1
+                )
+                if message and message["type"] == "message":
+                    data = json.loads(message["data"])
+                    job_id = data["job_id"]
+
+                    websocket = self.pending_jobs.get(job_id)
+                    if websocket:
+                        await self.send_personal_message(data, websocket)
+        except asyncio.CancelledError:
+            await pubsub.unsubscribe("evals")
+            await pubsub.close()
+        except Exception as e:
+            logging.error(f"Error in Pub/Sub listener: {e}")
+
+    def stop_pubsub_task(self):
+        """Stop the background Pub/Sub listener."""
+        if self.pubsub_task:
+            self.pubsub_task.cancel()
 
     async def require_auth(self, websocket: WebSocket):
         signature = websocket.query_params.get("signature")
@@ -73,7 +92,6 @@ class WebsocketRouter:
                 secret.encode(), payload.encode(), hashlib.sha256
             ).hexdigest()
             if hmac.compare_digest(signature, expected_signature):
-                await self.connect(websocket)
                 return
         raise WebSocketException("invalid auth")
 
@@ -86,28 +104,30 @@ class WebsocketRouter:
         )
         self.heartbeat_check[websocket] = False
         asyncio.create_task(self.heartbeat(websocket))
+        if len(self.active_connections) == 1:
+            self.pubsub_task = asyncio.create_task(self.listen_to_pubsub())
 
     def assign_job(self, job_id: str, websocket: WebSocket):
         self.pending_jobs[job_id] = websocket
         self.inverse_jobs[websocket].append(job_id)
 
-    def is_job_owner(self, job_id: str, websocket: WebSocket):
-        return job_id in self.inverse_jobs[websocket]
-
-    async def disconnect(self, websocket: WebSocket, pubsub: PubSub):
-        self.active_connections.remove(websocket)
+    async def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
         for job_id in self.inverse_jobs[websocket]:
-            del self.pending_jobs[job_id]
-        del self.inverse_jobs[websocket]
-        del self.heartbeat_check[websocket]
-        pubsub.unsubscribe("evals")
+            self.pending_jobs.pop(job_id, None)
+        self.inverse_jobs.pop(websocket, None)
+        self.heartbeat_check.pop(websocket, None)
+        if not self.active_connections:
+            self.stop_pubsub_task()
+        if websocket.client_state.name != "DISCONNECTED":
+            await websocket.close()
 
     async def send_personal_message(self, data: str, websocket: WebSocket):
         await websocket.send_json(data)
 
     async def heartbeat(self, websocket: WebSocket):
-        while True:
-            # Time in between pings
+        while websocket in self.active_connections:
             await asyncio.sleep(self.HEARTBEAT_INTERVAL)
             try:
                 if websocket.client_state.name == "DISCONNECTED":
@@ -115,15 +135,10 @@ class WebsocketRouter:
                 await self.send_personal_message({"type": "heartbeat"}, websocket)
                 self.heartbeat_check[websocket] = True
 
-                # time allotted for the client to respond properly.
-                await asyncio.sleep(3)
-                if (
-                    websocket in self.heartbeat_check
-                    and self.heartbeat_check[websocket]
-                ):
-                    print("Client unresponsive, closing connection")
-                    raise WebSocketException(code=1001)
-            except WebSocketException:
-                # Don't know what this id is actually based off of.
-                await websocket.close()
+                await asyncio.sleep(1)
+                if self.heartbeat_check.get(websocket, False):
+                    await self.disconnect(websocket)
+                    break
+            except Exception:
+                await self.disconnect(websocket)
                 break

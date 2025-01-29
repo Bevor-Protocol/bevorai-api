@@ -17,7 +17,6 @@ class UserDict(TypedDict):
 async def require_auth(request: Request) -> UserDict:
     authorization = request.headers.get("authorization")
     address = request.headers.get("x-user-identifier")
-
     if not authorization:
         raise HTTPException(
             status_code=401, detail="proper authorization headers not provided"
@@ -27,7 +26,6 @@ async def require_auth(request: Request) -> UserDict:
         auth = await Auth.get(
             hashed_key=hashlib.sha256(api_key.encode()).hexdigest()
         ).select_related("user", "app__owner")
-
         if auth.is_revoked:
             raise HTTPException(status_code=401, detail="This token was revoked")
 

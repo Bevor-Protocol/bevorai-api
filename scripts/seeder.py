@@ -8,6 +8,7 @@ from app.utils.enums import AppTypeEnum, ClientTypeEnum
 
 
 async def init():
+    print(TORTOISE_ORM)
     await Tortoise.init(
         config=TORTOISE_ORM,
     )

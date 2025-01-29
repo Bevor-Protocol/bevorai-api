@@ -70,10 +70,15 @@ services:
       - redis
       - postgres
     # command: doppler run -- rq worker high low --url redis://redis:6379
-    command: dramatiq app.worker --queues high low --processes 1 --threads 4 --watch .
+    command: arq app.worker.WorkerSettings
     # command: rq worker high low --url redis://redis:6379
     env_file:
       - .env
+    environment:
+    #   - DOPPLER_TOKEN=${DOPPLER_TOKEN}
+    #   - DOPPLER_PROJECT=${DOPPLER_PROJECT}
+    #   - DOPPLER_ENVIRONMENT=${DOPPLER_ENVIRONMENT}
+      - DB_HOST=postgres:5432
     links:
       - redis
     volumes:

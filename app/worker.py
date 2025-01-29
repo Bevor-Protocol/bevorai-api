@@ -1,63 +1,111 @@
+import asyncio
 import logging
-import os
 
 import anyio
-import dramatiq
-from dramatiq.brokers.redis import RedisBroker
-from dramatiq.middleware.prometheus import Prometheus
-
-# from dramatiq.results import Results
-from dramatiq.results.backends.redis import RedisBackend
+from arq import create_pool, cron
+from arq.connections import RedisSettings
+from tortoise import Tortoise
+from tortoise.transactions import in_transaction
 
 from app.cronjobs.contract_scan import get_deployment_contracts
+from app.db.config import TORTOISE_ORM
+from app.db.models import Audit
 from app.prometheus import logger
-from app.utils.enums import AuditStatusEnum, NetworkEnum
+from app.tasks.eval import handle_eval, test_get
+from app.utils.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
 
 from .tasks.webhook import handle_outgoing_webhook
 
 # from dramatiq.middleware.prometheus import Prometheus
 
 
-redis_broker = RedisBroker(url="redis://redis:6379")
-redis_backend = RedisBackend(url="redis://redis:6379")
-# redis_broker.add_middleware(Results(backend=redis_backend))
-if os.environ.get("DRAMATIQ_PROCESS_TYPE") == "MainProcess":
-    prometheus_middleware = Prometheus(
-        bind="0.0.0.0", port=9192
-    )  # Start only in the main process
-    redis_broker.add_middleware(prometheus_middleware)
-# redis_broker.add_middleware(Prometheus())
-dramatiq.set_broker(redis_broker)
+REDIS_SETTINGS = RedisSettings(host="redis", port=6379)
+
+
+async def init_db(ctx):
+    logging.info(TORTOISE_ORM)
+    await Tortoise.init(config=TORTOISE_ORM)
+    await Tortoise.generate_schemas()
+
+
+async def close_db(ctx):
+    await Tortoise.close_connections()
+
+
+# every_minute = crontab(minute="*/1")
+# every_five_minutes = crontab(minute="*/5")
+
+
+# @huey.on_startup()
+# def open_db_connection():
+#     if not Tortoise._inited:
+#         logging.info("Initializing database connection...")
+#         anyio.run(init_db)
+#         logging.info("\n\n\nINITIALIZED\n\n\n")
+
+
+# @huey.on_shutdown()
+# def close_db_connection():
+#     if Tortoise._inited:
+#         logging.info("Closing database connection.")
+#         anyio.run(close_db)
+#         logging.info("CLOSED")
 
 
 async def test(string):
     logging.info("SLEEPING")
     await anyio.sleep(1)
+    logging.info("GETTING AUDIT")
+    async with in_transaction() as conn:
+        audit = await Audit.all().using_db(conn)
+    if audit:
+        logging.info(f"GOT AUDIT {str(audit[0].id)}")
+    else:
+        logging.info("NO AUDIT FOUND")
+    await anyio.sleep(1)
     logging.info(f"SLEPT {string}")
 
 
-@dramatiq.actor(queue_name="low", max_retries=1)
-def test_print():
+async def test_print(ctx):
+    logging.info(ctx)
     logging.info("IM CALLED")
-    logger.increment_cron()
-    anyio.run(test, "hello wrld")
+    # logger.increment_cron()
+    # anyio.run(test_get)
+    await test("hello world")
 
 
-@dramatiq.actor(queue_name="low", max_retries=1)
-def scan_contracts(network: NetworkEnum):
-    try:
-        anyio.run(get_deployment_contracts, network)
-    except Exception as err:
-        logging.warning(err)
-        pass
+# @huey.periodic_task(every_five_minutes, retries=1, priority=1)
+# def scan_contracts():
+#     for network in [NetworkEnum.ETH, NetworkEnum.ETH_SEPOLIA]:
+#         try:
+#             anyio.run(get_deployment_contracts, network)
+#         except Exception as err:
+#             logging.warning(err)
+#             pass
 
 
-# Need to pass consume a serializable model as we rely on redis.
-@dramatiq.actor(queue_name="high", max_retries=3)
-def process_webhook(audit_id: str, audit_status: AuditStatusEnum, webhook_url: str):
-    anyio.run(
-        handle_outgoing_webhook,
-        audit_id,
-        audit_status,
-        webhook_url,
+# @huey.task(retries=3, priority=10)
+# def process_webhook(audit_id: str, audit_status: AuditStatusEnum, webhook_url: str):
+#     anyio.run(
+#         handle_outgoing_webhook,
+#         audit_id,
+#         audit_status,
+#         webhook_url,
+#     )
+
+
+async def process_eval(ctx, audit_id: str, code: str, audit_type: AuditTypeEnum):
+    logging.info("MADE IT HERE")
+    print(ctx)
+    await handle_eval(
+        job_id=ctx["job_id"], audit_id=audit_id, code=code, audit_type=audit_type
     )
+
+
+class WorkerSettings:
+    functions = [process_eval]
+    cron_jobs = [cron(test_print, second=30)]
+    on_startup = init_db
+    on_shutdown = close_db
+    redis_settings = REDIS_SETTINGS
+    allow_abort_jobs = True

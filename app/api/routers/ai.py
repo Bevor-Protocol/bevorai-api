@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.api.ai.eval import get_eval, process_evaluation
+from app.api.ai.eval import EvalService
 
 # from app.api.ai.webhook import process_webhook_replicate
 from app.api.depends.auth import UserDict, require_auth
@@ -12,6 +12,7 @@ from app.utils.enums import ResponseStructureEnum
 
 
 class AiRouter:
+
     def __init__(self):
         self.router = APIRouter(prefix="/ai", tags=["ai"])
         self.register_routes()
@@ -33,7 +34,8 @@ class AiRouter:
         user: UserDict = Depends(require_auth),
     ):
         await rate_limit(request=request, user=user)
-        response = await process_evaluation(user=user, data=data)
+        eval_service = EvalService(audit_type=data.audit_type)
+        response = await eval_service.process_evaluation(user=user, data=data)
 
         return JSONResponse(response, status_code=202)
 
@@ -49,7 +51,7 @@ class AiRouter:
                 status_code=400, detail="Invalid response_type parameter"
             )
 
-        response = await get_eval(id, response_type=response_type)
+        response = await EvalService.get_eval(id, response_type=response_type)
 
         return JSONResponse(response.model_dump()["result"]["result"], status_code=200)
 
