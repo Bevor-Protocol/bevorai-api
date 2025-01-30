@@ -95,8 +95,7 @@ async def test_print(ctx):
 
 
 async def process_eval(ctx, audit_id: str, code: str, audit_type: AuditTypeEnum):
-    logging.info("MADE IT HERE")
-    print(ctx)
+    logging.info(code)
     await handle_eval(
         job_id=ctx["job_id"], audit_id=audit_id, code=code, audit_type=audit_type
     )

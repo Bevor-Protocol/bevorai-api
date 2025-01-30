@@ -82,7 +82,7 @@ class LlmPipeline:
         )
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
-            max_completion_tokens=1200,
+            max_completion_tokens=1000,
             temperature=0.2,
             messages=[
                 {"role": "developer", "content": self.base_prompts["reviewer"]},
@@ -106,7 +106,7 @@ class LlmPipeline:
         )
         response = await client.beta.chat.completions.parse(
             model="gpt-4o-mini",
-            max_completion_tokens=1200,
+            max_completion_tokens=1000,
             temperature=0.1,
             messages=[
                 {"role": "developer", "content": self.base_prompts["reporter"]},

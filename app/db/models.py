@@ -13,6 +13,7 @@ from app.utils.enums import (
     CreditTierEnum,
     NetworkEnum,
     TransactionTypeEnum,
+    WebhookEventEnum,
 )
 
 
@@ -142,3 +143,21 @@ class Contract(AbstractModel):
 
     def __str__(self):
         return f"{str(self.id)} | {self.job_id}"
+
+
+class Webhook(AbstractModel):
+    app = fields.ForeignKeyField("models.App", null=True)
+    user = fields.ForeignKeyField("models.User", null=True)
+    url = fields.CharField(max_length=255)
+    event = fields.CharEnumField(enum_type=WebhookEventEnum)
+    is_enabled = fields.BooleanField(default=True)
+    failure_count = fields.IntField(default=0)
+    last_failure = fields.DatetimeField(null=True)
+    last_success = fields.DatetimeField(null=True)
+    next_retry = fields.DatetimeField(null=True)
+
+    class Meta:
+        table = "webhook"
+
+    def __str__(self):
+        return f"{str(self.id)} | {self.url}"

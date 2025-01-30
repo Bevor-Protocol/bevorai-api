@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from datetime import datetime
@@ -6,7 +5,7 @@ from datetime import datetime
 from app.api.ai.pipeline import LlmPipeline
 from app.cache import redis_client
 from app.db.models import Audit
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum
+from app.utils.enums import AppTypeEnum, AuditStatusEnum, AuditTypeEnum
 
 
 async def test_get():
@@ -16,73 +15,58 @@ async def test_get():
     logging.info(audit.id)
 
 
-async def handle_eval(job_id: str, audit_id: str, code: str, audit_type: AuditTypeEnum):
-    logging.info(f"FCT CALLED {job_id}")
-    now = datetime.now()
-    audit = await Audit.get(id=audit_id)
-    logging.info("AUDIT FETCHED")
-    pipeline = LlmPipeline(input=code, audit_type=audit_type)
+async def publish_event(job_id: str, step: str):
     await redis_client.publish(
         "evals",
         json.dumps(
             {
                 "type": "eval",
-                "step": "generating_candidates",
+                "step": step,
                 "job_id": job_id,
-                "result": None,
             }
         ),
     )
 
+
+async def handle_eval(job_id: str, audit_id: str, code: str, audit_type: AuditTypeEnum):
+    now = datetime.now()
+    audit = await Audit.get(id=audit_id).select_related("app")
+
+    # only use pubsub for first-party applications.
+    # otherwise, we can rely on webhooks or polling.
+    should_publish = audit.app and audit.app.type == AppTypeEnum.FIRST_PARTY
+
+    pipeline = LlmPipeline(input=code, audit_type=audit_type)
+
+    if should_publish:
+        await publish_event(job_id=job_id, step="generating_candidates")
+
     audit.model = pipeline.model
+    audit.results_status = AuditStatusEnum.PROCESSING
+    await audit.save()
     try:
         await pipeline.generate_candidates()
-        await redis_client.publish(
-            "evals",
-            json.dumps(
-                {
-                    "type": "eval",
-                    "step": "generating_judgements",
-                    "job_id": job_id,
-                    "result": None,
-                }
-            ),
-        )
-        logging.info("THEN HERE")
+        if should_publish:
+            await publish_event(job_id=job_id, step="generating_judgements")
+
         await pipeline.generate_judgement()
-        await redis_client.publish(
-            "evals",
-            json.dumps(
-                {
-                    "type": "eval",
-                    "step": "generating_report",
-                    "job_id": job_id,
-                    "result": None,
-                }
-            ),
-        )
-        logging.info("AND HERE")
+        if should_publish:
+            await publish_event(job_id=job_id, step="generating_report")
+
         response = await pipeline.generate_report()
 
         audit.results_raw_output = response
         audit.results_status = AuditStatusEnum.SUCCESS
         audit.processing_time_seconds = (datetime.now() - now).seconds
 
-        await redis_client.publish(
-            "evals",
-            json.dumps(
-                {"type": "eval", "step": "done", "job_id": job_id, "result": response}
-            ),
-        )
+        if should_publish:
+            await publish_event(job_id=job_id, step="done")
+
     except Exception as err:
         logging.error(err)
         audit.results_status = AuditStatusEnum.FAILED
-        await redis_client.publish(
-            "evals",
-            json.dumps(
-                {"type": "eval", "step": "error", "job_id": job_id, "result": None}
-            ),
-        )
+        if should_publish:
+            await publish_event(job_id=job_id, step="error")
 
     await audit.save()
 

@@ -32,6 +32,7 @@ class AuditTypeEnum(str, Enum):
 
 class AuditStatusEnum(str, Enum):
     WAITING = "waiting"
+    PROCESSING = "processing"
     SUCCESS = "success"
     FAILED = "failed"
 
@@ -66,3 +67,7 @@ class ClientTypeEnum(str, Enum):
 class AppTypeEnum(str, Enum):
     FIRST_PARTY = "first_party"
     THIRD_PARTY = "third_party"
+
+
+class WebhookEventEnum(str, Enum):
+    EVAL_UPDATED = "eval.updated"
