@@ -1,4 +1,3 @@
-import datetime
 import json
 import logging
 import re
@@ -9,9 +8,9 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
-from app.api.blockchain.scan import ContractService
 from app.api.middleware.auth import UserDict
-from app.db.models import Audit
+from app.cache import redis_settings
+from app.db.models import Audit, Contract
 from app.lib.v1.markdown.gas import markdown as gas_markdown
 from app.lib.v1.markdown.security import markdown as security_markdown
 
@@ -20,39 +19,21 @@ from app.lib.v1.markdown.security import markdown as security_markdown
 from app.pydantic.request import EvalBody
 from app.pydantic.response import EvalResponse, EvalResponseData
 from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ResponseStructureEnum
-from app.worker import WorkerSettings
 
 # from app.worker import process_eval
-
-input_template = {
-    "min_tokens": 512,
-    "max_tokens": 1500,
-    "system_prompt": (
-        "You are a helpful assistant, specializing in smart contract auditing"
-    ),
-    "prompt_template": """
-    <|begin_of_text|><|start_header_id|>system<|end_header_id|>
-
-    {system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>
-
-    {prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-    """,
-}
 
 
 class EvalService:
 
-    def __init__(self, audit_type: AuditTypeEnum):
-        self.audit_type = audit_type
-        self.markdown = (
-            gas_markdown if audit_type == AuditTypeEnum.GAS else security_markdown
-        )
+    def __init__(self):
+        pass
 
-    @classmethod
-    def sanitize_data(self, raw_data: str, as_markdown: bool):
+    def sanitize_data(self, audit: Audit, as_markdown: bool):
         # sanitizing backslashes/escapes for code blocks
         pattern = r"<<(.*?)>>"
-        raw_data = re.sub(pattern, r"`\1`", raw_data)
+
+        # this parsing should not be required, but we'll include it for safety
+        raw_data = re.sub(pattern, r"`\1`", audit.raw_output)
 
         # corrects for occassional leading non-json text...
         pattern = r"\{.*\}"
@@ -63,30 +44,26 @@ class EvalService:
         parsed = json.loads(raw_data)
 
         if as_markdown:
-            parsed = self.parse_branded_markdown(
-                audit_type=self.audit_type, findings=parsed
-            )
+            parsed = self.parse_branded_markdown(audit=audit, findings=parsed)
 
         return parsed
 
-    def parse_branded_markdown(self, findings: dict):
-        result = self.markdown
+    def parse_branded_markdown(self, audit: Audit, findings: dict):
+        # See if i can cast it back to the expected Pydantic struct.
+        markdown = (
+            gas_markdown if audit.audit_type == AuditTypeEnum.GAS else security_markdown
+        )
+        result = markdown
 
         formatter = {
-            "project_name": findings["audit_summary"].get("project_name", "Unknown"),
-            "address": "Unknown",
-            "date": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "address": audit.contract.address,
+            "date": audit.created_at.strftime("%Y-%m-%d"),
             "introduction": findings["introduction"],
             "scope": findings["scope"],
             "conclusion": findings["conclusion"],
         }
 
         pattern = r"<<(.*?)>>"
-
-        rec_string = ""
-        for rec in findings["recommendations"]:
-            rec_string += f"- {rec}\n"
-        formatter["recommendations"] = rec_string.strip()
 
         for k, v in findings["findings"].items():
             key = f"findings_{k}"
@@ -95,66 +72,55 @@ class EvalService:
                 finding_str = "None Identified"
             else:
                 for finding in v:
-                    finding = re.sub(pattern, r"`\1`", finding)
-                    finding_str += f"- {finding}\n"
+                    name = re.sub(pattern, r"`\1`", finding["name"])
+                    explanation = re.sub(pattern, r"`\1`", finding["explanation"])
+                    recommendation = re.sub(pattern, r"`\1`", finding["recommendation"])
+                    reference = re.sub(pattern, r"`\1`", finding["reference"])
+
+                    finding_str += f"**{name}**\n"
+                    finding_str += f"- **Explanation**: {explanation}\n"
+                    finding_str += f"- **Recommendation**: {recommendation}\n"
+                    finding_str += f"- **Code Reference**: {reference}\n\n"
 
             formatter[key] = finding_str.strip()
 
         return result.format(**formatter)
 
     async def process_evaluation(self, user: UserDict, data: EvalBody) -> JSONResponse:
-        contract_code = data.contract_code
-        contract_address = data.contract_address
-        contract_network = data.contract_network
-        audit_type = data.audit_type
-        # webhook_url = data.webhook_url
-
-        contract_service = ContractService()
-
-        contract = await contract_service.fetch_from_source(
-            code=contract_code,
-            address=contract_address,
-            network=contract_network,
-        )
-
-        if not contract:
+        if not await Contract.exists(id=data.contract_id):
             raise HTTPException(
                 status_code=404,
                 detail=(
-                    "no verified source code found for the contract "
-                    "information provided"
+                    "you must provide a valid internal contract_id, "
+                    "call /blockchain/scan first"
                 ),
             )
 
+        audit_type = data.audit_type
+        # webhook_url = data.webhook_url
         id = uuid4()
 
         await Audit.create(
             id=id,
-            contract_id=contract["id"],
+            contract_id=data.contract_id,
             app_id=user["app"].id,
             user_id=user["user"].id,
             audit_type=audit_type,
-            prompt_version=1,
         )
 
-        worker = await create_pool(WorkerSettings.redis_settings)
+        redis_pool = await create_pool(redis_settings)
 
-        job = await worker.enqueue_job(
+        # the job_id is guaranteed to be unique, make it align with the audit.id
+        # for simplicitly.
+        await redis_pool.enqueue_job(
             "process_eval",
-            audit_id=str(id),
-            code=contract_code,
-            audit_type=self.audit_type,
+            contract_id=data.contract_id,
+            audit_type=data.audit_type,
+            _job_id=str(id),
         )
 
-        logging.info(job)
+        return {"id": str(id), "status": AuditStatusEnum.WAITING}
 
-        # process_eval.send(
-        #     audit_id=str(id), code=contract_code, audit_type=self.audit_type
-        # )
-
-        return {"job_id": job.job_id, "id": str(id), "status": AuditStatusEnum.WAITING}
-
-    @classmethod
     async def get_eval(
         self, id: str, response_type: ResponseStructureEnum
     ) -> EvalResponse:
@@ -178,17 +144,16 @@ class EvalService:
             "contract_address": audit.contract.address,
             "contract_code": audit.contract.raw_code,
             "contract_network": audit.contract.network,
-            "status": audit.results_status,
+            "status": audit.status,
         }
 
-        if audit.results_status == AuditStatusEnum.SUCCESS:
+        if audit.status == AuditStatusEnum.SUCCESS:
             if response_type == ResponseStructureEnum.RAW:
-                data["result"] = audit.results_raw_output
+                data["result"] = audit.raw_output
             else:
                 try:
                     data["result"] = self.sanitize_data(
-                        raw_data=audit.results_raw_output,
-                        audit_type=audit.audit_type,
+                        audit=audit,
                         as_markdown=response_type == ResponseStructureEnum.MARKDOWN,
                     )
                 except json.JSONDecodeError as err:

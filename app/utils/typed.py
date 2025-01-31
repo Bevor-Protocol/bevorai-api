@@ -12,7 +12,7 @@ class FilterParams(BaseModel):
     page_size: int
     search: Optional[str] = Field(default=None)
     audit_type: List[AuditTypeEnum] = Field(default_factory=list)
-    results_status: Optional[AuditStatusEnum] = Field(default=None)
+    status: Optional[AuditStatusEnum] = Field(default=None)
     network: List[NetworkEnum] = Field(default_factory=list)
     contract_address: Optional[str] = Field(default=None)
 

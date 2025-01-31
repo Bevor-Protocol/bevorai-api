@@ -42,7 +42,7 @@ async def get_deployment_contracts(network: NetworkEnum):
             tasks.append(
                 asyncio.create_task(
                     contract_service.fetch_contract_source_code_from_explorer(
-                        client, network, address
+                        client, address=address, network=network
                     )
                 )
             )
@@ -55,32 +55,32 @@ async def get_deployment_contracts(network: NetworkEnum):
     n_unavailable = 0
     for i, address in enumerate(deployment_addresses):
         result = results[i]
-        if result:
-            n_available += 1
-            result: str
+        has_source_code = result["has_source_code"]
+        found = result["found"]
+        if found:
+            source_code = None
+            hashed = None
+            if has_source_code:
+                n_available += 1
+                source_code = result["source_code"]
+                hashed = hashlib.sha256(source_code.encode()).hexdigest()
+            else:
+                n_unavailable += 1
+
             to_create.append(
                 Contract(
                     method=ContractMethodEnum.CRON,
                     contract_address=address,
                     contract_network=network,
-                    contract_code=result,
-                    contract_hash=hashlib.sha256(result.encode()).hexdigest(),
-                )
-            )
-        else:
-            n_unavailable += 1
-            to_create.append(
-                Contract(
-                    method=ContractMethodEnum.CRON,
-                    contract_address=address,
-                    contract_network=network,
-                    is_available=False,
+                    contract_code=source_code,
+                    contract_hash=hashed,
+                    is_available=has_source_code,
                 )
             )
 
-    await Contract.bulk_create(*to_create)
+    await Contract.bulk_create(objects=to_create)
     logging.info(
         f"Added {len(to_create)} contracts from {network}"
-        f" --- {n_available} avaible source code"
-        f" --- {n_unavailable} not avaiable source code"
+        f" --- {n_available} available source code"
+        f" --- {n_unavailable} not available source code"
     )

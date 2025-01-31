@@ -45,22 +45,22 @@ from .eval import sanitize_data
 #     completed = parse_datetime(completed_at)
 #     processing_time = (completed - started).total_seconds()
 
-#     audit.results_status = audit_status
+#     audit.status = audit_status
 #     audit.processing_time_seconds = processing_time
 
 #     if audit_status == AuditStatusEnum.SUCCESS:
 #         response_completed = ""
 #         for r in data.output:
 #             response_completed += r
-#         audit.results_raw_output = response_completed
+#         audit.raw_output = response_completed
 
-#     audit.results_status = audit_status
+#     audit.status = audit_status
 #     await audit.save()
 
 #     if webhook_url:
 #         process_webhook.send(
 #             audit_id=str(audit.id),
-#             audit_status=audit.results_status,
+#             audit_status=audit.status,
 #             webhook_url=webhook_url,
 #         )
 
@@ -68,7 +68,7 @@ from .eval import sanitize_data
 #         # If sourced from a first party app.
 #         if audit.app.type == AppTypeEnum.FIRST_PARTY:
 #             result = sanitize_data(
-#                 raw_data=audit.results_raw_output,
+#                 raw_data=audit.raw_output,
 #                 audit_type=audit.audit_type,
 #                 as_markdown=True,
 #             )

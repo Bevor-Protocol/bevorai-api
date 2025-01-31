@@ -59,12 +59,11 @@ class Audit(BaseDBModel):
     app_id: Optional[str] = None
     user_id: Optional[str] = None
     contract_id: str
-    prompt_version: int
     model: str
     audit_type: AuditTypeEnum
     processing_time_seconds: Optional[int] = None
-    results_status: Optional[AuditStatusEnum] = Field(default=AuditStatusEnum.WAITING)
-    results_raw_output: Optional[str] = None
+    status: Optional[AuditStatusEnum] = Field(default=AuditStatusEnum.WAITING)
+    raw_output: Optional[str] = None
 
 
 class Contract(BaseDBModel):

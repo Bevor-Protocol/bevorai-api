@@ -34,7 +34,7 @@ class AiRouter:
         user: UserDict = Depends(require_auth),
     ):
         await rate_limit(request=request, user=user)
-        eval_service = EvalService(audit_type=data.audit_type)
+        eval_service = EvalService()
         response = await eval_service.process_evaluation(user=user, data=data)
 
         return JSONResponse(response, status_code=202)
@@ -51,7 +51,9 @@ class AiRouter:
                 status_code=400, detail="Invalid response_type parameter"
             )
 
-        response = await EvalService.get_eval(id, response_type=response_type)
+        eval_service = EvalService()
+
+        response = await eval_service.get_eval(id, response_type=response_type)
 
         return JSONResponse(response.model_dump()["result"]["result"], status_code=200)
 

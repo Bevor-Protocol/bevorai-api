@@ -11,6 +11,8 @@ from app.utils.enums import (
     ClientTypeEnum,
     ContractMethodEnum,
     CreditTierEnum,
+    FindingLevelEnum,
+    IntermediateResponseEnum,
     NetworkEnum,
     TransactionTypeEnum,
     WebhookEventEnum,
@@ -36,6 +38,7 @@ class User(AbstractModel):
 
     class Meta:
         table = "user"
+        indexes = ("address",)
 
     def __str__(self):
         return f"{str(self.id)} | {self.address}"
@@ -43,29 +46,36 @@ class User(AbstractModel):
 
 class App(AbstractModel):
     # Every app will have an owner, unless it's a first party app.
+    owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", on_delete=fields.SET_NULL, null=True, related_name="app"
+    )
     name = fields.CharField(max_length=255)
-    owner = fields.ForeignKeyField("models.User", null=True)
     type = fields.CharEnumField(enum_type=AppTypeEnum, default=AppTypeEnum.THIRD_PARTY)
 
     class Meta:
         table = "app"
+        indexes = ("type",)
 
     def __str__(self):
         return f"{str(self.id)} | {self.name} | {self.type}"
 
 
 class Auth(AbstractModel):
+    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+        "models.App", on_delete=fields.SET_NULL, null=True
+    )
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", on_delete=fields.SET_NULL, null=True
+    )
     client_type = fields.CharEnumField(
         enum_type=ClientTypeEnum, default=ClientTypeEnum.USER
     )
-    user = fields.ForeignKeyField("models.User", on_delete=fields.CASCADE, null=True)
-    app = fields.ForeignKeyField("models.App", on_delete=fields.CASCADE, null=True)
-
     hashed_key = fields.CharField(max_length=255)
     is_revoked = fields.BooleanField(default=False)
 
     class Meta:
         table = "auth"
+        indexes = ("hashed_key",)
 
     def __str__(self):
         return str(self.id)
@@ -89,8 +99,12 @@ class Credit(AbstractModel):
 
 
 class Transaction(AbstractModel):
-    app = fields.ForeignKeyField("models.App", on_delete=fields.CASCADE, null=True)
-    user = fields.ForeignKeyField("models.User", on_delete=fields.CASCADE, null=True)
+    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+        "models.App", on_delete=fields.SET_NULL, null=True, related_name="transactions"
+    )
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", on_delete=fields.SET_NULL, null=True, related_name="transactions"
+    )
     type = fields.CharEnumField(enum_type=TransactionTypeEnum)
     amount = fields.FloatField()
 
@@ -101,26 +115,6 @@ class Transaction(AbstractModel):
         return f"{str(self.id)} | {self.type} | {self.amount}"
 
 
-class Audit(AbstractModel):
-    app = fields.ForeignKeyField("models.App", null=True)
-    user = fields.ForeignKeyField("models.User", null=True)
-    contract = fields.ForeignKeyField("models.Contract")
-    prompt_version = fields.IntField()
-    model = fields.CharField(max_length=255, null=True, default=None)
-    audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
-    processing_time_seconds = fields.IntField(null=True, default=None)
-    results_status = fields.CharEnumField(
-        enum_type=AuditStatusEnum, null=True, default=AuditStatusEnum.WAITING
-    )
-    results_raw_output = fields.TextField(null=True, default=None)
-
-    class Meta:
-        table = "audit"
-
-    def __str__(self):
-        return f"{str(self.id)} | {self.job_id}"
-
-
 class Contract(AbstractModel):
     method = fields.CharEnumField(enum_type=ContractMethodEnum)
     is_available = fields.BooleanField(
@@ -129,7 +123,7 @@ class Contract(AbstractModel):
     n_retries = fields.IntField(
         default=0, description="current # of retries to get source code"
     )
-    next_attempt = fields.DatetimeField(
+    next_attempt_at = fields.DatetimeField(
         auto_now=True,
         description="if source code unavailable, next timestamp to allow scan",
     )
@@ -145,9 +139,80 @@ class Contract(AbstractModel):
         return f"{str(self.id)} | {self.job_id}"
 
 
+class Audit(AbstractModel):
+    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+        "models.App", on_delete=fields.SET_NULL, null=True, related_name="audits"
+    )
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", on_delete=fields.SET_NULL, null=True, related_name="audits"
+    )
+    contract: fields.ForeignKeyRelation[Contract] = fields.ForeignKeyField(
+        "models.Contract", on_delete=fields.CASCADE, related_name="audits"
+    )
+    model = fields.CharField(max_length=255, null=True, default=None)
+    audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
+    processing_time_seconds = fields.IntField(null=True, default=None)
+    status = fields.CharEnumField(
+        enum_type=AuditStatusEnum, null=True, default=AuditStatusEnum.WAITING
+    )
+    raw_output = fields.TextField(null=True, default=None)
+
+    class Meta:
+        table = "audit"
+        indexes = (
+            ("user_id",),
+            ("user_id", "audit_type", "contract_id"),
+            ("user_id", "audit_type"),
+            ("audit_type", "contract_id"),
+        )
+
+    def __str__(self):
+        return f"{str(self.id)} | {self.job_id}"
+
+
+class IntermediateResponse(AbstractModel):
+    audit: fields.ForeignKeyRelation[Audit] = fields.ForeignKeyField(
+        "models.Audit", on_delete=fields.CASCADE, related_name="intermediate_responses"
+    )
+    step = fields.CharEnumField(enum_type=IntermediateResponseEnum)
+    result = fields.TextField()
+
+    class Meta:
+        table = "intermediate_response"
+
+    def __str__(self):
+        return f"{str(self.id)} | {self.audit_id}"
+
+
+class Finding(AbstractModel):
+    audit: fields.ForeignKeyRelation[Audit] = fields.ForeignKeyField(
+        "models.Audit", on_delete=fields.CASCADE, related_name="findings"
+    )
+    audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
+    level = fields.CharEnumField(enum_type=FindingLevelEnum)
+    name = fields.TextField(null=True, default=None)
+    explanation = fields.TextField(null=True, default=None)
+    recommendation = fields.TextField(null=True, default=None)
+    reference = fields.TextField(null=True, default=None)
+    is_attested = fields.BooleanField(default=False)
+    is_verified = fields.BooleanField(default=False)
+    feedback = fields.TextField(null=True, default=None)
+    attested_at = fields.DatetimeField(null=True, default=None)
+
+    class Meta:
+        table = "finding"
+
+    def __str__(self):
+        return f"{str(self.id)} | {self.audit_id}"
+
+
 class Webhook(AbstractModel):
-    app = fields.ForeignKeyField("models.App", null=True)
-    user = fields.ForeignKeyField("models.User", null=True)
+    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+        "models.App", on_delete=fields.SET_NULL, null=True, related_name="webhooks"
+    )
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", on_delete=fields.SET_NULL, null=True, related_name="webhooks"
+    )
     url = fields.CharField(max_length=255)
     event = fields.CharEnumField(enum_type=WebhookEventEnum)
     is_enabled = fields.BooleanField(default=True)

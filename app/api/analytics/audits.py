@@ -1,20 +1,22 @@
 import base64
-import logging
 import math
-from collections import defaultdict
 
 import anyio
+from fastapi import HTTPException
+from tortoise.exceptions import DoesNotExist
+from tortoise.timezone import now
 
 from app.api.ai.eval import EvalService
 from app.api.depends.auth import UserDict
-from app.db.models import App, Audit, Auth, Contract, User
+from app.db.models import App, Audit, Contract, Finding, User
+from app.pydantic.request import FeedbackBody
 from app.pydantic.response import (
     AnalyticsAudit,
     AnalyticsContract,
     AnalyticsResponse,
     StatsResponse,
 )
-from app.utils.enums import AuditTypeEnum
+from app.utils.enums import AuditTypeEnum, FindingLevelEnum
 from app.utils.typed import FilterParams
 
 
@@ -34,7 +36,7 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
     filter = {}
 
     if query.search:
-        filter["results_raw_output__icontains"] = query.search
+        filter["raw_output__icontains"] = query.search
     if query.audit_type:
         filter["audit_type__in"] = query.audit_type
     if query.network:
@@ -49,18 +51,20 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
     else:
         filter["user_id"] = user["user"].id
 
+    # TODO: remove this on launch.
     await anyio.sleep(2)
 
-    total = await Audit.all().count()
+    audit_query = Audit.filter(**filter)
 
-    total_pages = math.ceil(total / query.page_size)
+    total = await audit_query.count()
 
-    if total <= offset:
+    total_pages = math.ceil(total / limit)
+
+    if total <= (offset * limit):
         return AnalyticsResponse(results=[], more=False, total_pages=total_pages)
 
     results = (
-        await Audit.filter(**filter)
-        .order_by("created_at")
+        await audit_query.order_by("-created_at")
         .offset(offset)
         .limit(limit + 1)
         .values(
@@ -69,7 +73,7 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
             "app_id",
             "user__address",
             "audit_type",
-            "results_status",
+            "status",
             "contract__id",
             "contract__method",
             "contract__address",
@@ -77,8 +81,10 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
         )
     )
 
+    results_trimmed = results[:-1] if len(results) > limit else results
+
     data = []
-    for i, result in enumerate(results[:-1]):
+    for i, result in enumerate(results_trimmed):
         contract = AnalyticsContract(
             id=result["contract__id"],
             method=result["contract__method"],
@@ -92,7 +98,7 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
             app_id=str(result["app_id"]),
             user_id=result["user__address"],
             audit_type=result["audit_type"],
-            results_status=result["results_status"],
+            status=result["status"],
             contract=contract,
         )
         data.append(response)
@@ -108,38 +114,28 @@ async def get_stats():
     n_contracts = await Contract.all().count()
     n_users = await User.all().count()
     n_apps = await App.all().count()
-    n_auths = await Auth.all().count()
 
-    gas_findings = defaultdict(int)
-    security_findings = defaultdict(int)
+    n_audits = await Audit.all().count()
+    findings = await Finding.all()
 
-    for audit in await Audit.all():
-        n_audits += 1
-        try:
-            parsed = EvalService.sanitize_data(
-                raw_data=audit.results_raw_output,
-                audit_type=audit.audit_type,
-                as_markdown=False,
-            )
-        except Exception as err:
-            logging.warn(f"could not parse {audit.id}")
-            logging.warn(err)
-            continue
-        for k, v in parsed["findings"].items():
-            if audit.audit_type == AuditTypeEnum.SECURITY:
-                security_findings[k] += len(v)
-            else:
-                gas_findings[k] += len(v)
+    gas_findings = {k.value: 0 for k in FindingLevelEnum}
+    sec_findings = {k.value: 0 for k in FindingLevelEnum}
+
+    for finding in findings:
+        match finding.audit_type:
+            case AuditTypeEnum.SECURITY:
+                sec_findings[finding.level] += 1
+            case AuditTypeEnum.GAS:
+                gas_findings[finding.level] += 1
 
     response = StatsResponse(
         n_apps=n_apps,
-        n_auths=n_auths,
         n_users=n_users,
         n_contracts=n_contracts,
         n_audits=n_audits,
         findings={
             AuditTypeEnum.GAS: gas_findings,
-            AuditTypeEnum.SECURITY: security_findings,
+            AuditTypeEnum.SECURITY: sec_findings,
         },
     )
 
@@ -147,13 +143,33 @@ async def get_stats():
 
 
 async def get_audit(id: str) -> str:
-    audit = await Audit.get(id=id).select_related("contract", "user")
-
-    result = EvalService.sanitize_data(
-        raw_data=audit.results_raw_output,
-        audit_type=audit.audit_type,
-        as_markdown=True,
+    audit = (
+        await Audit.get(id=id)
+        .select_related("contract", "user")
+        .prefetch_related("findings")
     )
+
+    result = None
+    if audit.raw_output:
+        eval_service = EvalService()
+        result = eval_service.sanitize_data(audit=audit, as_markdown=True)
+
+    findings = []
+    finding: Finding
+    for finding in audit.findings:
+        findings.append(
+            {
+                "id": str(finding.id),
+                "level": finding.level,
+                "name": finding.name,
+                "explanation": finding.explanation,
+                "recommendation": finding.recommendation,
+                "reference": finding.reference,
+                "is_attested": finding.is_attested,
+                "is_verified": finding.is_verified,
+                "feedback": finding.feedback,
+            }
+        )
 
     return {
         "contract": {
@@ -166,9 +182,30 @@ async def get_audit(id: str) -> str:
             "address": audit.user.address,
         },
         "audit": {
+            "status": audit.status,
             "model": audit.model,
-            "prompt_version": audit.prompt_version,
             "audit_type": audit.audit_type,
             "result": result,
         },
+        "findings": findings,
     }
+
+
+async def submit_feeback(data: FeedbackBody, user: UserDict) -> bool:
+
+    try:
+        finding = await Finding.get(id=data.id).select_related("audit__user")
+    except DoesNotExist:
+        raise HTTPException(status_code=401, detail="this finding does not exist")
+
+    if finding.audit.user.address != user["user"].address:
+        raise HTTPException(status_code=401, detail="user did not create this finding")
+
+    finding.is_attested = True
+    finding.is_verified = data.verified
+    finding.feedback = data.feedback
+    finding.attested_at = now()
+
+    await finding.save()
+
+    return True

@@ -71,3 +71,16 @@ class AppTypeEnum(str, Enum):
 
 class WebhookEventEnum(str, Enum):
     EVAL_UPDATED = "eval.updated"
+
+
+class IntermediateResponseEnum(str, Enum):
+    CANDIDATE = "candidate"
+    REVIEWER = "reviewer"
+    REPORTER = "reporter"
+
+
+class FindingLevelEnum(str, Enum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"

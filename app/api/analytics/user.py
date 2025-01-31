@@ -12,7 +12,7 @@ async def get_user_info(user: UserDict):
     app = await App.filter(owner_id=cur_user.id).first()
 
     audits = await get_audits(
-        user, FilterParams(page=0, page_size=10, user_id=cur_user.id)
+        user, FilterParams(page=0, page_size=10, user_id=cur_user.address)
     )
 
     n_contracts = len(set(map(lambda x: x.contract.id, audits.results)))

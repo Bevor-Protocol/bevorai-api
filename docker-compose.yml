@@ -70,7 +70,7 @@ services:
       - redis
       - postgres
     # command: doppler run -- rq worker high low --url redis://redis:6379
-    command: arq app.worker.WorkerSettings
+    command: arq app.worker.WorkerSettings --watch app/
     # command: rq worker high low --url redis://redis:6379
     env_file:
       - .env

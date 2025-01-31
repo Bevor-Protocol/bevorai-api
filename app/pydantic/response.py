@@ -80,7 +80,7 @@ class AnalyticsAudit(BaseModel):
     app_id: Optional[str]
     user_id: Optional[str]
     audit_type: AuditTypeEnum
-    results_status: AuditStatusEnum
+    status: AuditStatusEnum
     contract: AnalyticsContract
 
     @field_serializer("created_at")
@@ -102,7 +102,6 @@ class AnalyticsResponse(BaseModel):
 
 class StatsResponse(BaseModel):
     n_audits: int
-    n_auths: int
     n_contracts: int
     n_users: int
     n_apps: int

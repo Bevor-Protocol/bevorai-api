@@ -1,23 +1,17 @@
 import asyncio
-import datetime
 import hashlib
-import json
 import logging
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import HTTPException
 
-from app.cache import redis_client
 from app.db.models import Contract
 from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 from app.utils.errors import NoSourceCodeError
-from app.utils.mappers import (
-    network_explorer_apikey_mapper,
-    network_explorer_mapper,
-    networks_by_type,
-)
+from app.utils.mappers import (network_explorer_apikey_mapper,
+                               network_explorer_mapper, networks_by_type)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,32 +24,34 @@ class ContractService:
     ):
         self.allow_testnet = allow_testnet
 
-    async def __get_contract(
+    async def __get_contract_candidates(
         self,
         code: Optional[str],
         address: Optional[str],
         network: Optional[NetworkEnum],
-    ) -> Optional[Contract]:
-        contract = None
-        filter_obj = {}
+    ) -> List[Contract]:
+        filter_obj = {"is_available": True, "raw_code__isnull": False}
 
         if address:
             filter_obj["address"] = address
             if network:
                 filter_obj["network"] = network
-            contract = await Contract.filter(**filter_obj).first()
+            contracts = await Contract.filter(**filter_obj)
         else:
             hashed_content = hashlib.sha256(code.encode()).hexdigest()
-            contract = await Contract.filter(hash_code=hashed_content).first()
+            filter_obj["hash_code"] = hashed_content
+            if network:
+                filter_obj["network"] = network
+            contracts = await Contract.filter(hash_code=hashed_content)
 
-        return contract
+        return contracts or []
 
     async def __get_or_create_contract(
         self,
         code: Optional[str],
         address: Optional[str],
         network: Optional[NetworkEnum],
-    ):
+    ) -> List[Contract]:
         """
         A contract's source code can be queried in many ways
         1. The source code alone was used -> via upload
@@ -74,23 +70,22 @@ class ContractService:
             then update it.
         """
 
-        contract = await self.__get_contract(
+        contracts = await self.__get_contract_candidates(
             code=code, address=address, network=network
         )
 
         # More granular logic below to still scan, but not update instead of create.
-        if contract:
-            if contract.raw_code:
-                return contract
+        if contracts:
+            return contracts
 
-        if not contract:
-            if code:
-                contract = await Contract.create(
-                    method=ContractMethodEnum.UPLOAD,
-                    raw_code=code,
-                    hash_code=hashlib.sha256(code.encode()).hexdigest(),
-                )
-                return contract
+        if code:
+            contract = await Contract.create(
+                method=ContractMethodEnum.UPLOAD,
+                network=network,
+                raw_code=code,
+                hash_code=hashlib.sha256(code.encode()).hexdigest(),
+            )
+            return [contract]
 
         if network:
             networks_scan = [network]
@@ -115,42 +110,35 @@ class ContractService:
 
             results = await asyncio.gather(*tasks)
 
-        was_found = next(filter(lambda x: x["found"], results), None)
-        if was_found is None:
-            return
+        to_create: List[Contract] = []
+        for result in results:
+            if result["found"]:
+                obj = {
+                    "method": ContractMethodEnum.SCAN,
+                    "address": address,
+                    "is_available": result["has_source_code"],
+                    "network": result["network"],
+                }
+                if result["has_source_code"]:
+                    obj["raw_code"] = result["source_code"]
+                    obj["hash_code"] = hashlib.sha256(
+                        result["source_code"].encode()
+                    ).hexdigest()
+                to_create.append(obj)
 
-        with_source_code = next(filter(lambda x: x["has_source_code"], results), None)
+                # contract.n_retries = contract.n_retries + 1
+                # contract.next_attempt = datetime.datetime.now()
 
-        if with_source_code is not None:
-            contract_hash = hashlib.sha256(
-                with_source_code["source_code"].encode()
-            ).hexdigest()
-            if not contract:
-                contract = Contract(
-                    method=ContractMethodEnum.SCAN,
-                    address=address,
-                    network=with_source_code["network"],
-                    raw_code=with_source_code["source_code"],
-                    hash_code=contract_hash,
-                )
-            else:
-                contract.is_available = True
-                contract.raw_code = with_source_code["source_code"]
-                contract.hash_code = contract_hash
-                contract.network = with_source_code["network"]
-        else:
-            if not contract:
-                contract = Contract(
-                    method=ContractMethodEnum.SCAN,
-                    address=address,
-                    network=was_found["network"],
-                    is_available=False,
-                )
-            else:
-                contract.n_retries = contract.n_retries + 1
-                contract.next_attempt = datetime.datetime.now()  # come back to this.
-        await contract.save()
-        return contract
+        if to_create:
+            contracts = []
+            # bulk_create doesn't return.
+            for obj in to_create:
+                contract_created = await Contract.create(**obj)
+                if obj["is_available"]:
+                    contracts.append(contract_created)
+            # contracts = await Contract.bulk_create(objects=to_create)
+
+        return contracts
 
     async def fetch_from_source(
         self,
@@ -170,30 +158,30 @@ class ContractService:
         if not code and not address:
             raise ValueError("Either contract code or address must be provided")
 
-        if address:
-            KEY = f"scan|{address}"
-            res = await redis_client.get(KEY)
-            if res:
-                data = json.loads(res)
-                return data
-
-        contract = await self.__get_or_create_contract(
+        contracts = await self.__get_or_create_contract(
             code=code, address=address, network=network
         )
-        if contract:
-            data = {
+
+        if not contracts:
+            raise HTTPException(
+                status_code=500, detail="unable to get or create contract source code"
+            )
+
+        def prettify(contract: Contract):
+            return {
                 "id": str(contract.id),
                 "source_code": contract.raw_code,
                 "network": contract.network,
                 "is_available": contract.is_available,
             }
-            if address:
-                await redis_client.set(KEY, json.dumps(data))
-            return data
 
-        raise HTTPException(
-            status_code=500, detail="unable to get or create contract source code"
-        )
+        obj = {
+            "exact_match": len(contracts) == 1,
+            "exists": bool(len(contracts)),
+            "candidates": list(map(prettify, contracts)),
+        }
+
+        return obj
 
     async def fetch_contract_source_code_from_explorer(
         self, client: httpx.AsyncClient, address: str, network: NetworkEnum

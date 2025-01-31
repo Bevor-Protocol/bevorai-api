@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from app.api.analytics.audits import get_audit, get_audits, get_stats
+from app.api.analytics.audits import get_audit, get_audits, get_stats, submit_feeback
 from app.api.analytics.user import get_user_info
 from app.api.depends.auth import UserDict, protected_first_party_app, require_auth
+from app.pydantic.request import FeedbackBody
 from app.pydantic.response import AnalyticsResponse
 from app.utils.typed import FilterParams
 
@@ -17,6 +18,7 @@ class AnalyticsRouter:
         self.router.add_api_route("/audits", self.fetch_audits, methods=["GET"])
         self.router.add_api_route("/stats", self.fetch_stats, methods=["GET"])
         self.router.add_api_route("/audit/{id}", self.get_audit, methods=["GET"])
+        self.router.add_api_route("/feedback", self.submit_feedback, methods=["POST"])
         self.router.add_api_route("/user", self.get_user_info, methods=["GET"])
 
     def _parse_query_params(self, request: Request) -> FilterParams:
@@ -29,7 +31,7 @@ class AnalyticsRouter:
         page_size = int(request.query_params.get("page_size", 15))
         search = request.query_params.get("search")
         audit_type = request.query_params.get("audit_type")
-        results_status = request.query_params.get("status")
+        status = request.query_params.get("status")
         network = request.query_params.get("network")
         contract_address = request.query_params.get("contract_address")
 
@@ -42,7 +44,7 @@ class AnalyticsRouter:
             page_size=page_size,
             search=search,
             audit_type=audit_type,
-            results_status=results_status,
+            status=status,
             network=network,
             contract_address=contract_address,
         )
@@ -66,7 +68,7 @@ class AnalyticsRouter:
         self,
         request: Request,
     ) -> AnalyticsResponse:
-        protected_first_party_app(request=request)
+        await protected_first_party_app(request=request)
 
         response = await get_stats()
 
@@ -79,3 +81,9 @@ class AnalyticsRouter:
     async def get_user_info(self, user: UserDict = Depends(require_auth)):
         user_info = await get_user_info(user)
         return JSONResponse(user_info.model_dump(), status_code=200)
+
+    async def submit_feedback(
+        self, data: FeedbackBody, user: UserDict = Depends(require_auth)
+    ):
+        response = await submit_feeback(data=data, user=user)
+        return JSONResponse({"success": response}, status_code=200)

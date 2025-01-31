@@ -1,42 +1,52 @@
+from typing import List
+
+from pydantic import BaseModel, Field
+
 candidate_prompt = """
 You are a professional smart contract auditor.
-Given smart contract code, you are tasked with generating a smart contract audit report. This is strictly a Security audit, and your findings should
-only highlight security vulnerabilities.
+Given smart contract code, you are tasked with identifying security vulnerabilities.
+This does not have to be a formally structured report, but your answer should be complete.
 
-When producing your findings, be sure to include direct references to functions, variables, lines of code within the provided smart contract, and detailed descriptions of the vulnerability.
+When producing your findings, be sure to include direct references to code including the line, variable, and function name, along with detailed descriptions of the vulnerability.
 
-Importantly, each vulnerability you find must fall into 1 of these classifications. The options you are constrained to are as follows:
+Importantly, each vulnerability you find must fall into 1 of these classifications:
 - Critical: An issue that can lead to contract compromise or significant financial losses.
 - High: A severe bug that may result in major exploits or disruptions.
 - Medium: Moderate risk with potential functional or security impacts.
 - Low: Minor issues with limited risk or impact
-- Informational: Suggestion for code quality or optimization, with no immediate security risks
+
+Do not make up findings. There are severe implications of the results you produce. It is okay if there are no vulnerabilities for a certain category.
+Please adhere strictly to the guidelines provided and don't make mistakes.
 
 The code to be audited for the security audit is found below:
 """
 
 reviewer_prompt = """
-You are a smart contract audit reviewer.
-You are given a smart contract, and several professional reports, and are tasked with critiquing and prioritizing the vulnerabilities.
-If one of the provided reports includes vulnerability findings that you believe are not real, make sure to state this.
-"""
+You are a smart contract security audit reviewer.
+You are given a smart contract and several professional reports, and are tasked with critiquing and prioritizing the vulnerabilities that each auditor found.
+If a provided report includes vulnerability findings that you believe are not real, make sure to state this.
 
-report_prompt = """
-You are a smart contract audit report generator. Using the provided professional critique, generate a structured report with severity classifications, explanations, and recommendations.
+You are free to use your own discretion when determining the validity of these findings. You are a professional smart contract auditor, after all, but these findings should provide a strong basis of knowledge.
 
 Importantly, each vulnerability you find must fall into 1 of these classifications. The options you are constrained to are as follows:
 - Critical: An issue that can lead to contract compromise or significant financial losses.
 - High: A severe bug that may result in major exploits or disruptions.
 - Medium: Moderate risk with potential functional or security impacts.
 - Low: Minor issues with limited risk or impact
-- Informational: Suggestion for code quality or optimization, with no immediate security risks
 
-Bucket your findings by vulnerability severity
+You should pay careful attention to deduplicating findings, and correctly classifying findings that more than 1 auditor might have found, but classified differently.
+
+Do not make up findings. There are severe implications of the results you produce. It is okay if there are no vulnerabilities for a certain category.
+
+Be certain to retain the direct references to code, if the auditors included it.
 """
 
-from typing import List
+reporter_prompt = """
+You are a smart contract audit report generator.
+You are given the critique from an auditing professional, and are tasked with generating a structured report with severity classifications, explanations, and recommendations.
 
-from pydantic import BaseModel, Field
+You should carefully classify each vulnerability and strictly follow the expected output structure.
+"""
 
 
 class FindingType(BaseModel):
@@ -46,6 +56,9 @@ class FindingType(BaseModel):
     )
     recommendation: str = Field(
         description="Recommended action to take to resolve the vulnerability"
+    )
+    reference: str = Field(
+        description="A reference to the line of code and variable/function related to the vulnerability"
     )
 
 
@@ -75,45 +88,3 @@ class OutputStructure(BaseModel):
         description="a detailed object of vulnerability findings"
     )
     conclusion: str = Field(description="a brief summary of the audit report")
-
-
-prompt = """
-You are tasked with generating a smart contract audit report. This is strictly a Security audit, and your findings should
-only highlight security vulnerabilities.
-
-Please adhere strictly to the following guidelines and don't make mistakes:
-
-The output must match the provided JSON structure exactly, each field has descriptions. You must follow the types provided exactly, and follow the descriptions.
-
-The JSON structure that you must follow is here, do not return me anything except JSON:
-
-
-{
-  "audit_summary": {
-    "project_name": "string | null", // project name that you are able to infer, if possible
-  },
-  "introduction": "string", // a brief introduction of the smart contract's function
-  "scope": "string", // a brief overview of the scope of the smart contract audit
-  "findings": {
-    "critical": ["string"], // a list of issues that can lead to contract compromise or significant financial losses. Include references to the smart contract code when possible
-    "high": ["string"], // a list of severe bugs that may result in major exploits or disruptions. Include references to the smart contract code when possible
-    "medium": ["string"], // a list of moderate risks with potential functional or security impacts. Include references to the smart contract code when possible
-    "low": ["string"], // a list of minor issues with limited risk or impact. Include references to the smart contract code when possible
-    "informational": ["string"], // a list of suggestions for code quality or optimization, with no immediate security risks. Include references to the smart contract code when possible
-  },
-  "recommendations": ["string"], // a list of high level recommendations to provide the user
-  "conclusion": "string" // a summary of your findings
-}
-
-
-Be certain in how you classify each finding. A classification can have 0 to many findings, but do not hallucinate a category.
-
-It's also important that each component of the finding should be as specific as possible, with references to the provided code within the description.
-If you reference a function or variable directly, wrap it in place, such that it looks like this <<{code}>>. Do not tack on arbitrary code snippets at the end of your description.
-ie, instead of: 'The use of delegatecall in the _delegate function', give me: 'The use of <<delegatecall>> in the <<_delegate>> function'
-
-
-The code to be audited for the Security Audit is found below:
-
-<{prompt}>
-"""
