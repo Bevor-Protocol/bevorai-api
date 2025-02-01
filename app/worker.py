@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import TypedDict
 
-from arq import ArqRedis, Retry, cron
+from arq import ArqRedis, Retry
 from tortoise import Tortoise
 
 from app.cronjobs.contract_scan import get_deployment_contracts
@@ -23,11 +23,12 @@ class JobContext(TypedDict):
     redis: ArqRedis
 
 
-async def init_db(ctx: JobContext):
+async def on_startup(ctx: JobContext):
+    logging.info(f"STARTING {ctx}")
     await Tortoise.init(config=TORTOISE_ORM)
 
 
-async def close_db(ctx: JobContext):
+async def on_shutdown(ctx: JobContext):
     await Tortoise.close_connections()
 
 
@@ -68,12 +69,13 @@ async def process_eval(ctx: JobContext, contract_id: str, audit_type: AuditTypeE
 
 class WorkerSettings:
     functions = [process_eval]
-    cron_jobs = [
-        cron(scan_contracts, second=0, run_at_startup=True, max_tries=2),
-    ]
-    on_startup = init_db
-    on_shutdown = close_db
+    # cron_jobs = [
+    #     cron(scan_contracts, second=0, run_at_startup=True, max_tries=2),
+    # ]
+    on_startup = on_startup
+    on_shutdown = on_shutdown
     on_job_start = on_job_start
     on_job_end = on_job_end
     redis_settings = redis_settings
     allow_abort_jobs = True
+    health_check_interval = 10

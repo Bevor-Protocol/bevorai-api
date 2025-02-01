@@ -16,7 +16,7 @@ from app.pydantic.response import (
     AnalyticsResponse,
     StatsResponse,
 )
-from app.utils.enums import AuditTypeEnum, FindingLevelEnum
+from app.utils.enums import AppTypeEnum, AuditTypeEnum, FindingLevelEnum
 from app.utils.typed import FilterParams
 
 
@@ -47,7 +47,8 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
         filter["user__address__icontains"] = query.user_id
 
     if user["app"]:
-        filter["app_id"] = user["app"].id
+        if user["app"].type != AppTypeEnum.FIRST_PARTY:
+            filter["app_id"] = user["app"].id
     else:
         filter["user_id"] = user["user"].id
 

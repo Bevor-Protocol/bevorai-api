@@ -10,8 +10,11 @@ from fastapi import HTTPException
 from app.db.models import Contract
 from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 from app.utils.errors import NoSourceCodeError
-from app.utils.mappers import (network_explorer_apikey_mapper,
-                               network_explorer_mapper, networks_by_type)
+from app.utils.mappers import (
+    network_explorer_apikey_mapper,
+    network_explorer_mapper,
+    networks_by_type,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -83,7 +86,6 @@ class ContractService:
                 method=ContractMethodEnum.UPLOAD,
                 network=network,
                 raw_code=code,
-                hash_code=hashlib.sha256(code.encode()).hexdigest(),
             )
             return [contract]
 
@@ -103,14 +105,14 @@ class ContractService:
                 tasks.append(
                     asyncio.create_task(
                         self.fetch_contract_source_code_from_explorer(
-                            client, address, network
+                            client=client, address=address, network=network
                         )
                     )
                 )
 
-            results = await asyncio.gather(*tasks)
+            results: list[dict] = await asyncio.gather(*tasks)
 
-        to_create: List[Contract] = []
+        to_create: list[dict] = []
         for result in results:
             if result["found"]:
                 obj = {
@@ -121,9 +123,6 @@ class ContractService:
                 }
                 if result["has_source_code"]:
                     obj["raw_code"] = result["source_code"]
-                    obj["hash_code"] = hashlib.sha256(
-                        result["source_code"].encode()
-                    ).hexdigest()
                 to_create.append(obj)
 
                 # contract.n_retries = contract.n_retries + 1
@@ -199,31 +198,30 @@ class ContractService:
 
         logging.info(f"SCANNING {network} for address {address} at url {url}")
 
+        obj = {
+            "network": network,
+            "address": address,
+            "has_source_code": False,
+            "found": False,
+            "source_code": None,
+        }
+
         try:
             response = await client.get(f"{url}?{urlencode(params)}")
             response.raise_for_status()
             data = response.json()
 
-            result = data.get("result", [])
+            result = data.get("result")
             if result and isinstance(result, list) and len(result) > 0:
+                obj["found"] = True
                 source_code = result[0].get("SourceCode")
                 if source_code:
-                    return {
-                        "found": True,
-                        "has_source_code": True,
-                        "source_code": source_code,
-                        "network": network,
-                    }
+                    obj["has_source_code"] = True
+                    obj["source_code"] = source_code
             raise NoSourceCodeError()
         except NoSourceCodeError:
-            return {
-                "found": True,
-                "has_source_code": False,
-                "network": network,
-            }
+            obj["found"] = True
         except Exception:
-            return {
-                "found": False,
-                "has_source_code": False,
-                "network": network,
-            }
+            pass
+        finally:
+            return obj

@@ -86,6 +86,10 @@ class Auth(AbstractModel):
         hashed_key = hashlib.sha256(api_key.encode()).hexdigest()
         return api_key, hashed_key
 
+    @staticmethod
+    def hash_key(api_key: str):
+        return hashlib.sha256(api_key.encode()).hexdigest()
+
 
 class Credit(AbstractModel):
     tier = fields.CharEnumField(enum_type=CreditTierEnum)
@@ -137,6 +141,19 @@ class Contract(AbstractModel):
 
     def __str__(self):
         return f"{str(self.id)} | {self.job_id}"
+
+    @classmethod
+    async def create(self, *args, **kwargs):
+        raw_code = kwargs.get("raw_code")
+        if raw_code:
+            kwargs["hash_code"] = hashlib.sha256(raw_code.encode()).hexdigest()
+        return await super().create(*args, **kwargs)
+
+    async def save(self, *args, **kwargs):
+        raw_code = kwargs.get("raw_code")
+        if raw_code:
+            kwargs["hash_code"] = hashlib.sha256(raw_code.encode()).hexdigest()
+        await super().save(*args, **kwargs)
 
 
 class Audit(AbstractModel):

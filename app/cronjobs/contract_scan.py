@@ -7,6 +7,7 @@ import httpx
 from app.api.blockchain.scan import ContractService
 from app.api.web3.provider import get_provider
 from app.db.models import Contract
+from app.pydantic.tasks import ContractScan
 from app.utils.enums import ContractMethodEnum, NetworkEnum
 
 
@@ -46,41 +47,27 @@ async def get_deployment_contracts(network: NetworkEnum):
                     )
                 )
             )
-        results = await asyncio.gather(*tasks)
+        results: list[ContractScan] = await asyncio.gather(*tasks)
 
     logging.info(f"RESULTS {results}")
 
     to_create = []
-    n_available = 0
-    n_unavailable = 0
-    for i, address in enumerate(deployment_addresses):
-        result = results[i]
-        has_source_code = result["has_source_code"]
-        found = result["found"]
-        if found:
-            source_code = None
-            hashed = None
-            if has_source_code:
-                n_available += 1
-                source_code = result["source_code"]
-                hashed = hashlib.sha256(source_code.encode()).hexdigest()
-            else:
-                n_unavailable += 1
-
-            to_create.append(
-                Contract(
-                    method=ContractMethodEnum.CRON,
-                    contract_address=address,
-                    contract_network=network,
-                    contract_code=source_code,
-                    contract_hash=hashed,
-                    is_available=has_source_code,
+    for res in results:
+        if res.found:
+            if res.has_source_code:
+                # only write cron scans for successful finds.
+                hashed = hashlib.sha256(res.source_code.encode()).hexdigest()
+                to_create.append(
+                    Contract(
+                        method=ContractMethodEnum.CRON,
+                        address=res.address,
+                        network=res.network,
+                        raw_code=res.source_code,
+                        hash_code=hashed,
+                        is_available=res.has_source_code,
+                    )
                 )
-            )
 
-    await Contract.bulk_create(objects=to_create)
-    logging.info(
-        f"Added {len(to_create)} contracts from {network}"
-        f" --- {n_available} available source code"
-        f" --- {n_unavailable} not available source code"
-    )
+    if to_create:
+        await Contract.bulk_create(objects=to_create)
+    logging.info(f"Added {len(to_create)} contracts from {network}")
