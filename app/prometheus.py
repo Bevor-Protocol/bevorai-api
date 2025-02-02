@@ -24,7 +24,21 @@ class Logger:
         self.tasks_duration = Histogram(
             "tasks_duration_seconds",
             "Task execution time in seconds",
-            buckets=(0.01, 0.025, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 20.0, 30.0, INF),
+            buckets=(
+                0.01,
+                0.025,
+                0.05,
+                0.1,
+                0.5,
+                1.0,
+                5.0,
+                10.0,
+                20.0,
+                30.0,
+                45.0,
+                60.0,
+                INF,
+            ),
         )
 
         # API metrics

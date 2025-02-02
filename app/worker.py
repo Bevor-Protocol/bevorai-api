@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import re
-from datetime import datetime, tzinfo
-from typing import Literal, Optional, TypedDict
+from datetime import datetime
+from typing import Optional, TypedDict
 
 from arq import ArqRedis, Retry
 from arq.constants import default_queue_name, health_check_key_suffix

@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from tortoise.contrib.fastapi import register_tortoise
 
 import app.api.routers as routers
+from app.api.middleware.metrics import PrometheusMiddleware
 from app.db.config import TORTOISE_ORM
 
 # from app.api.middleware.auth import AuthenticationMiddleware
@@ -23,6 +24,8 @@ register_tortoise(
 # # order matters. Runs in reverse order.
 # app.add_middleware(RateLimitMiddleware)
 # app.add_middleware(AuthenticationMiddleware)
+
+app.add_middleware(PrometheusMiddleware)
 
 app.include_router(routers.base_router)
 app.include_router(routers.blockchain_router)
