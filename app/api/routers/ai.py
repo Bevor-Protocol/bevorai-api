@@ -4,8 +4,7 @@ from fastapi.responses import JSONResponse
 from app.api.ai.eval import EvalService
 
 # from app.api.ai.webhook import process_webhook_replicate
-from app.api.depends.auth import UserDict, require_auth
-from app.api.depends.rate_limit import rate_limit
+from app.api.depends.auth import require_auth
 from app.pydantic.request import EvalBody
 from app.pydantic.response import EvalResponse
 from app.utils.enums import ResponseStructureEnum
@@ -18,7 +17,12 @@ class AiRouter:
         self.register_routes()
 
     def register_routes(self):
-        self.router.add_api_route("/eval", self.process_ai_eval, methods=["POST"])
+        self.router.add_api_route(
+            "/eval",
+            self.process_ai_eval,
+            methods=["POST"],
+            dependencies=[Depends(require_auth)],
+        )
         self.router.add_api_route("/eval/{id}", self.get_eval_by_id, methods=["GET"])
         # self.router.add_api_route(
         #     "/eval/webhook",
@@ -31,11 +35,11 @@ class AiRouter:
         self,
         request: Request,
         data: EvalBody,
-        user: UserDict = Depends(require_auth),
     ):
-        await rate_limit(request=request, user=user)
         eval_service = EvalService()
-        response = await eval_service.process_evaluation(user=user, data=data)
+        response = await eval_service.process_evaluation(
+            user=request.scope["auth"], data=data
+        )
 
         return JSONResponse(response, status_code=202)
 

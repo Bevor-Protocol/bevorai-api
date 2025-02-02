@@ -1,6 +1,11 @@
-import prometheus_client
+from arq import create_pool
 from fastapi import APIRouter, Response
+from fastapi.responses import JSONResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from tortoise import Tortoise
+
+from app.cache import redis_settings
+from app.prometheus import logger
 
 
 class BaseRouter:
@@ -12,18 +17,26 @@ class BaseRouter:
         self.router.add_api_route("/", self.read_root, methods=["GET"])
         self.router.add_api_route("/health", self.health_check, methods=["GET"])
         self.router.add_api_route("/metrics", self.get_metrics, methods=["GET"])
+        self.router.add_api_route("/enqueue", self.enqueue, methods=["GET"])
 
     async def read_root(self):
-        return {"Hello": "World"}
+        with logger.active_requests.track_inprogress():
+            logger.http_requests.labels(method="GET", endpoint="/").inc()
+            return {"Hello": "World"}
 
     async def health_check(self):
-        try:
-            await Tortoise.get_connection("default").execute_query("SELECT 1;")
-            return {"status": "healthy"}
-        except Exception as e:
-            return {"status": "unhealthy", "error": str(e)}
+        with logger.active_requests.track_inprogress():
+            logger.http_requests.labels(method="GET", endpoint="/health").inc()
+            try:
+                await Tortoise.get_connection("default").execute_query("SELECT 1;")
+                return {"ok": True}
+            except Exception as e:
+                return {"ok": False, "error": str(e)}
+
+    async def enqueue(self):
+        redis_pool = await create_pool(redis_settings)
+        job = await redis_pool.enqueue_job("mock")
+        return JSONResponse({"ok": True, "job": job.job_id})
 
     async def get_metrics(self):
-        return Response(
-            content=prometheus_client.generate_latest(), media_type="text/plain"
-        )
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
