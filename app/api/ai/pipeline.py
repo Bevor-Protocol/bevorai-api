@@ -185,7 +185,7 @@ class LlmPipeline:
         try:
             response = await client.chat.completions.create(
                 model="gpt-4o-mini",
-                max_completion_tokens=1000,
+                max_completion_tokens=2000,
                 temperature=0.2,
                 messages=[
                     {
@@ -224,7 +224,7 @@ class LlmPipeline:
         try:
             response = await client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
-                max_completion_tokens=1000,
+                max_completion_tokens=2000,
                 temperature=0.1,
                 messages=[
                     {

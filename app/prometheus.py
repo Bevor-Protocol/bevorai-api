@@ -1,64 +1,64 @@
-from prometheus_client import Counter
+import logging
+
+from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client.utils import INF
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class Logger:
     def __init__(self):
-        # Total request counter
-        self.total_requests = Counter("total_requests", "Total number of API requests")
-
-        # Failed request counter
-        self.failed_requests = Counter(
-            "failed_requests", "Total number of failed API requests"
+        # Queue metrics
+        # Intuitively a lot of these can be Counters, but I'm a bit limited
+        # in terms of what Arq reports to me via its healthcheck
+        self.tasks_info = Gauge(
+            "tasks_total", "Total number of tasks by type", ["type"]
         )
 
-        # Per-route request counter
-        self.route_requests = Counter(
-            "route_requests", "Number of requests per route", ["method", "route"]
+        self.tasks_enqueue_duration = Histogram(
+            "tasks_enqueue_duration_seconds",
+            "Task enqueueing time until job start in seconds",
         )
 
-        # Per-route failed request counter
-        self.route_failures = Counter(
-            "route_failures", "Number of failed requests per route", ["method", "route"]
+        # I anticipate some long tasks here (hence why a queue is used). Don't use the default. # noqa
+        self.tasks_duration = Histogram(
+            "tasks_duration_seconds",
+            "Task execution time in seconds",
+            buckets=(
+                0.01,
+                0.025,
+                0.05,
+                0.1,
+                0.5,
+                1.0,
+                5.0,
+                10.0,
+                20.0,
+                30.0,
+                45.0,
+                60.0,
+                INF,
+            ),
         )
 
-        # Distinct users gauge
-        self.distinct_users = Counter(
-            "distinct_users", "Number of distinct users making requests"
+        # API metrics
+        self.api_requests = Counter(
+            "api_requests_total",
+            "Total number of API requests",
+            ["method", "endpoint", "status_code"],
         )
 
-        # Distinct apps gauge
-        self.distinct_apps = Counter(
-            "distinct_apps", "Number of distinct apps making requests"
+        # Default bucketing is fine here, it's generally catered towards api request times. # noqa
+        self.api_duration = Histogram(
+            "api_duration_seconds",
+            "API request duration in seconds",
+            ["method", "endpoint"],
         )
 
-        self.cron = Counter("cron_task", "Number of cron tasks ran")
-
-    def increment_total(self):
-        """Increment total request counter"""
-        self.total_requests.inc()
-
-    def increment_failed(self):
-        """Increment failed request counter"""
-        self.failed_requests.inc()
-
-    def increment_route(self, method: str, route: str):
-        """Increment counter for specific route"""
-        self.route_requests.labels(method=method, route=route).inc()
-
-    def increment_route_failure(self, method: str, route: str):
-        """Increment failure counter for specific route"""
-        self.route_failures.labels(method=method, route=route).inc()
-
-    def set_distinct_users(self, count: int):
-        """Set gauge for number of distinct users"""
-        self.distinct_users.set(count)
-
-    def set_distinct_apps(self, count: int):
-        """Set gauge for number of distinct apps"""
-        self.distinct_apps.set(count)
-
-    def increment_cron(self):
-        self.cron.inc()
+        self.api_active = Gauge(
+            "api_active_requests_total",
+            "Total active API requests",
+        )
 
 
 logger = Logger()

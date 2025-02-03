@@ -1,5 +1,5 @@
-import prometheus_client
 from fastapi import APIRouter, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from tortoise import Tortoise
 
 
@@ -19,11 +19,9 @@ class BaseRouter:
     async def health_check(self):
         try:
             await Tortoise.get_connection("default").execute_query("SELECT 1;")
-            return {"status": "healthy"}
+            return {"ok": True}
         except Exception as e:
-            return {"status": "unhealthy", "error": str(e)}
+            return {"ok": False, "error": str(e)}
 
     async def get_metrics(self):
-        return Response(
-            content=prometheus_client.generate_latest(), media_type="text/plain"
-        )
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)

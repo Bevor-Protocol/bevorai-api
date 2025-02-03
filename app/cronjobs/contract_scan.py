@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import logging
 
 import httpx
@@ -7,7 +6,6 @@ import httpx
 from app.api.blockchain.scan import ContractService
 from app.api.web3.provider import get_provider
 from app.db.models import Contract
-from app.pydantic.tasks import ContractScan
 from app.utils.enums import ContractMethodEnum, NetworkEnum
 
 
@@ -47,26 +45,22 @@ async def get_deployment_contracts(network: NetworkEnum):
                     )
                 )
             )
-        results: list[ContractScan] = await asyncio.gather(*tasks)
+        results: list[dict] = await asyncio.gather(*tasks)
 
     logging.info(f"RESULTS {results}")
 
     to_create = []
-    for res in results:
-        if res.found:
-            if res.has_source_code:
-                # only write cron scans for successful finds.
-                hashed = hashlib.sha256(res.source_code.encode()).hexdigest()
-                to_create.append(
-                    Contract(
-                        method=ContractMethodEnum.CRON,
-                        address=res.address,
-                        network=res.network,
-                        raw_code=res.source_code,
-                        hash_code=hashed,
-                        is_available=res.has_source_code,
-                    )
-                )
+    for result in results:
+        if result["found"]:
+            if result["has_source_code"]:
+                obj = {
+                    "method": ContractMethodEnum.SCAN,
+                    "address": address,
+                    "is_available": result["has_source_code"],
+                    "network": result["network"],
+                    "raw_code": result["source_code"],
+                }
+                to_create.append(obj)
 
     if to_create:
         await Contract.bulk_create(objects=to_create)
