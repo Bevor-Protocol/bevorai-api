@@ -10,7 +10,7 @@ from typing import List
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
 
-from app.cache import redis_client
+from app.config import redis_client
 
 secret = os.getenv("SHARED_SECRET")
 

@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Optional
 
-from app.cache import redis_client
+from app.config import redis_client
 from app.db.models import Audit
 from app.utils.enums import AppTypeEnum, AuditStatusEnum
 from app.utils.helpers import parse_datetime

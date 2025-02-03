@@ -1,12 +1,82 @@
 import asyncio
 import logging
+from datetime import datetime
 
 import httpx
 
+from app.api.ai.pipeline import LlmPipeline
 from app.api.blockchain.scan import ContractService
 from app.api.web3.provider import get_provider
-from app.db.models import Contract
-from app.utils.enums import ContractMethodEnum, NetworkEnum
+from app.db.models import Audit, Contract
+from app.pydantic.response import WebhookResponse, WebhookResponseData
+from app.utils.enums import (
+    AppTypeEnum,
+    AuditStatusEnum,
+    ContractMethodEnum,
+    NetworkEnum,
+)
+
+
+async def handle_eval(audit_id: str):
+    now = datetime.now()
+    audit = await Audit.get(id=audit_id).select_related("app", "contract")
+
+    # only use pubsub for first-party applications.
+    # otherwise, we can rely on webhooks or polling.
+    should_publish = audit.app and audit.app.type == AppTypeEnum.FIRST_PARTY
+
+    pipeline = LlmPipeline(
+        input=audit.contract.raw_code,
+        audit=audit,
+        should_publish=should_publish,
+        should_write_to_db=True,
+    )
+
+    audit.model = pipeline.model
+    audit.status = AuditStatusEnum.PROCESSING
+    await audit.save()
+
+    try:
+        await pipeline.generate_candidates()
+        await pipeline.generate_judgement()
+
+        response = await pipeline.generate_report()
+
+        audit.raw_output = response
+        audit.status = AuditStatusEnum.SUCCESS
+
+    except Exception as err:
+        logging.error(err)
+        audit.status = AuditStatusEnum.FAILED
+        audit.processing_time_seconds = (datetime.now() - now).seconds
+        await audit.save()
+        raise err
+
+    audit.processing_time_seconds = (datetime.now() - now).seconds
+    await audit.save()
+
+    return {"audit_id": audit_id, "audit_status": audit.status}
+
+
+async def handle_outgoing_webhook(
+    audit_id: str,
+    audit_status: AuditStatusEnum,
+    webhook_url: str,
+):
+    response = WebhookResponse(
+        success=True,
+    )
+
+    data = {
+        "id": audit_id,
+        "status": audit_status,
+    }
+
+    response.result = WebhookResponseData(**data)
+
+    async with httpx.AsyncClient() as client:
+        body = response.model_dump()
+        await client.post(webhook_url, json=body)
 
 
 async def get_deployment_contracts(network: NetworkEnum):

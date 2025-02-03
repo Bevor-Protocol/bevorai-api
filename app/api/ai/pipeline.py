@@ -7,7 +7,7 @@ from typing import List, Optional, Union
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
-from app.cache import redis_client
+from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse
 from app.lib.v1.prompts import formatters, prompts
 from app.utils.enums import FindingLevelEnum, IntermediateResponseEnum

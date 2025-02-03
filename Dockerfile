@@ -18,7 +18,7 @@ RUN pip install poetry==1.8.5
 # ENV DOPPLER_CONFIG ${DOPPLER_CONFIG}
 
 # Copy poetry files
-COPY pyproject.toml poetry.lock prometheus.yml ./
+COPY pyproject.toml poetry.lock ./
 
 # Configure poetry to not create virtual environment
 RUN poetry config virtualenvs.create false

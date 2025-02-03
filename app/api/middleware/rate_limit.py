@@ -4,7 +4,7 @@ from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from app.cache import redis_client
+from app.config import redis_client
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

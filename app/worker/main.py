@@ -9,15 +9,12 @@ from arq.constants import default_queue_name, health_check_key_suffix
 from prometheus_client import start_http_server
 from tortoise import Tortoise
 
-from app.cronjobs.contract_scan import get_deployment_contracts
-from app.db.config import TORTOISE_ORM
+from app.config import TORTOISE_ORM, redis_settings
 from app.prometheus import logger
+from app.utils.enums import NetworkEnum
 
 # from app.prometheus import logger
-from app.tasks.eval import handle_eval
-from app.utils.enums import AuditTypeEnum, NetworkEnum
-
-from .cache import redis_settings
+from .tasks import get_deployment_contracts, handle_eval
 
 
 class PrometheusMiddleware:
@@ -136,10 +133,9 @@ async def on_job_end(ctx: JobContext):
 #     )
 
 
-async def process_eval(ctx: JobContext, contract_id: str, audit_type: AuditTypeEnum):
-    response = await handle_eval(
-        audit_id=ctx["job_id"], contract_id=contract_id, audit_type=audit_type
-    )
+async def process_eval(ctx: JobContext):
+    # job_id was forcefully meant to match the audit_id
+    response = await handle_eval(audit_id=ctx["job_id"])
     return response
 
 

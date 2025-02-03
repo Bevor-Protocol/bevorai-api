@@ -12,10 +12,8 @@ package-mode = false
 python = "^3.11"
 python-dotenv = "^1.0.1"
 redis = "^5.2.1"
-apscheduler = "^3.11.0"
 web3 = "^7.6.1"
 openai = "^1.59.2"
-anthropic = "^0.42.0"
 prometheus-client = "^0.21.1"
 arq = "^0.26.3"
 

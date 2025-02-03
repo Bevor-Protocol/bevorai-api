@@ -2,7 +2,7 @@ import asyncio
 
 from tortoise import Tortoise
 
-from app.db.config import TORTOISE_ORM
+from app.config import TORTOISE_ORM
 from app.db.models import App, Auth
 from app.utils.enums import AppTypeEnum, ClientTypeEnum
 

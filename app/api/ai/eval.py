@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-from uuid import uuid4
 
 from arq import create_pool
 from fastapi import HTTPException
@@ -9,7 +8,7 @@ from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
 from app.api.middleware.auth import UserDict
-from app.cache import redis_settings
+from app.config import redis_settings
 from app.db.models import Audit, Contract
 from app.lib.v1.markdown.gas import markdown as gas_markdown
 from app.lib.v1.markdown.security import markdown as security_markdown
@@ -98,10 +97,8 @@ class EvalService:
 
         audit_type = data.audit_type
         # webhook_url = data.webhook_url
-        id = uuid4()
 
-        await Audit.create(
-            id=id,
+        audit = await Audit.create(
             contract_id=data.contract_id,
             app_id=user["app"].id,
             user_id=user["user"].id,
@@ -114,12 +111,10 @@ class EvalService:
         # for simplicitly.
         await redis_pool.enqueue_job(
             "process_eval",
-            contract_id=data.contract_id,
-            audit_type=data.audit_type,
-            _job_id=str(id),
+            _job_id=str(audit.id),
         )
 
-        return {"id": str(id), "status": AuditStatusEnum.WAITING}
+        return {"id": str(audit.id), "status": AuditStatusEnum.WAITING}
 
     async def get_eval(
         self, id: str, response_type: ResponseStructureEnum

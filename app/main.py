@@ -4,7 +4,7 @@ from tortoise.contrib.fastapi import register_tortoise
 
 import app.api.routers as routers
 from app.api.middleware.metrics import PrometheusMiddleware
-from app.db.config import TORTOISE_ORM
+from app.config import TORTOISE_ORM
 
 # from app.api.middleware.auth import AuthenticationMiddleware
 # from app.api.middleware.rate_limit import RateLimitMiddleware

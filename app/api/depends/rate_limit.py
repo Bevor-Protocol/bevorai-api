@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import HTTPException, Request
 
 from app.api.middleware.auth import UserDict
-from app.cache import redis_client
+from app.config import redis_client
 from app.utils.enums import AppTypeEnum
 
 MAX_LIMIT_PER_MINUTE = 30

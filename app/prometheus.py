@@ -1,9 +1,5 @@
-import logging
-
 from prometheus_client import Counter, Gauge, Histogram
 from prometheus_client.utils import INF
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 class Logger:
