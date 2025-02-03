@@ -5,7 +5,6 @@ from fastapi.responses import JSONResponse
 
 from app.api.blockchain.gas import fetch_gas
 from app.api.blockchain.scan import ContractService
-from app.prometheus import logger
 from app.pydantic.request import ContractUploadBody
 from app.utils.enums import NetworkEnum
 
@@ -31,7 +30,6 @@ class BlockchainRouter:
         self.router.add_api_route("/gas", self.get_gas, methods=["GET"])
 
     async def scan_contract(self, address: str):
-        logger.total_requests.inc(1)
         contract_service = ContractService()
         response = await contract_service.fetch_from_source(address=address)
 

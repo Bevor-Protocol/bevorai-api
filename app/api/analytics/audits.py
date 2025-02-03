@@ -1,7 +1,6 @@
 import base64
 import math
 
-import anyio
 from fastapi import HTTPException
 from tortoise.exceptions import DoesNotExist
 from tortoise.timezone import now
@@ -16,7 +15,12 @@ from app.pydantic.response import (
     AnalyticsResponse,
     StatsResponse,
 )
-from app.utils.enums import AppTypeEnum, AuditTypeEnum, FindingLevelEnum
+from app.utils.enums import (
+    AppTypeEnum,
+    AuditStatusEnum,
+    AuditTypeEnum,
+    FindingLevelEnum,
+)
 from app.utils.typed import FilterParams
 
 
@@ -33,7 +37,7 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
     limit = query.page_size
     offset = query.page * limit
 
-    filter = {}
+    filter = {"status": AuditStatusEnum.SUCCESS}
 
     if query.search:
         filter["raw_output__icontains"] = query.search
@@ -51,9 +55,6 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
             filter["app_id"] = user["app"].id
     else:
         filter["user_id"] = user["user"].id
-
-    # TODO: remove this on launch.
-    await anyio.sleep(2)
 
     audit_query = Audit.filter(**filter)
 
@@ -110,7 +111,6 @@ async def get_audits(user: UserDict, query: FilterParams) -> AnalyticsResponse:
 
 
 async def get_stats():
-    await anyio.sleep(3)
     n_audits = 0
     n_contracts = await Contract.all().count()
     n_users = await User.all().count()
