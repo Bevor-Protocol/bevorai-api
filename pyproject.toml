@@ -16,18 +16,13 @@ web3 = "^7.6.1"
 openai = "^1.59.2"
 prometheus-client = "^0.21.1"
 arq = "^0.26.3"
+hypercorn = "^0.17.3"
 
 [tool.poetry.dependencies.fastapi]
 extras = [
     "standard",
 ]
 version = "^0.115.6"
-
-[tool.poetry.dependencies.uvicorn]
-extras = [
-    "standard",
-]
-version = "^0.34.0"
 
 [tool.poetry.dependencies.tortoise-orm]
 extras = [
