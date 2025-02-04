@@ -52,7 +52,7 @@ rq-dashboard = "^0.8.2.2"
 watchfiles = "^1.0.4"
 
 [tool.aerich]
-tortoise_orm = "app.db.config.TORTOISE_ORM"
+tortoise_orm = "app.config.TORTOISE_ORM"
 location = "app/db/migrations"
 src_folder = "./."
 
