@@ -12,7 +12,6 @@ async def init():
     await Tortoise.init(
         config=TORTOISE_ORM,
     )
-    await Tortoise.generate_schemas()
 
 
 async def seed():
