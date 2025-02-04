@@ -3,9 +3,11 @@ global:
 
 scrape_configs:
   - job_name: 'api'
+    metrics_path: '/metrics'
     static_configs:
-      - targets: ["${API_URL}"]
+      - targets: ['api:8000']
 
   - job_name: 'worker'
+    metrics_path: '/metrics'
     static_configs:
-      - targets: ["${WORKER_URL}"]
+      - targets: ['worker:9192']
