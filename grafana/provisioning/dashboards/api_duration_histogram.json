@@ -133,7 +133,7 @@
             "sort": "none"
           }
         },
-        "pluginVersion": "11.5.0",
+        "pluginVersion": "11.5.1",
         "targets": [
           {
             "disableTextWrap": false,
@@ -141,7 +141,7 @@
             "expr": "websockets_active_total{instance=\"api:8000\"}",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
-            "legendFormat": "__auto",
+            "legendFormat": "active ws connections",
             "range": true,
             "refId": "A",
             "useBackend": false
@@ -232,7 +232,7 @@
             "sort": "none"
           }
         },
-        "pluginVersion": "11.5.0",
+        "pluginVersion": "11.5.1",
         "targets": [
           {
             "datasource": {
@@ -329,7 +329,7 @@
             "sort": "none"
           }
         },
-        "pluginVersion": "11.5.0",
+        "pluginVersion": "11.5.1",
         "targets": [
           {
             "datasource": {
@@ -409,8 +409,8 @@
         "gridPos": {
           "h": 8,
           "w": 12,
-          "x": 0,
-          "y": 16
+          "x": 12,
+          "y": 8
         },
         "id": 3,
         "options": {
@@ -426,7 +426,7 @@
             "sort": "none"
           }
         },
-        "pluginVersion": "11.5.0",
+        "pluginVersion": "11.5.1",
         "targets": [
           {
             "datasource": {
@@ -453,6 +453,6 @@
     "timezone": "browser",
     "title": "API Metrics Dashboard",
     "uid": "cLV5GDCkz",
-    "version": 15,
+    "version": 2,
     "weekStart": ""
   }
