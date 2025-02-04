@@ -56,5 +56,7 @@ class Logger:
             "Total active API requests",
         )
 
+        self.websockets = Gauge("websockets_active_total", "Total active websockets")
+
 
 logger = Logger()

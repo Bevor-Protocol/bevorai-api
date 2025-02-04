@@ -11,6 +11,7 @@ from typing import List
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
 
 from app.config import redis_client
+from app.prometheus import logger
 
 secret = os.getenv("SHARED_SECRET")
 
@@ -106,6 +107,7 @@ class WebsocketRouter:
         asyncio.create_task(self.heartbeat(websocket))
         if len(self.active_connections) == 1:
             self.pubsub_task = asyncio.create_task(self.listen_to_pubsub())
+        logger.websockets.set(len(self.active_connections))
 
     def assign_job(self, job_id: str, websocket: WebSocket):
         self.pending_jobs[job_id] = websocket
@@ -122,6 +124,7 @@ class WebsocketRouter:
             self.stop_pubsub_task()
         if websocket.client_state.name != "DISCONNECTED":
             await websocket.close()
+        logger.websockets.set(len(self.active_connections))
 
     async def send_personal_message(self, data: str, websocket: WebSocket):
         await websocket.send_json(data)

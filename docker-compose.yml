@@ -115,8 +115,6 @@ services:
       - ./pyproject.toml:/app/pyproject.toml
       - ./app:/app/app
     restart: always
-    ports:
-      - "9192:9192"
 
 volumes:
   redis_data:

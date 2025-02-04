@@ -139,8 +139,13 @@ async def process_eval(ctx: JobContext):
     return response
 
 
+async def mock(ctx: JobContext):
+    await asyncio.sleep(3)
+    return 2
+
+
 class WorkerSettings:
-    functions = [process_eval]
+    functions = [process_eval, mock]
     on_startup = on_startup
     on_shutdown = on_shutdown
     on_job_start = on_job_start

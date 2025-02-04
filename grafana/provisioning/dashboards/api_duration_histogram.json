@@ -40,7 +40,7 @@
               "barAlignment": 0,
               "barWidthFactor": 0.6,
               "drawStyle": "line",
-              "fillOpacity": 10,
+              "fillOpacity": 0,
               "gradientMode": "none",
               "hideFrom": {
                 "legend": false,
@@ -64,9 +64,7 @@
                 "mode": "off"
               }
             },
-            "decimals": 0,
             "mappings": [],
-            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
@@ -81,7 +79,39 @@
               ]
             }
           },
-          "overrides": []
+          "overrides": [
+            {
+              "__systemRef": "hideSeriesFrom",
+              "matcher": {
+                "id": "byNames",
+                "options": {
+                  "mode": "exclude",
+                  "names": [
+                    "{__name__=\"websockets_active_total\", instance=\"api:8000\", job=\"api\"}"
+                  ],
+                  "prefix": "All except:",
+                  "readOnly": true
+                }
+              },
+              "properties": [
+                {
+                  "id": "custom.hideFrom",
+                  "value": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": true
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "{__name__=\"websockets_active_total\", instance=\"api:8000\", job=\"api\"}"
+              },
+              "properties": []
+            }
+          ]
         },
         "gridPos": {
           "h": 8,
@@ -89,7 +119,7 @@
           "x": 0,
           "y": 0
         },
-        "id": 2,
+        "id": 4,
         "options": {
           "legend": {
             "calcs": [],
@@ -106,16 +136,18 @@
         "pluginVersion": "11.5.0",
         "targets": [
           {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "PBFA97CFB590B2093"
-            },
-            "expr": "sum(api_active_requests_total)",
-            "legendFormat": "Active Requests",
-            "refId": "A"
+            "disableTextWrap": false,
+            "editorMode": "builder",
+            "expr": "websockets_active_total{instance=\"api:8000\"}",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
           }
         ],
-        "title": "Active API Requests",
+        "title": "Active WS connections",
         "type": "timeseries"
       },
       {
@@ -283,6 +315,103 @@
           "x": 0,
           "y": 8
         },
+        "id": 2,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.5.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "PBFA97CFB590B2093"
+            },
+            "expr": "sum(api_active_requests_total)",
+            "legendFormat": "Active Requests",
+            "refId": "A"
+          }
+        ],
+        "title": "Active API Requests",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PBFA97CFB590B2093"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "decimals": 0,
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
         "id": 3,
         "options": {
           "legend": {
@@ -324,6 +453,6 @@
     "timezone": "browser",
     "title": "API Metrics Dashboard",
     "uid": "cLV5GDCkz",
-    "version": 14,
+    "version": 15,
     "weekStart": ""
   }
