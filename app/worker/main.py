@@ -28,8 +28,9 @@ class PrometheusMiddleware:
 
     async def start(self):
         try:
-            start_http_server(9192)
+            start_http_server(9192, addr="::")
         except Exception:
+            logging.error("issue starting http server for prometheus")
             pass
         await self.__start_metrics_task()
 
