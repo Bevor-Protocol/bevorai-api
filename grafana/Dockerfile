@@ -1,9 +1,8 @@
 FROM grafana/grafana:latest
 
-# Set Grafana environment variables
-ENV GF_SECURITY_ADMIN_USER=certaik \
-    GF_SECURITY_ADMIN_PASSWORD=testing \
-    GF_USERS_ALLOW_SIGN_UP=false
+ARG GF_SECURITY_ADMIN_USER
+ARG GF_SECURITY_ADMIN_PASSWORD
+ARG GF_USERS_ALLOW_SIGN_UP
 
 # Copy provisioning files from local directory
 COPY provisioning /etc/grafana/provisioning/

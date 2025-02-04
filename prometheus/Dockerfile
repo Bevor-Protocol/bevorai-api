@@ -1,8 +1,7 @@
 FROM prom/prometheus:latest
 
-# Set environment variables from Railway
-ENV API_URL=${API_URL} \
-    WORKER_URL=${WORKER_URL}
+ARG API_URL
+ARG WORKER_URL
 
 # Copy prometheus configuration file
 COPY prometheus.yml /etc/prometheus/prometheus.yml
