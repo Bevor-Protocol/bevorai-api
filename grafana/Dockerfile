@@ -8,7 +8,7 @@ ARG GF_USERS_ALLOW_SIGN_UP
 COPY provisioning /etc/grafana/provisioning/
 
 # Create volume mount point for Grafana data
-VOLUME ["/var/lib/grafana"]
+# VOLUME ["/var/lib/grafana"]
 
 # Expose Grafana port
 EXPOSE 9000
