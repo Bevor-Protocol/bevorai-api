@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
+ARG PORT=8000
+
 WORKDIR /app
 
 # Install poetry
@@ -30,4 +32,4 @@ RUN poetry install --no-dev
 COPY app ./app
 
 # Expose port
-EXPOSE 8000
+EXPOSE ${PORT}
