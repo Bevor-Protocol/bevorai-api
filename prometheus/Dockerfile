@@ -6,6 +6,9 @@ ARG WORKER_URL
 # Copy prometheus configuration file
 COPY prometheus.yml /etc/prometheus/prometheus.yml
 
+# Create and set volume for persistent data
+VOLUME /prometheus
+
 # Expose Prometheus port
 EXPOSE 9090
 
