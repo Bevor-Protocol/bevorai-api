@@ -22,9 +22,14 @@
     "links": [],
     "panels": [
       {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+        "id": 4,
+        "type": "timeseries",
+        "title": "Active WS connections",
+        "gridPos": {
+            "x": 0,
+            "y": 0,
+            "h": 8,
+            "w": 12
         },
         "fieldConfig": {
           "defaults": {
@@ -40,7 +45,7 @@
               "barAlignment": 0,
               "barWidthFactor": 0.6,
               "drawStyle": "line",
-              "fillOpacity": 0,
+              "fillOpacity": 10,
               "gradientMode": "none",
               "hideFrom": {
                 "legend": false,
@@ -64,7 +69,9 @@
                 "mode": "off"
               }
             },
+            "decimals": 0,
             "mappings": [],
+            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
@@ -79,47 +86,24 @@
               ]
             }
           },
-          "overrides": [
-            {
-              "__systemRef": "hideSeriesFrom",
-              "matcher": {
-                "id": "byNames",
-                "options": {
-                  "mode": "exclude",
-                  "names": [
-                    "{__name__=\"websockets_active_total\", instance=\"api:8000\", job=\"api\"}"
-                  ],
-                  "prefix": "All except:",
-                  "readOnly": true
-                }
-              },
-              "properties": [
-                {
-                  "id": "custom.hideFrom",
-                  "value": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": true
-                  }
-                }
-              ]
+          "overrides": []
+        },
+        "pluginVersion": "11.5.1",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "PBFA97CFB590B2093"
             },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "{__name__=\"websockets_active_total\", instance=\"api:8000\", job=\"api\"}"
-              },
-              "properties": []
-            }
-          ]
+            "expr": "sum(websockets_active_total)",
+            "legendFormat": "Active WS Connections",
+            "refId": "A"
+          }
+        ],
+        "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
         },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 0
-        },
-        "id": 4,
         "options": {
           "legend": {
             "calcs": [],
@@ -132,23 +116,7 @@
             "mode": "single",
             "sort": "none"
           }
-        },
-        "pluginVersion": "11.5.1",
-        "targets": [
-          {
-            "disableTextWrap": false,
-            "editorMode": "builder",
-            "expr": "websockets_active_total{instance=\"api:8000\"}",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "active ws connections",
-            "range": true,
-            "refId": "A",
-            "useBackend": false
-          }
-        ],
-        "title": "Active WS connections",
-        "type": "timeseries"
+        }
       },
       {
         "datasource": {
