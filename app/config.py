@@ -5,7 +5,10 @@ from dotenv import load_dotenv
 from redis.asyncio import Redis
 
 redis_settings = RedisSettings(
-    host=os.getenv("REDISHOST"), port=os.getenv("REDISPORT", 6379)
+    host=os.getenv("REDISHOST"),
+    port=os.getenv("REDISPORT", 6379),
+    username=os.getenv("REDISUSER"),
+    password=os.getenv("REDISPASSWORD"),
 )
 
 redis_client = Redis(host=redis_settings.host, port=redis_settings.port)
