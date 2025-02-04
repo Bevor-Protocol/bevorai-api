@@ -15,4 +15,5 @@ EXPOSE 9090
 USER root
 ENTRYPOINT [ "/bin/prometheus"]
 CMD        [ "--config.file=/etc/prometheus/prometheus.yml", \
-             "--storage.tsdb.path=/prometheus"]
+             "--storage.tsdb.path=/prometheus", \
+             "--log.level=debug"]
