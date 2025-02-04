@@ -23,7 +23,7 @@ class ContractService:
 
     def __init__(
         self,
-        allow_testnet: bool = False,
+        allow_testnet: bool = True,
     ):
         self.allow_testnet = allow_testnet
 
@@ -188,13 +188,42 @@ class ContractService:
         platform_route = network_explorer_mapper[network]
         api_key = network_explorer_apikey_mapper[network]
 
-        url = f"https://{platform_route}/api"
-        params = {
-            "module": "contract",
-            "action": "getsourcecode",
-            "address": address,
-            "apikey": api_key,
-        }
+        if network in [
+            NetworkEnum.AVAX,
+            NetworkEnum.AVAX_FUJI,
+            NetworkEnum.MODE,
+            NetworkEnum.MODE_TESTNET,
+        ]:
+            # Map networks to their chain IDs
+            chain_id_map = {
+                NetworkEnum.AVAX: "43114",
+                NetworkEnum.AVAX_FUJI: "43113",
+                NetworkEnum.MODE: "34443",
+                NetworkEnum.MODE_TESTNET: "919",
+            }
+            # Determine if testnet or mainnet
+            network_type = (
+                "testnet"
+                if network in [NetworkEnum.AVAX_FUJI, NetworkEnum.MODE_TESTNET]
+                else "mainnet"
+            )
+            chain_id = chain_id_map[network]
+
+            url = f"https://api.routescan.io/v2/network/{network_type}/evm/{chain_id}/etherscan/api"
+            params = {
+                "module": "contract",
+                "action": "getsourcecode",
+                "address": address,
+                "apikey": api_key,
+            }
+        else:
+            url = f"https://{platform_route}/api"
+            params = {
+                "module": "contract",
+                "action": "getsourcecode",
+                "address": address,
+                "apikey": api_key,
+            }
 
         logging.info(f"SCANNING {network} for address {address} at url {url}")
 
