@@ -6,8 +6,7 @@ ARG WORKER_URL
 # Copy prometheus configuration file
 COPY prometheus.yml /etc/prometheus/prometheus.yml
 
-# Create and set volume for persistent data
-VOLUME /prometheus
+# Railway doesn't support volumes through dockerfiles.
 
 # Expose Prometheus port
 EXPOSE 9090
