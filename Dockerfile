@@ -33,3 +33,5 @@ COPY app ./app
 
 # Expose port
 EXPOSE ${PORT}
+# Echo port for debugging
+RUN echo "Port is set to: ${PORT}"
