@@ -2,6 +2,7 @@
 **
 
 !/app/
+!/scripts/
 !poetry.lock
 !pyproject.toml
 !prometheus.yml
