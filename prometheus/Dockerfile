@@ -12,4 +12,7 @@ COPY prometheus.yml /etc/prometheus/prometheus.yml
 EXPOSE 9090
 
 # Set the command to run Prometheus with the config file
-CMD ["--config.file=/etc/prometheus/prometheus.yml"]
+USER root
+ENTRYPOINT [ "/bin/prometheus" ]
+CMD        [ "--config.file=/etc/prometheus/prometheus.yml", \
+             "--storage.tsdb.path=/prometheus"]
