@@ -11,7 +11,12 @@ redis_settings = RedisSettings(
     password=os.getenv("REDISPASSWORD"),
 )
 
-redis_client = Redis(host=redis_settings.host, port=redis_settings.port)
+redis_client = Redis(
+    host=redis_settings.host,
+    port=redis_settings.port,
+    username=redis_settings.username,
+    password=redis_settings.password,
+)
 
 load_dotenv()
 
