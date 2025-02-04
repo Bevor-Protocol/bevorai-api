@@ -30,7 +30,6 @@ RUN poetry install --no-dev
 
 # Copy application code
 COPY app ./app
-COPY scripts ./
 
 # Expose port
 EXPOSE ${PORT}
