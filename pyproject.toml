@@ -2,18 +2,57 @@
 name = "certaik-api"
 version = "0.1.0"
 description = ""
-authors = ["Peter Simone <plssimone@gmail.com>"]
+authors = [
+    "Peter Simone <plssimone@gmail.com>",
+]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.9.0"
-fastapi = {extras = ["standard"], version = "^0.115.6"}
-uvicorn = {extras = ["standard"], version = "^0.34.0"}
-replicate = "^1.0.4"
+python = "^3.11"
 python-dotenv = "^1.0.1"
+redis = "^5.2.1"
+web3 = "^7.6.1"
+openai = "^1.59.2"
+prometheus-client = "^0.21.1"
+arq = "^0.26.3"
+hypercorn = "^0.17.3"
 
+[tool.poetry.dependencies.fastapi]
+extras = [
+    "standard",
+]
+version = "^0.115.6"
+
+[tool.poetry.dependencies.tortoise-orm]
+extras = [
+    "asyncpg",
+]
+version = "^0.23.0"
+
+[tool.poetry.dependencies.aerich]
+extras = [
+    "toml",
+]
+version = "^0.8.1"
+
+[tool.poetry.dependencies.tweepy]
+extras = [
+    "async",
+]
+version = "^4.14.0"
+
+[tool.poetry.group.dev.dependencies]
+rq-dashboard = "^0.8.2.2"
+watchfiles = "^1.0.4"
+
+[tool.aerich]
+tortoise_orm = "app.config.TORTOISE_ORM"
+location = "app/db/migrations"
+src_folder = "./."
 
 [build-system]
-requires = ["poetry-core"]
+requires = [
+    "poetry-core",
+]
 build-backend = "poetry.core.masonry.api"
-

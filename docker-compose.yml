@@ -1,19 +1,122 @@
-version: "3.8"
-
 services:
   api:
-    build: .
+    container_name: api
+    build:
+      context: .
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - REPLICATE_API_KEY=${REPLICATE_API_KEY}
-      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
-      - BSCSCAN_API_KEY=${BSCSCAN_API_KEY}
-      - POLYGONSCAN_API_KEY=${POLYGONSCAN_API_KEY}
-      - BASESCAN_API_KEY=${BASESCAN_API_KEY}
-      - GAME_API_KEY=${GAME_API_KEY}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    #   - DOPPLER_TOKEN=${DOPPLER_TOKEN}
+    #   - DOPPLER_PROJECT=${DOPPLER_PROJECT}
+    #   - DOPPLER_ENVIRONMENT=${DOPPLER_ENVIRONMENT}
+      - PGHOST=postgres:5432
+      - PGSCHEME=postgres # tortoise doesn't work on postgresql locally
     volumes:
+      - ./poetry.lock:/app/poetry.lock
+      - ./pyproject.toml:/app/pyproject.toml
       - ./app:/app/app
-    command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # command: doppler run -- poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: poetry run hypercorn app.main:app --bind 0.0.0.0:8000 --reload
+    depends_on:
+      - redis
+      - postgres
+    restart: always
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=certaik        # Create a user named 'certaik'
+      - POSTGRES_PASSWORD=testing    # Set password for 'certaik'
+      - POSTGRES_DB=certaik          # Create a database named 'certaik'
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    restart: always
+    environment:
+      - API_URL=api:8000
+      - WORKER_URL=worker:9192
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    restart: always
+    ports:
+      - "9000:9000"
+    depends_on:
+      - prometheus
+      - postgres
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=certaik
+      - GF_SECURITY_ADMIN_PASSWORD=testing
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_LOG_LEVEL=debug
+      - GF_SERVER_HTTP_PORT=9000
+      - PROMETHEUS_URL=http://prometheus:9090
+      - POSTGRES_URL=postgres:5432
+      - POSTGRES_USER=certaik
+      - POSTGRES_PASSWORD=testing
+      - POSTGRES_DB=certaik
+
+  redis:
+    container_name: redis
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    expose:
+      - 6379
+    command: redis-server --bind 0.0.0.0
+
+  worker:
+    container_name: worker
+    build:
+      context: .
+    depends_on:
+      - redis
+      - postgres
+    # command: doppler run -- rq worker high low --url redis://redis:6379
+    command: arq app.worker.main.WorkerSettings --watch app/worker/
+    # command: rq worker high low --url redis://redis:6379
+    env_file:
+      - .env
+    environment:
+    #   - DOPPLER_TOKEN=${DOPPLER_TOKEN}
+    #   - DOPPLER_PROJECT=${DOPPLER_PROJECT}
+    #   - DOPPLER_ENVIRONMENT=${DOPPLER_ENVIRONMENT}
+      - PGHOST=postgres:5432
+      - PGSCHEME=postgres
+    links:
+      - redis
+    volumes:
+      - ./poetry.lock:/app/poetry.lock
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./app:/app/app
+    restart: always
+
+volumes:
+  redis_data:
+  postgres_data:
+  grafana_data:

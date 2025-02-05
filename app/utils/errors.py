@@ -1,0 +1,2 @@
+class NoSourceCodeError(Exception):
+    pass

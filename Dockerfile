@@ -1,9 +1,11 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
+
+ARG PORT=8000
 
 WORKDIR /app
 
 # Install poetry
-RUN pip install poetry
+RUN pip install poetry==1.8.5
 
 # Copy poetry files
 COPY pyproject.toml poetry.lock ./
@@ -16,9 +18,12 @@ RUN poetry install --no-dev
 
 # Copy application code
 COPY app ./app
+COPY scripts ./scripts
+
+# Make pre-deploy script executable
+RUN chmod +x scripts/pre-deploy.sh
 
 # Expose port
-EXPOSE 8000
-
-# Run the application
-CMD ["poetry", "run" ,"uvicorn", "app.main:app" ,"--host", "0.0.0.0" ,"--port", "8000"]
+EXPOSE ${PORT}
+# Echo port for debugging
+RUN echo "Port is set to: ${PORT}"

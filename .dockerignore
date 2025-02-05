@@ -1,10 +1,11 @@
 # flyctl launch added from .gitignore
-**/.venv
-**/.env
-**/.env*
-!**/.env.example
+**
 
-**/**__pycache__**
+!/app/
+!/scripts/
+!poetry.lock
+!pyproject.toml
+!prometheus.yml
 
 # flyctl launch added from .venv/.gitignore
 # created by virtualenv automatically
