@@ -20,7 +20,6 @@ class BaseRouter:
         self.router.add_api_route("/test", self.test, methods=["GET"])
 
     async def read_root(self):
-        logging.info("CALLEd")
         return {"Hello": "World"}
 
     async def health_check(self):
