@@ -17,109 +17,14 @@
     },
     "editable": true,
     "fiscalYearStartMonth": 0,
-    "graphTooltip": 1,
-    "id": 1,
+    "graphTooltip": 0,
+    "id": 3,
     "links": [],
     "panels": [
       {
         "datasource": {
-          "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "fixedColor": "green",
-              "mode": "fixed"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": [
-            {
-              "__systemRef": "hideSeriesFrom",
-              "matcher": {
-                "id": "byNames",
-                "options": {
-                  "mode": "exclude",
-                  "names": [
-                    "{__name__=\"tasks_duration_seconds_bucket\", instance=\"worker:9192\", job=\"worker\", le=\"+Inf\"}"
-                  ],
-                  "prefix": "All except:",
-                  "readOnly": true
-                }
-              },
-              "properties": []
-            }
-          ]
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 0
-        },
-        "id": 5,
-        "options": {
-          "displayMode": "gradient",
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": false
-          },
-          "maxVizHeight": 300,
-          "minVizHeight": 16,
-          "minVizWidth": 8,
-          "namePlacement": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showUnfilled": true,
-          "sizing": "auto",
-          "valueMode": "color"
-        },
-        "pluginVersion": "11.5.1",
-        "targets": [
-          {
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "exemplar": false,
-            "expr": "tasks_duration_seconds_bucket{instance=\"worker:9192\"}",
-            "format": "heatmap",
-            "fullMetaSearch": false,
-            "includeNullMetadata": false,
-            "instant": false,
-            "legendFormat": "{{le}}",
-            "range": true,
-            "refId": "A",
-            "useBackend": false
-          }
-        ],
-        "title": "Tasks Duration (s)",
-        "type": "bargauge"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "type": "grafana-postgresql-datasource",
+          "uid": "PCC52D03280B7034C"
         },
         "fieldConfig": {
           "defaults": {
@@ -135,7 +40,7 @@
               "barAlignment": 0,
               "barWidthFactor": 0.6,
               "drawStyle": "line",
-              "fillOpacity": 10,
+              "fillOpacity": 0,
               "gradientMode": "none",
               "hideFrom": {
                 "legend": false,
@@ -159,9 +64,7 @@
                 "mode": "off"
               }
             },
-            "decimals": 0,
             "mappings": [],
-            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
@@ -184,7 +87,7 @@
           "x": 0,
           "y": 0
         },
-        "id": 4,
+        "id": 6,
         "options": {
           "legend": {
             "calcs": [],
@@ -198,25 +101,43 @@
             "sort": "none"
           }
         },
-        "pluginVersion": "11.5.1",
+        "pluginVersion": "11.5.0",
         "targets": [
           {
             "datasource": {
-              "type": "prometheus",
-              "uid": "PBFA97CFB590B2093"
+              "type": "grafana-postgresql-datasource",
+              "uid": "PCC52D03280B7034C"
             },
-            "expr": "sum(websockets_active_total)",
-            "legendFormat": "Active WS Connections",
-            "refId": "A"
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT $__time(created_at), \n       sum(count(*)) OVER (ORDER BY created_at) as \"all\",\n       sum(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) OVER (ORDER BY created_at) as \"failed\"\nFROM (\n    SELECT id, status, created_at\n    FROM audit ORDER BY created_at\n) AS subq\nGROUP BY created_at, status;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "created_at",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [],
+              "limit": 50
+            },
+            "table": "audit"
           }
         ],
-        "title": "Active WS connections",
+        "title": "Number of Audits",
         "type": "timeseries"
       },
       {
         "datasource": {
-          "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "type": "grafana-postgresql-datasource",
+          "uid": "PCC52D03280B7034C"
         },
         "fieldConfig": {
           "defaults": {
@@ -232,7 +153,7 @@
               "barAlignment": 0,
               "barWidthFactor": 0.6,
               "drawStyle": "line",
-              "fillOpacity": 10,
+              "fillOpacity": 0,
               "gradientMode": "none",
               "hideFrom": {
                 "legend": false,
@@ -256,9 +177,7 @@
                 "mode": "off"
               }
             },
-            "decimals": 0,
             "mappings": [],
-            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
@@ -281,7 +200,7 @@
           "x": 12,
           "y": 0
         },
-        "id": 1,
+        "id": 7,
         "options": {
           "legend": {
             "calcs": [],
@@ -295,67 +214,54 @@
             "sort": "none"
           }
         },
-        "pluginVersion": "11.5.1",
+        "pluginVersion": "11.5.0",
         "targets": [
           {
             "datasource": {
-              "type": "prometheus",
-              "uid": "PBFA97CFB590B2093"
+              "type": "grafana-postgresql-datasource",
+              "uid": "PCC52D03280B7034C"
             },
-            "expr": "sum(increase(api_requests_total[5m])) by (method, endpoint, status_code)",
-            "legendFormat": "{{method}} {{endpoint}} ({{status_code}})",
-            "refId": "A"
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT $__time(created_at), sum(count(*)) OVER (ORDER BY created_at) as \"all\"\nFROM (\n    SELECT id, created_at\n    FROM \"user\" ORDER BY created_at\n) AS subq\nGROUP BY created_at;",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "created_at",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [],
+              "limit": 50
+            },
+            "table": "audit"
           }
         ],
-        "title": "API Requests Count",
+        "title": "Number of Users",
         "type": "timeseries"
       },
       {
         "datasource": {
-          "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "type": "grafana-postgresql-datasource",
+          "uid": "PCC52D03280B7034C"
         },
         "fieldConfig": {
           "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
             "custom": {
-              "axisBorderShow": false,
-              "axisCenteredZero": false,
-              "axisColorMode": "text",
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "barWidthFactor": 0.6,
-              "drawStyle": "line",
-              "fillOpacity": 10,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
               },
-              "insertNulls": false,
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
+              "inspect": false
             },
-            "decimals": 0,
             "mappings": [],
-            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
@@ -380,79 +286,71 @@
         },
         "id": 2,
         "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
           },
-          "tooltip": {
-            "hideZeros": false,
-            "mode": "single",
-            "sort": "none"
-          }
+          "showHeader": true
         },
-        "pluginVersion": "11.5.1",
+        "pluginVersion": "11.5.0",
         "targets": [
           {
             "datasource": {
-              "type": "prometheus",
-              "uid": "PBFA97CFB590B2093"
+              "type": "grafana-postgresql-datasource",
+              "uid": "PCC52D03280B7034C"
             },
-            "expr": "sum(api_active_requests_total)",
-            "legendFormat": "Active Requests",
-            "refId": "A"
+            "editorMode": "builder",
+            "format": "table",
+            "rawSql": "SELECT * FROM app LIMIT 50 ",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "*",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            },
+            "table": "app"
           }
         ],
-        "title": "Active API Requests",
-        "type": "timeseries"
+        "title": "Registered Apps",
+        "type": "table"
       },
       {
         "datasource": {
-          "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "type": "grafana-postgresql-datasource",
+          "uid": "PCC52D03280B7034C"
         },
         "fieldConfig": {
           "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
             "custom": {
-              "axisBorderShow": false,
-              "axisCenteredZero": false,
-              "axisColorMode": "text",
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "barWidthFactor": 0.6,
-              "drawStyle": "line",
-              "fillOpacity": 10,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
               },
-              "insertNulls": false,
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
+              "inspect": false
             },
-            "decimals": 0,
             "mappings": [],
-            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
@@ -475,47 +373,347 @@
           "x": 12,
           "y": 8
         },
-        "id": 3,
+        "id": 1,
         "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
           },
-          "tooltip": {
-            "hideZeros": false,
-            "mode": "single",
-            "sort": "none"
-          }
+          "showHeader": true
         },
-        "pluginVersion": "11.5.1",
+        "pluginVersion": "11.5.0",
         "targets": [
           {
             "datasource": {
-              "type": "prometheus",
-              "uid": "PBFA97CFB590B2093"
+              "type": "grafana-postgresql-datasource",
+              "uid": "PCC52D03280B7034C"
             },
-            "expr": "tasks_total",
-            "legendFormat": "{{type}}",
-            "refId": "A"
+            "editorMode": "builder",
+            "format": "table",
+            "rawSql": "SELECT * FROM \"user\" LIMIT 50 ",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "*",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            },
+            "table": "\"user\""
           }
         ],
-        "title": "Total Tasks by Type",
-        "type": "timeseries"
+        "title": "Users",
+        "type": "table"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "PCC52D03280B7034C"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
+        "id": 3,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true
+        },
+        "pluginVersion": "11.5.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "PCC52D03280B7034C"
+            },
+            "editorMode": "builder",
+            "format": "table",
+            "rawSql": "SELECT * FROM audit LIMIT 50 ",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "*",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            },
+            "table": "audit"
+          }
+        ],
+        "title": "Audits",
+        "type": "table"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "PCC52D03280B7034C"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        },
+        "id": 4,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true
+        },
+        "pluginVersion": "11.5.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "PCC52D03280B7034C"
+            },
+            "editorMode": "builder",
+            "format": "table",
+            "rawSql": "SELECT * FROM contract LIMIT 50 ",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "*",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            },
+            "table": "contract"
+          }
+        ],
+        "title": "Contracts",
+        "type": "table"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "PCC52D03280B7034C"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        },
+        "id": 5,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true,
+          "sortBy": [
+            {
+              "desc": true,
+              "displayName": "created_at"
+            }
+          ]
+        },
+        "pluginVersion": "11.5.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "PCC52D03280B7034C"
+            },
+            "editorMode": "builder",
+            "format": "table",
+            "rawSql": "SELECT * FROM finding LIMIT 50 ",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "*",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            },
+            "table": "finding"
+          }
+        ],
+        "title": "Findings",
+        "type": "table"
       }
     ],
     "preload": false,
-    "refresh": "5s",
+    "refresh": "",
     "schemaVersion": 40,
     "tags": [],
     "templating": {
       "list": []
     },
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
     "timepicker": {},
     "timezone": "browser",
-    "title": "API Metrics Dashboard",
-    "uid": "cLV5GDCkz",
-    "version": 4,
+    "title": "DB",
+    "uid": "eebwogsl1lb0gc",
+    "version": 13,
     "weekStart": ""
   }
