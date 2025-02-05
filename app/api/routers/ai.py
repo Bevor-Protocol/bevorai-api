@@ -71,7 +71,7 @@ class AiRouter:
         eval_service = EvalService()
 
         # Get base evaluation first
-        base_response = await eval_service.process_evaluation(user=user, data=data)
+        # base_response = await eval_service.process_evaluation(user=user, data=data)
 
         # Calculate agent security score components
         mindshare_score = 75.0  # TODO: Calculate from twitter_handle engagement
@@ -91,7 +91,7 @@ class AiRouter:
 
         # Add security score to response
         response = {
-            **base_response,
+            # **base_response,
             "agent_security_score": round(security_score, 2),
             "score_components": {
                 "mindshare": mindshare_score,
