@@ -14,10 +14,16 @@ class NetworkEnum(str, Enum):
     BSC = "bsc"
     POLYGON = "polygon"
     BASE = "base"
+    AVAX = "avax"
+    MODE = "mode"
+    ARB = "arb"
     ETH_SEPOLIA = "eth_sepolia"
     BSC_TEST = "bsc_test"
     POLYGON_AMOY = "polygon_amoy"
     BASE_SEPOLIA = "base_sepolia"
+    AVAX_FUJI = "avax_fuji"
+    MODE_TESTNET = "mode_testnet"
+    ARB_SEPOLIA = "arb_sepolia"
 
 
 class NetworkTypeEnum(str, Enum):
