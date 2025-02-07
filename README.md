@@ -1,6 +1,8 @@
-# Certaik API
+# BevorAI API
 
 To be used for interfacing with certaik application, and main function is for managing the GAME api integration with Virtuals.
+
+<img width="1255" alt="Screenshot 2025-02-04 at 12 36 38 AM" src="https://github.com/user-attachments/assets/daff389e-00b2-490d-b420-ec9cf0ccc5af" />
 
 ## Getting started
 
