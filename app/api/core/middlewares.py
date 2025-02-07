@@ -17,13 +17,13 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         method = request.method
         endpoint = request.url.path
-        logging.info(f"REQUEST RECEIVED {endpoint}, {method}")
 
         group_use = None
         for grouping in endpoint_groupings:
             if endpoint.startswith(grouping):
                 group_use = grouping
                 break
+        logging.info(f"REQUEST RECEIVED {endpoint}, {method}")
 
         if not group_use:
             response = await call_next(request)
