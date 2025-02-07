@@ -27,7 +27,7 @@ class AiRouter:
             "/eval/{id}",
             self.get_eval_by_id,
             methods=["GET"],
-            params={"agent_security_score": bool},
+            params={"add_agent_security_score": bool},
         )
         # self.router.add_api_route(
         #     "/eval/webhook",
@@ -53,7 +53,8 @@ class AiRouter:
             "response_type", ResponseStructureEnum.JSON.name
         )
         agent_security_score = (
-            request.query_params.get("agent_security_score", "false").lower() == "true"
+            request.query_params.get("add_agent_security_score", "false").lower()
+            == "true"
         )
 
         try:
