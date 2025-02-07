@@ -22,6 +22,101 @@
     "links": [],
     "panels": [
       {
+        "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+        },
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "fixedColor": "green",
+                "mode": "fixed"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 80
+                }
+                ]
+            }
+            },
+            "overrides": [
+            {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                "id": "byNames",
+                "options": {
+                    "mode": "exclude",
+                    "names": [
+                    "{__name__=\"tasks_duration_seconds_bucket\", instance=\"worker:9192\", job=\"worker\", le=\"+Inf\"}"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                }
+                },
+                "properties": []
+            }
+            ]
+        },
+        "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+        },
+        "id": 5,
+        "options": {
+            "displayMode": "gradient",
+            "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false
+            },
+            "maxVizHeight": 300,
+            "minVizHeight": 16,
+            "minVizWidth": 8,
+            "namePlacement": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+        },
+        "pluginVersion": "11.5.1",
+        "targets": [
+            {
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "exemplar": false,
+            "expr": "tasks_duration_seconds_bucket{instance=\"worker:9192\"}",
+            "format": "heatmap",
+            "fullMetaSearch": false,
+            "includeNullMetadata": false,
+            "instant": false,
+            "legendFormat": "{{le}}",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+            }
+        ],
+        "title": "Tasks Duration (s)",
+        "type": "bargauge"
+        },
+      {
         "id": 4,
         "type": "timeseries",
         "title": "Active WS connections",

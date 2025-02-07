@@ -1,14 +1,17 @@
+import logging
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from tortoise.contrib.fastapi import register_tortoise
 
 import app.api.routers as routers
-from app.api.middleware.metrics import PrometheusMiddleware
+from app.api.core.middlewares import PrometheusMiddleware
 from app.config import TORTOISE_ORM
 
-# from app.api.middleware.auth import AuthenticationMiddleware
-# from app.api.middleware.rate_limit import RateLimitMiddleware
+# from app.api.core.middlewares.auth import AuthenticationMiddleware
+# from app.api.core.middlewares.rate_limit import RateLimitMiddleware
 
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 

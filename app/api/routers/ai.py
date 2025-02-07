@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-
-from app.api.ai.eval import EvalService
+from tortoise.exceptions import DoesNotExist
 
 # from app.api.ai.webhook import process_webhook_replicate
-from app.api.depends.auth import require_auth
-from app.pydantic.request import EvalBody
-from app.pydantic.response import EvalResponse
+from app.api.core.dependencies import require_auth
+from app.api.services.ai import AiService
+from app.schema.request import EvalBody
+from app.schema.response import EvalResponse
 from app.utils.enums import ResponseStructureEnum
 
 
 class AiRouter:
+    ai_service = AiService()
 
     def __init__(self):
         self.router = APIRouter(prefix="/ai", tags=["ai"])
@@ -24,20 +25,13 @@ class AiRouter:
             dependencies=[Depends(require_auth)],
         )
         self.router.add_api_route("/eval/{id}", self.get_eval_by_id, methods=["GET"])
-        # self.router.add_api_route(
-        #     "/eval/webhook",
-        #     self.process_webhook,
-        #     methods=["POST"],
-        #     include_in_schema=False,
-        # )
 
     async def process_ai_eval(
         self,
         request: Request,
         data: EvalBody,
     ):
-        eval_service = EvalService()
-        response = await eval_service.process_evaluation(
+        response = await self.ai_service.process_evaluation(
             user=request.scope["auth"], data=data
         )
 
@@ -55,23 +49,12 @@ class AiRouter:
                 status_code=400, detail="Invalid response_type parameter"
             )
 
-        eval_service = EvalService()
-
-        response = await eval_service.get_eval(id, response_type=response_type)
-
-        return JSONResponse(response.model_dump()["result"]["result"], status_code=200)
-
-    # async def process_webhook(self, request: Request):
-    #     """
-    #     Internal webhook endpoint for Replicate model predictions.
-    #     This route should not be called directly - it is used by the Replicate service
-    #     to deliver prediction results.
-    #     """
-
-    #     chained_call = request.query_params.get("chained_call")
-
-    #     body = await request.json()
-    #     response = await process_webhook_replicate(
-    #         data=Prediction(**body), webhook_url=chained_call
-    #     )
-    #     return response
+        try:
+            response = await self.ai_service.get_eval(id, response_type=response_type)
+            return JSONResponse(
+                response.model_dump()["result"]["result"], status_code=200
+            )
+        except DoesNotExist:
+            return EvalResponse(
+                success=False, exists=False, error="no record of this evaluation exists"
+            )

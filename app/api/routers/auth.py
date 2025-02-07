@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.api.auth.generate import request_access
-from app.api.auth.user import upsert_user
-from app.api.depends.auth import require_app
+from app.api.core.dependencies import require_app
+from app.api.services.auth import AuthService
+from app.api.services.user import UserService
 from app.utils.enums import AppTypeEnum
 
 
@@ -24,10 +24,11 @@ class AuthRouter:
 
     async def request_access(self, request: Request):
         # only accessible via the frontend dashboard
+        auth_service = AuthService()
         if request.state.app:
             if request.state.app.type == AppTypeEnum.FIRST_PARTY:
                 address = request.state.user
-                response = request_access(address)
+                response = auth_service.request_access(address)
 
                 return JSONResponse({"api_key": response}, status_code=200)
 
@@ -36,7 +37,8 @@ class AuthRouter:
     async def get_or_create_user(self, request: Request):
 
         # Users can be created via apps, which all go through our first-party servicer
+        user_service = UserService()
 
-        response = await upsert_user(request.scope["auth"])
+        response = await user_service.upsert_user(request.scope["auth"])
 
         return JSONResponse({"user_id": str(response.id)}, status_code=200)

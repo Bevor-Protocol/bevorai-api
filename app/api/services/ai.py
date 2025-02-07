@@ -5,27 +5,23 @@ import re
 from arq import create_pool
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
-from tortoise.exceptions import DoesNotExist
 
-from app.api.middleware.auth import UserDict
 from app.config import redis_settings
 from app.db.models import Audit, Contract
 from app.lib.v1.markdown.gas import markdown as gas_markdown
 from app.lib.v1.markdown.security import markdown as security_markdown
+from app.schema.dependencies import UserDict
 
 # from app.lib.prompts.gas import prompt as gas_prompt
 # from app.lib.prompts.security import prompt as security_prompt
-from app.pydantic.request import EvalBody
-from app.pydantic.response import EvalResponse, EvalResponseData
+from app.schema.request import EvalBody
+from app.schema.response import EvalResponse, EvalResponseData
 from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ResponseStructureEnum
 
 # from app.worker import process_eval
 
 
-class EvalService:
-
-    def __init__(self):
-        pass
+class AiService:
 
     def sanitize_data(self, audit: Audit, as_markdown: bool):
         # sanitizing backslashes/escapes for code blocks
@@ -119,14 +115,7 @@ class EvalService:
     async def get_eval(
         self, id: str, response_type: ResponseStructureEnum
     ) -> EvalResponse:
-        try:
-            audit = await Audit.get(id=id).select_related("contract")
-        except DoesNotExist as err:
-            logging.error(err)
-            response = EvalResponse(
-                success=False, exists=False, error="no record of this evaluation exists"
-            )
-            return response
+        audit = await Audit.get(id=id).select_related("contract")
 
         response = EvalResponse(
             success=True,
