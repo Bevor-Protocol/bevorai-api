@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
-from app.api.analytics.audits import get_audit, get_audits, get_stats, submit_feeback
-from app.api.analytics.user import get_user_info
-from app.api.depends.auth import protected_first_party_app, require_auth
-from app.pydantic.request import FeedbackBody
-from app.pydantic.response import AnalyticsResponse
-from app.utils.typed import FilterParams
+from app.api.core.dependencies import protected_first_party_app, require_auth
+from app.api.services.audit import AuditService
+from app.api.services.user import UserService
+from app.schema.queries import FilterParams
+from app.schema.request import FeedbackBody
+from app.schema.response import AnalyticsResponse
 
 
 def _parse_query_params(request: Request) -> FilterParams:
@@ -66,7 +66,8 @@ class AnalyticsRouter:
         query_params: FilterParams = Query(_parse_query_params),
     ) -> AnalyticsResponse:
         # rate_limit(request=request, user=user)
-        response = await get_audits(
+        audit_service = AuditService()
+        response = await audit_service.get_audits(
             user=request.scope["auth"],
             query=query_params,
         )
@@ -79,18 +80,25 @@ class AnalyticsRouter:
     ) -> AnalyticsResponse:
         await protected_first_party_app(request=request)
 
-        response = await get_stats()
+        audit_service = AuditService()
+
+        response = await audit_service.get_stats()
 
         return JSONResponse(response.model_dump(), status_code=200)
 
     async def get_audit(self, id: str):
-        audit = await get_audit(id)
+        audit_service = AuditService()
+        audit = await audit_service.get_audit(id)
         return JSONResponse({"result": audit}, status_code=200)
 
     async def get_user_info(self, request: Request):
-        user_info = await get_user_info(request.scope["auth"])
+        user_service = UserService()
+        user_info = await user_service.get_user_info(request.scope["auth"])
         return JSONResponse(user_info.model_dump(), status_code=200)
 
     async def submit_feedback(self, request: Request, data: FeedbackBody):
-        response = await submit_feeback(data=data, user=request.scope["auth"])
+        audit_service = AuditService()
+        response = await audit_service.submit_feeback(
+            data=data, user=request.scope["auth"]
+        )
         return JSONResponse({"success": response}, status_code=200)

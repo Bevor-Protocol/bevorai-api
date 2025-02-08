@@ -1,22 +1,14 @@
 import asyncio
 import hashlib
-import logging
 from typing import List, Optional
-from urllib.parse import urlencode
 
 import httpx
 from fastapi import HTTPException
 
+from app.api.services.blockchain import BlockchainService
 from app.db.models import Contract
 from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
-from app.utils.errors import NoSourceCodeError
-from app.utils.mappers import (
-    network_explorer_apikey_mapper,
-    network_explorer_mapper,
-    networks_by_type,
-)
-
-logging.basicConfig(level=logging.INFO)
+from app.utils.mappers import networks_by_type
 
 
 class ContractService:
@@ -100,11 +92,12 @@ class ContractService:
         # For example, USDC contract on ETH mainnet is an address on BASE, so it early
         # exits without finding source code...
         tasks = []
+        blockchain_service = BlockchainService()
         async with httpx.AsyncClient() as client:
             for network in networks_scan:
                 tasks.append(
                     asyncio.create_task(
-                        self.fetch_contract_source_code_from_explorer(
+                        blockchain_service.fetch_contract_source_code_from_explorer(
                             client=client, address=address, network=network
                         )
                     )
@@ -181,76 +174,3 @@ class ContractService:
         }
 
         return obj
-
-    async def fetch_contract_source_code_from_explorer(
-        self, client: httpx.AsyncClient, address: str, network: NetworkEnum
-    ) -> dict:
-        platform_route = network_explorer_mapper[network]
-        api_key = network_explorer_apikey_mapper[network]
-
-        if network in [
-            NetworkEnum.AVAX,
-            NetworkEnum.AVAX_FUJI,
-            NetworkEnum.MODE,
-            NetworkEnum.MODE_TESTNET,
-        ]:
-            # Map networks to their chain IDs
-            chain_id_map = {
-                NetworkEnum.AVAX: "43114",
-                NetworkEnum.AVAX_FUJI: "43113",
-                NetworkEnum.MODE: "34443",
-                NetworkEnum.MODE_TESTNET: "919",
-            }
-            # Determine if testnet or mainnet
-            network_type = (
-                "testnet"
-                if network in [NetworkEnum.AVAX_FUJI, NetworkEnum.MODE_TESTNET]
-                else "mainnet"
-            )
-            chain_id = chain_id_map[network]
-
-            url = f"https://api.routescan.io/v2/network/{network_type}/evm/{chain_id}/etherscan/api"
-            params = {
-                "module": "contract",
-                "action": "getsourcecode",
-                "address": address,
-                "apikey": api_key,
-            }
-        else:
-            url = f"https://{platform_route}/api"
-            params = {
-                "module": "contract",
-                "action": "getsourcecode",
-                "address": address,
-                "apikey": api_key,
-            }
-
-        logging.info(f"SCANNING {network} for address {address} at url {url}")
-
-        obj = {
-            "network": network,
-            "address": address,
-            "has_source_code": False,
-            "found": False,
-            "source_code": None,
-        }
-
-        try:
-            response = await client.get(f"{url}?{urlencode(params)}")
-            response.raise_for_status()
-            data = response.json()
-
-            result = data.get("result")
-            if result and isinstance(result, list) and len(result) > 0:
-                obj["found"] = True
-                source_code = result[0].get("SourceCode")
-                if source_code:
-                    obj["has_source_code"] = True
-                    obj["source_code"] = source_code
-            raise NoSourceCodeError()
-        except NoSourceCodeError:
-            obj["found"] = True
-        except Exception:
-            pass
-        finally:
-            return obj

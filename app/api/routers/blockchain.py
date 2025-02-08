@@ -3,9 +3,9 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from app.api.blockchain.gas import fetch_gas
-from app.api.blockchain.scan import ContractService
-from app.pydantic.request import ContractUploadBody
+from app.api.services.blockchain import BlockchainService
+from app.api.services.contract import ContractService
+from app.schema.request import ContractUploadBody
 from app.utils.enums import NetworkEnum
 
 
@@ -56,4 +56,5 @@ class BlockchainRouter:
         return JSONResponse(response, status_code=200)
 
     async def get_gas(self):
-        return await fetch_gas()
+        blockchain_service = BlockchainService()
+        return await blockchain_service.get_gas()

@@ -4,6 +4,8 @@ from arq.connections import RedisSettings
 from dotenv import load_dotenv
 from redis.asyncio import Redis
 
+load_dotenv()
+
 redis_settings = RedisSettings(
     host=os.getenv("REDISHOST"),
     port=os.getenv("REDISPORT", 6379),
@@ -17,8 +19,6 @@ redis_client = Redis(
     username=redis_settings.username,
     password=redis_settings.password,
 )
-
-load_dotenv()
 
 db_user = os.getenv("POSTGRES_USER")
 db_pswd = os.getenv("POSTGRES_PASSWORD")
