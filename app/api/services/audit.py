@@ -6,8 +6,7 @@ from tortoise.timezone import now
 from app.api.core.dependencies import AuthDict
 from app.api.services.ai import AiService
 from app.db.models import App, Audit, Contract, Finding, User
-from app.schema.queries import FilterParams
-from app.schema.request import FeedbackBody
+from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import (
     AnalyticsAudit,
     AnalyticsContract,
@@ -25,7 +24,7 @@ from app.utils.enums import (
 class AuditService:
 
     async def get_audits(
-        self, user: AuthDict, query: FilterParams
+        self, auth: AuthDict, query: FilterParams
     ) -> AnalyticsResponse:
 
         limit = query.page_size
@@ -41,14 +40,19 @@ class AuditService:
             filter["contract__network__in"] = query.network
         if query.contract_address:
             filter["contract__address__icontains"] = query.contract_address
+        if query.user_address:
+            filter["user__address__icontains"] = query.user_address
         if query.user_id:
-            filter["user__address__icontains"] = query.user_id
+            filter["user_id"] = query.user_id
 
-        if user["app"]:
-            if user["app"].type != AppTypeEnum.FIRST_PARTY:
-                filter["app_id"] = user["app"].id
+        # FIRST_PARTY apps can view all. THIRD_PARTY apps can only view those created
+        # through their app. Users can only view their own audits. If accessed via our
+        # frontend all are viewable.
+        if auth["app"]:
+            if auth["app"].type != AppTypeEnum.FIRST_PARTY:
+                filter["app_id"] = auth["app"].id
         else:
-            filter["user_id"] = user["user"].id
+            filter["user_id"] = auth["user"].id
 
         audit_query = Audit.filter(**filter)
 
@@ -56,7 +60,7 @@ class AuditService:
 
         total_pages = math.ceil(total / limit)
 
-        if total <= (offset * limit):
+        if total <= offset:
             return AnalyticsResponse(results=[], more=False, total_pages=total_pages)
 
         results = (

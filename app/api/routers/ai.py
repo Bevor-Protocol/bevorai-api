@@ -2,13 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
-# from app.api.ai.webhook import process_webhook_replicate
-from app.api.core.dependencies import authentication, scope
+from app.api.core.dependencies import Authentication
 from app.api.services.ai import AiService
 from app.schema.dependencies import AuthDict
 from app.schema.request import EvalBody
 from app.schema.response import EvalResponse
-from app.utils.enums import AuthRequestScopeEnum, AuthScopeEnum, ResponseStructureEnum
+from app.utils.enums import AuthRequestScopeEnum, ResponseStructureEnum
 
 
 class AiRouter:
@@ -24,15 +23,16 @@ class AiRouter:
             self.process_ai_eval,
             methods=["POST"],
             dependencies=[
-                Depends(authentication(AuthRequestScopeEnum.USER)),
-                Depends(scope(AuthScopeEnum.WRITE)),
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
             ],
         )
         self.router.add_api_route(
             "/eval/{id}",
             self.get_eval_by_id,
             methods=["GET"],
-            dependencies=[Depends(authentication(AuthRequestScopeEnum.USER))],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+            ],
         )
 
     async def process_ai_eval(

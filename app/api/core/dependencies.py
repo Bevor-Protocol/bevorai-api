@@ -5,7 +5,7 @@ used without explicitly needing to whitelist / blacklist routes.
 """
 
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Optional
 
 from fastapi import HTTPException, Request, status
 from tortoise.exceptions import DoesNotExist
@@ -20,33 +20,8 @@ from app.utils.enums import (
     ClientTypeEnum,
 )
 
-MAX_LIMIT_PER_MINUTE = 30
-WINDOW_SECONDS = 60
 
-
-async def get_auth(authorization: Optional[str]) -> Auth:
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="proper authorization headers not provided",
-        )
-    api_key = authorization.split(" ")[1]
-    hashed_key = Auth.hash_key(api_key)
-    try:
-        auth = await Auth.get(hashed_key=hashed_key).select_related(
-            "user", "app__owner"
-        )
-    except DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key"
-        )
-    if auth.revoked_at:
-        raise HTTPException(status_code=401, detail="This token was revoked")
-
-    return auth
-
-
-def authentication(request_scope: AuthRequestScopeEnum) -> Callable:
+class Authentication:
     """
     Defines the request authorization scope.
     Users can make requests only on behalf of themselves. The x-user-identifier header is ignored
@@ -57,13 +32,42 @@ def authentication(request_scope: AuthRequestScopeEnum) -> Callable:
         a user.
     """  # noqa
 
-    async def _authentication(request: Request) -> None:
+    def __init__(
+        self,
+        request_scope: AuthRequestScopeEnum,
+        scope_override: Optional[AuthScopeEnum] = None,
+    ):
+        self.request_scope = request_scope
+        self.scope_override = scope_override
+
+    async def _get_auth(self, request: Request) -> Auth:
         authorization = request.headers.get("authorization")
+        if not authorization:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="proper authorization headers not provided",
+            )
+        api_key = authorization.split(" ")[1]
+        hashed_key = Auth.hash_key(api_key)
+        try:
+            auth = await Auth.get(hashed_key=hashed_key).select_related(
+                "user", "app__owner"
+            )
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key"
+            )
+        if auth.revoked_at:
+            raise HTTPException(status_code=401, detail="This token was revoked")
+
+        return auth
+
+    async def _infer_authentication(self, request: Request, auth: Auth):
+        """
+        Evaluation of the api key. Creates the request.state object as AuthDict
+        """
         identifier = request.headers.get("x-user-identifier")
-
-        auth = await get_auth(authorization)
-
-        if request_scope in [
+        if self.request_scope in [
             AuthRequestScopeEnum.APP_FIRST_PARTY,
             AuthRequestScopeEnum.APP,
         ]:
@@ -73,7 +77,7 @@ def authentication(request_scope: AuthRequestScopeEnum) -> Callable:
                     detail="invalid api permissions",
                 )
 
-        if request_scope == AuthRequestScopeEnum.APP_FIRST_PARTY:
+        if self.request_scope == AuthRequestScopeEnum.APP_FIRST_PARTY:
             if auth.app.type != AppTypeEnum.FIRST_PARTY:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -103,22 +107,27 @@ def authentication(request_scope: AuthRequestScopeEnum) -> Callable:
             user = auth.user
             state["user"] = user
 
-        request.state = state
+        request.state.auth = state
 
-    return _authentication
-
-
-def scope(required_scope: AuthScopeEnum):
-    async def _scope(request: Request):
-        cur_scope = request.state.get("scope")
+    def _infer_authorization(self, request: Request, auth: Auth):
+        """
+        Evaluation of auth scope. If not overriden, will look at request.method
+        """
+        method = request.method
+        cur_scope = auth.scope
         if not cur_scope:
             # only possible if authentication() is NotImplemented
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="incorrect scope for this request",
             )
+        required_scope = self.scope_override
+        if not required_scope:
+            if method == "GET":
+                required_scope = AuthScopeEnum.READ
+            else:
+                required_scope = AuthScopeEnum.WRITE
 
-        cur_scope: AuthScopeEnum
         if required_scope == AuthScopeEnum.ADMIN:
             if cur_scope != AuthScopeEnum.ADMIN:
                 raise HTTPException(
@@ -132,25 +141,46 @@ def scope(required_scope: AuthScopeEnum):
                     detail="incorrect scope for this request",
                 )
 
-    return _scope
+    # NOTE: if the arguments are anything other than request, it breaks.
+    # ie, don't use *args, **kwargs
+    async def __call__(self, request: Request) -> None:
+        auth: Auth = await self._get_auth(request=request)
+
+        try:
+            await self._infer_authentication(request=request, auth=auth)
+            self._infer_authorization(request=request, auth=auth)
+        except Exception as err:
+            raise err
 
 
-async def rate_limit(request: Request, auth: AuthDict) -> None:
-    if auth["app"]:
-        if auth["app"].type == AppTypeEnum.FIRST_PARTY:
-            return
-    bearer = request.headers.get("authorization")
-    api_key = bearer.split(" ")[1]
-    redis_key = f"rate_limit|{api_key}"
+class RateLimit:
+    MAX_LIMIT_PER_MINUTE = 30
+    WINDOW_SECONDS = 60
 
-    current_time = int(datetime.now().timestamp())
-    await redis_client.ltrim(redis_key, 0, MAX_LIMIT_PER_MINUTE)
-    await redis_client.lrem(redis_key, 0, current_time - WINDOW_SECONDS)
+    def __init__(self):
+        pass
 
-    request_count = await redis_client.llen(redis_key)
+    async def __call__(self, request: Request) -> None:
+        auth: AuthDict = request.state
+        if auth["app"]:
+            if auth["app"].type == AppTypeEnum.FIRST_PARTY:
+                return
 
-    if request_count >= MAX_LIMIT_PER_MINUTE:
-        raise HTTPException(status_code=429, detail="Too many requests in a minute")
+        authorization = request.headers.get("authorization")
+        api_key = authorization.split(" ")[1]
+        redis_key = f"rate_limit|{api_key}"
 
-    await redis_client.rpush(redis_key, current_time)
-    await redis_client.expire(redis_client, WINDOW_SECONDS)
+        current_time = int(datetime.now().timestamp())
+        await redis_client.ltrim(redis_key, 0, self.MAX_LIMIT_PER_MINUTE)
+        await redis_client.lrem(redis_key, 0, current_time - self.WINDOW_SECONDS)
+
+        request_count = await redis_client.llen(redis_key)
+
+        if request_count >= self.MAX_LIMIT_PER_MINUTE:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many requests in a minute",
+            )
+
+        await redis_client.rpush(redis_key, current_time)
+        await redis_client.expire(redis_client, self.WINDOW_SECONDS)
