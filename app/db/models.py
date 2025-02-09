@@ -8,6 +8,7 @@ from app.utils.enums import (
     AppTypeEnum,
     AuditStatusEnum,
     AuditTypeEnum,
+    AuthScopeEnum,
     ClientTypeEnum,
     ContractMethodEnum,
     CreditTierEnum,
@@ -32,13 +33,19 @@ class AbstractModel(Model):
 
 
 class User(AbstractModel):
+    app_owner = fields.ForeignKeyField(
+        "models.App",
+        on_delete=fields.CASCADE,
+        description="app that the user was created through",
+        null=True,  # need to set this to null so i can backfill.
+    )
     address = fields.CharField(max_length=255, unique=True)
     total_credits = fields.IntField(default=0)
     remaining_credits = fields.IntField(default=0)
 
     class Meta:
         table = "user"
-        indexes = ("address",)
+        indexes = (("address",), ("app_owner_id",), ("app_owner_id", "address"))
 
     def __str__(self):
         return f"{str(self.id)} | {self.address}"
@@ -71,7 +78,8 @@ class Auth(AbstractModel):
         enum_type=ClientTypeEnum, default=ClientTypeEnum.USER
     )
     hashed_key = fields.CharField(max_length=255)
-    is_revoked = fields.BooleanField(default=False)
+    revoked_at = fields.DatetimeField(null=True, default=None)
+    scope = fields.CharEnumField(enum_type=AuthScopeEnum, default=AuthScopeEnum.WRITE)
 
     class Meta:
         table = "auth"
@@ -218,6 +226,7 @@ class Finding(AbstractModel):
 
     class Meta:
         table = "finding"
+        indexes = (("audit_id",), ("audit_id", "level"))
 
     def __str__(self):
         return f"{str(self.id)} | {self.audit_id}"
@@ -225,10 +234,10 @@ class Finding(AbstractModel):
 
 class Webhook(AbstractModel):
     app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
-        "models.App", on_delete=fields.SET_NULL, null=True, related_name="webhooks"
+        "models.App", on_delete=fields.CASCADE, null=True, related_name="webhooks"
     )
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", on_delete=fields.SET_NULL, null=True, related_name="webhooks"
+        "models.User", on_delete=fields.CASCADE, null=True, related_name="webhooks"
     )
     url = fields.CharField(max_length=255)
     event = fields.CharEnumField(enum_type=WebhookEventEnum)
@@ -243,3 +252,22 @@ class Webhook(AbstractModel):
 
     def __str__(self):
         return f"{str(self.id)} | {self.url}"
+
+
+class Permission(AbstractModel):
+    client_type = fields.CharEnumField(enum_type=ClientTypeEnum)
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", on_delete=fields.CASCADE, null=True, related_name="permissions"
+    )
+    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+        "models.App", on_delete=fields.CASCADE, null=True, related_name="permissions"
+    )
+    can_create_app = fields.BooleanField(default=False)
+    can_create_api_key = fields.BooleanField(default=False)
+
+    class Meta:
+        table = "permission"
+        indexes = (("user_id",), ("app_id",))
+
+    def __str__(self):
+        return f"{str(self.id)} | {str(self.permission_type)}"

@@ -1,4 +1,4 @@
-from app.api.core.dependencies import UserDict
+from app.api.core.dependencies import AuthDict
 from app.api.services.audit import AuditService
 from app.db.models import App, Auth, User
 from app.schema.queries import FilterParams
@@ -15,7 +15,7 @@ class UserService:
 
         return user
 
-    async def get_user_info(self, user: UserDict):
+    async def get_user_info(self, user: AuthDict):
         audit_service = AuditService()
 
         cur_user = await User.get(id=user["user"].id)

@@ -3,7 +3,7 @@ import math
 from fastapi import HTTPException
 from tortoise.timezone import now
 
-from app.api.core.dependencies import UserDict
+from app.api.core.dependencies import AuthDict
 from app.api.services.ai import AiService
 from app.db.models import App, Audit, Contract, Finding, User
 from app.schema.queries import FilterParams
@@ -25,7 +25,7 @@ from app.utils.enums import (
 class AuditService:
 
     async def get_audits(
-        self, user: UserDict, query: FilterParams
+        self, user: AuthDict, query: FilterParams
     ) -> AnalyticsResponse:
 
         limit = query.page_size
@@ -135,7 +135,7 @@ class AuditService:
 
         return response
 
-    async def get_audit(self, id: str) -> str:
+    async def get_audit(self, user: AuthDict, id: str) -> str:
         audit = (
             await Audit.get(id=id)
             .select_related("contract", "user")
@@ -183,7 +183,7 @@ class AuditService:
             "findings": findings,
         }
 
-    async def submit_feeback(self, data: FeedbackBody, user: UserDict) -> bool:
+    async def submit_feeback(self, data: FeedbackBody, user: AuthDict) -> bool:
 
         finding = await Finding.get(id=data.id).select_related("audit__user")
 

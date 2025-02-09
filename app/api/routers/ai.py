@@ -3,11 +3,12 @@ from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
 # from app.api.ai.webhook import process_webhook_replicate
-from app.api.core.dependencies import require_auth
+from app.api.core.dependencies import authentication, scope
 from app.api.services.ai import AiService
+from app.schema.dependencies import AuthDict
 from app.schema.request import EvalBody
 from app.schema.response import EvalResponse
-from app.utils.enums import ResponseStructureEnum
+from app.utils.enums import AuthRequestScopeEnum, AuthScopeEnum, ResponseStructureEnum
 
 
 class AiRouter:
@@ -22,22 +23,30 @@ class AiRouter:
             "/eval",
             self.process_ai_eval,
             methods=["POST"],
-            dependencies=[Depends(require_auth)],
+            dependencies=[
+                Depends(authentication(AuthRequestScopeEnum.USER)),
+                Depends(scope(AuthScopeEnum.WRITE)),
+            ],
         )
-        self.router.add_api_route("/eval/{id}", self.get_eval_by_id, methods=["GET"])
+        self.router.add_api_route(
+            "/eval/{id}",
+            self.get_eval_by_id,
+            methods=["GET"],
+            dependencies=[Depends(authentication(AuthRequestScopeEnum.USER))],
+        )
 
     async def process_ai_eval(
         self,
         request: Request,
         data: EvalBody,
     ):
-        response = await self.ai_service.process_evaluation(
-            user=request.scope["auth"], data=data
-        )
+        auth: AuthDict = request.state
+        response = await self.ai_service.process_evaluation(auth=auth, data=data)
 
         return JSONResponse(response, status_code=202)
 
     async def get_eval_by_id(self, request: Request, id: str) -> EvalResponse:
+        auth: AuthDict = request.state
         response_type = request.query_params.get(
             "response_type", ResponseStructureEnum.JSON.name
         )
@@ -50,7 +59,9 @@ class AiRouter:
             )
 
         try:
-            response = await self.ai_service.get_eval(id, response_type=response_type)
+            response = await self.ai_service.get_eval(
+                auth=auth, id=id, response_type=response_type
+            )
             return JSONResponse(
                 response.model_dump()["result"]["result"], status_code=200
             )

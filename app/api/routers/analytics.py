@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
-from app.api.core.dependencies import protected_first_party_app, require_auth
+from app.api.core.dependencies import authentication
 from app.api.services.audit import AuditService
 from app.api.services.user import UserService
 from app.schema.queries import FilterParams
 from app.schema.request import FeedbackBody
 from app.schema.response import AnalyticsResponse
+from app.utils.enums import AuthRequestScopeEnum
 
 
 def _parse_query_params(request: Request) -> FilterParams:
@@ -43,21 +44,33 @@ class AnalyticsRouter:
             "/audits",
             self.fetch_audits,
             methods=["GET"],
-            dependencies=[Depends(require_auth)],
+            dependencies=[Depends(authentication(AuthRequestScopeEnum.USER))],
         )
-        self.router.add_api_route("/stats", self.fetch_stats, methods=["GET"])
-        self.router.add_api_route("/audit/{id}", self.get_audit, methods=["GET"])
+        self.router.add_api_route(
+            "/stats",
+            self.fetch_stats,
+            methods=["GET"],
+            dependencies=[
+                Depends(authentication(AuthRequestScopeEnum.APP_FIRST_PARTY))
+            ],
+        )
+        self.router.add_api_route(
+            "/audit/{id}",
+            self.get_audit,
+            methods=["GET"],
+            dependencies=[Depends(authentication(AuthRequestScopeEnum.USER))],
+        )
         self.router.add_api_route(
             "/feedback",
             self.submit_feedback,
             methods=["POST"],
-            dependencies=[Depends(require_auth)],
+            dependencies=[Depends(authentication(AuthRequestScopeEnum.USER))],
         )
         self.router.add_api_route(
             "/user",
             self.get_user_info,
             methods=["GET"],
-            dependencies=[Depends(require_auth)],
+            dependencies=[Depends(authentication(AuthRequestScopeEnum.USER))],
         )
 
     async def fetch_audits(
@@ -68,27 +81,22 @@ class AnalyticsRouter:
         # rate_limit(request=request, user=user)
         audit_service = AuditService()
         response = await audit_service.get_audits(
-            user=request.scope["auth"],
+            user=request.state["auth"],
             query=query_params,
         )
 
         return JSONResponse(response.model_dump(), status_code=200)
 
-    async def fetch_stats(
-        self,
-        request: Request,
-    ) -> AnalyticsResponse:
-        await protected_first_party_app(request=request)
-
+    async def fetch_stats(self) -> AnalyticsResponse:
         audit_service = AuditService()
-
         response = await audit_service.get_stats()
 
         return JSONResponse(response.model_dump(), status_code=200)
 
-    async def get_audit(self, id: str):
+    async def get_audit(self, request: Request, id: str):
         audit_service = AuditService()
-        audit = await audit_service.get_audit(id)
+        audit = await audit_service.get_audit(user=request.state, id=id)
+
         return JSONResponse({"result": audit}, status_code=200)
 
     async def get_user_info(self, request: Request):

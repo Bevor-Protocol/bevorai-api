@@ -10,7 +10,7 @@ from app.config import redis_settings
 from app.db.models import Audit, Contract
 from app.lib.v1.markdown.gas import markdown as gas_markdown
 from app.lib.v1.markdown.security import markdown as security_markdown
-from app.schema.dependencies import UserDict
+from app.schema.dependencies import AuthDict
 
 # from app.lib.prompts.gas import prompt as gas_prompt
 # from app.lib.prompts.security import prompt as security_prompt
@@ -81,7 +81,7 @@ class AiService:
 
         return result.format(**formatter)
 
-    async def process_evaluation(self, user: UserDict, data: EvalBody) -> JSONResponse:
+    async def process_evaluation(self, auth: AuthDict, data: EvalBody) -> JSONResponse:
         if not await Contract.exists(id=data.contract_id):
             raise HTTPException(
                 status_code=404,
@@ -96,8 +96,8 @@ class AiService:
 
         audit = await Audit.create(
             contract_id=data.contract_id,
-            app_id=user["app"].id,
-            user_id=user["user"].id,
+            app_id=auth["app"].id,
+            user_id=auth["user"].id,
             audit_type=audit_type,
         )
 
@@ -113,7 +113,7 @@ class AiService:
         return {"id": str(audit.id), "status": AuditStatusEnum.WAITING}
 
     async def get_eval(
-        self, id: str, response_type: ResponseStructureEnum
+        self, auth: AuthDict, id: str, response_type: ResponseStructureEnum
     ) -> EvalResponse:
         audit = await Audit.get(id=id).select_related("contract")
 
