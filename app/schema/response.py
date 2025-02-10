@@ -75,9 +75,9 @@ class AnalyticsContract(BaseModel):
 
 class AnalyticsAudit(BaseModel):
     n: int
-    id: Union[str, UUID]
+    id: str | UUID
     created_at: datetime
-    app_id: Optional[str]
+    app_id: str | UUID
     user_id: Optional[str]
     audit_type: AuditTypeEnum
     status: AuditStatusEnum
@@ -87,7 +87,7 @@ class AnalyticsAudit(BaseModel):
     def serialize_dt(self, dt: datetime, _info):
         return dt.astimezone(timezone.utc).isoformat()
 
-    @field_serializer("id")
+    @field_serializer("id", "app_id")
     def convert_uuid_to_string(self, id):
         if isinstance(id, UUID):
             return str(id)
@@ -129,11 +129,15 @@ class UserInfo(BaseModel):
 class AuthInfo(BaseModel):
     exists: bool
     is_active: bool
+    can_create: bool
 
 
 class AppInfo(BaseModel):
     exists: bool
-    name: Optional[str]
+    name: Optional[str] = None
+    can_create: bool
+    can_create_auth: Optional[bool] = False
+    exists_auth: Optional[bool] = False
 
 
 class UserInfoResponse(BaseModel):
@@ -142,3 +146,4 @@ class UserInfoResponse(BaseModel):
     app: AppInfo
     audits: list[AnalyticsAudit]
     n_contracts: int
+    n_audits: int

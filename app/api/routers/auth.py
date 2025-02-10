@@ -1,12 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request
+from fastapi import APIRouter, Body, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.core.dependencies import Authentication
+from app.api.services.app import AppService
 from app.api.services.auth import AuthService
 from app.api.services.user import UserService
-from app.schema.request import UserUpsertBody
+from app.schema.request import AppUpsertBody, UserUpsertBody
 from app.utils.enums import AuthRequestScopeEnum, ClientTypeEnum
 
 
@@ -36,9 +37,9 @@ class AuthRouter:
             ],
         )
         self.router.add_api_route(
-            "/regenerate/{client_type}",
-            self.regenerate_api_key,
-            methods=["POST"],
+            "/app",
+            self.upsert_app,
+            methods=["POST", "PATCH"],
             dependencies=[
                 Depends(
                     Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
@@ -62,16 +63,21 @@ class AuthRouter:
         auth_service = AuthService()
 
         api_key = await auth_service.generate_auth(
-            address=request.state.auth, client_type=client_type
+            auth_obj=request.state.auth, client_type=client_type
         )
 
         return JSONResponse({"api_key": api_key}, status_code=201)
 
-    async def regenerate_api_key(self, request: Request, client_type: ClientTypeEnum):
-        auth_service = AuthService()
+    async def upsert_app(
+        self, request: Request, body: Annotated[AppUpsertBody, Body()]
+    ):
+        app_service = AppService()
 
-        api_key = await auth_service.regenerate_auth(
-            address=request.state.auth, client_type=client_type
-        )
+        if request.method == "POST":
+            fct = app_service.create_app
+        if request.method == "PATCH":
+            fct = app_service.update_app
 
-        return JSONResponse({"api_key": api_key}, status_code=201)
+        response = await fct(auth=request.state.auth, body=body)
+
+        return JSONResponse({"result": response}, status_code=status.HTTP_202_ACCEPTED)

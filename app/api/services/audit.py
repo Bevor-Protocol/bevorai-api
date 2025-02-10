@@ -13,12 +13,7 @@ from app.schema.response import (
     AnalyticsResponse,
     StatsResponse,
 )
-from app.utils.enums import (
-    AppTypeEnum,
-    AuditStatusEnum,
-    AuditTypeEnum,
-    FindingLevelEnum,
-)
+from app.utils.enums import AppTypeEnum, AuditTypeEnum, FindingLevelEnum
 
 
 class AuditService:
@@ -30,8 +25,9 @@ class AuditService:
         limit = query.page_size
         offset = query.page * limit
 
-        filter = {"status": AuditStatusEnum.SUCCESS}
-
+        filter = {}
+        if query.search:
+            filter["status"] = query.search
         if query.search:
             filter["raw_output__icontains"] = query.search
         if query.audit_type:
@@ -95,7 +91,7 @@ class AuditService:
                 n=i + offset,
                 id=result["id"],
                 created_at=result["created_at"],
-                app_id=str(result["app_id"]),
+                app_id=result["app_id"],
                 user_id=result["user__address"],
                 audit_type=result["audit_type"],
                 status=result["status"],

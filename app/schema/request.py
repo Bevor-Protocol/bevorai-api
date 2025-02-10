@@ -84,3 +84,7 @@ class ContractScanBody(BaseModel):
                     "when using network, you must provide the address or code"
                 )
         return self
+
+
+class AppUpsertBody(BaseModel):
+    name: str

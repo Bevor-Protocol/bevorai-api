@@ -1,5 +1,3 @@
-from typing import Union
-
 from app.db.models import Permission
 from app.utils.enums import ClientTypeEnum, PermissionEnum
 
@@ -10,10 +8,10 @@ class PermissionService:
         self,
         client_type: ClientTypeEnum,
         identifier: str,
-        permission: Union[PermissionEnum, list[PermissionEnum]],
+        permission: PermissionEnum | list[PermissionEnum],
     ):
         obj = {}
-        if isinstance(list, permission):
+        if isinstance(permission, list):
             for p in permission:
                 obj[p] = True
         else:

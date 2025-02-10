@@ -1,57 +1,50 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.api.services.permission import PermissionService
 from app.db.models import App, Auth, User
+from app.schema.dependencies import AuthDict
 from app.utils.enums import ClientTypeEnum, PermissionEnum
 
 
 class AuthService:
 
-    async def regenerate_auth(self, address: str, client_type: ClientTypeEnum):
+    async def generate_auth(self, auth_obj: AuthDict, client_type: ClientTypeEnum):
+        # only callable via FIRST_PARTY app, we know to reference the user obj.
         search_criteria = {}
         if client_type == ClientTypeEnum.APP:
-            app = await App.get(owner__address=address)
+            app = await App.get(owner_id=auth_obj["user"].id)
             search_criteria["app_id"] = app.id
         else:
-            user = await User.get(address=address)
+            user = await User.get(id=auth_obj["user"].id)
             search_criteria["user_id"] = user.id
 
-        auth = await Auth.get(**search_criteria)
+        auth = await Auth.filter(**search_criteria).first()
+        api_key, hash_key = Auth.create_credentials()
+        if auth:
+            # regenerate
+            auth.hashed_key = hash_key
+            await auth.save()
+            return api_key
 
-        key, hashed = Auth.create_credentials()
-        auth.hashed_key = hashed
-        await auth.save()
-
-        return key
-
-    async def generate_auth(self, address: str, client_type: ClientTypeEnum):
+        # evaluate permissions, then create
         permission_service = PermissionService()
 
-        user = await User.get(address=address).prefetch_related("app")
-        if client_type == ClientTypeEnum.APP:
-            if not user.app:
-                raise HTTPException(
-                    status_code=401, detail="user must have an app created first"
-                )
-
-        identifier = user.id if client_type == ClientTypeEnum.USER else user.app.id
+        identifier = user.id if client_type == ClientTypeEnum.USER else app.id
         has_permission = await permission_service.has_permission(
             client_type=client_type,
             identifier=identifier,
             permission=PermissionEnum.CREATE_API_KEY,
         )
         if not has_permission:
-            raise HTTPException(status_code=401, detail="incorrect permissions")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="incorrect permissions"
+            )
 
-        key, hashed = Auth.create_credentials()
+        await Auth.create(
+            **search_criteria, client_type=client_type, hashed_key=hash_key
+        )
 
-        auth = Auth(client_type=client_type, hashed_key=hashed)
+        return api_key
 
-        if client_type == ClientTypeEnum.APP:
-            auth.app = user.app
-        else:
-            auth.user = user
-
-        await auth.save()
-
-        return key
+    async def revoke_access(self):
+        pass

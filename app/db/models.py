@@ -43,6 +43,11 @@ class User(AbstractModel):
     total_credits = fields.IntField(default=0)
     remaining_credits = fields.IntField(default=0)
 
+    app: fields.ReverseRelation["App"]
+    audits: fields.ReverseRelation["Audit"]
+    auth: fields.ReverseRelation["Auth"]
+    permissions: fields.ReverseRelation["Permission"]
+
     class Meta:
         table = "user"
         indexes = (("address",), ("app_owner_id",), ("app_owner_id", "address"))
@@ -59,6 +64,9 @@ class App(AbstractModel):
     name = fields.CharField(max_length=255)
     type = fields.CharEnumField(enum_type=AppTypeEnum, default=AppTypeEnum.THIRD_PARTY)
 
+    auth: fields.ReverseRelation["Auth"]
+    permissions: fields.ReverseRelation["Permission"]
+
     class Meta:
         table = "app"
         indexes = ("type",)
@@ -69,10 +77,10 @@ class App(AbstractModel):
 
 class Auth(AbstractModel):
     app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
-        "models.App", on_delete=fields.SET_NULL, null=True
+        "models.App", on_delete=fields.SET_NULL, null=True, related_name="auth"
     )
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", on_delete=fields.SET_NULL, null=True
+        "models.User", on_delete=fields.SET_NULL, null=True, related_name="auth"
     )
     client_type = fields.CharEnumField(
         enum_type=ClientTypeEnum, default=ClientTypeEnum.USER
@@ -256,10 +264,10 @@ class Webhook(AbstractModel):
 
 class Permission(AbstractModel):
     client_type = fields.CharEnumField(enum_type=ClientTypeEnum)
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+    user: fields.OneToOneRelation[User] = fields.OneToOneField(
         "models.User", on_delete=fields.CASCADE, null=True, related_name="permissions"
     )
-    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+    app: fields.OneToOneRelation[App] = fields.OneToOneField(
         "models.App", on_delete=fields.CASCADE, null=True, related_name="permissions"
     )
     can_create_app = fields.BooleanField(default=False)
@@ -270,4 +278,4 @@ class Permission(AbstractModel):
         indexes = (("user_id",), ("app_id",))
 
     def __str__(self):
-        return f"{str(self.id)} | {str(self.permission_type)}"
+        return f"{str(self.id)} | {str(self.client_type)}"
