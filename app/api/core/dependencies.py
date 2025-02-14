@@ -4,6 +4,7 @@ basis. Fundamentally acts as a middleware, but we have more control over when it
 used without explicitly needing to whitelist / blacklist routes.
 """
 
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -49,6 +50,7 @@ class Authentication:
             )
         api_key = authorization.split(" ")[1]
         hashed_key = Auth.hash_key(api_key)
+        logging.info(hashed_key)
         try:
             auth = await Auth.get(hashed_key=hashed_key).select_related(
                 "user", "app__owner"
@@ -144,12 +146,13 @@ class Authentication:
     # NOTE: if the arguments are anything other than request, it breaks.
     # ie, don't use *args, **kwargs
     async def __call__(self, request: Request) -> None:
-        auth: Auth = await self._get_auth(request=request)
-
         try:
+            auth: Auth = await self._get_auth(request=request)
             await self._infer_authentication(request=request, auth=auth)
             self._infer_authorization(request=request, auth=auth)
+            logging.info("PASSED AUTH")
         except Exception as err:
+            logging.warning(err)
             raise err
 
 

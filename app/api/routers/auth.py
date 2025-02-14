@@ -57,7 +57,9 @@ class AuthRouter:
 
         response = await user_service.upsert_user(request.state.auth, body.address)
 
-        return JSONResponse({"user_id": str(response.id)}, status_code=200)
+        return JSONResponse(
+            {"user_id": str(response.id)}, status_code=status.HTTP_202_ACCEPTED
+        )
 
     async def generate_api_key(self, request: Request, client_type: ClientTypeEnum):
         auth_service = AuthService()
@@ -66,7 +68,7 @@ class AuthRouter:
             auth_obj=request.state.auth, client_type=client_type
         )
 
-        return JSONResponse({"api_key": api_key}, status_code=201)
+        return JSONResponse({"api_key": api_key}, status_code=status.HTTP_202_ACCEPTED)
 
     async def upsert_app(
         self, request: Request, body: Annotated[AppUpsertBody, Body()]

@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Body, Depends, Response, status
 
 from app.api.core.dependencies import Authentication
 from app.api.services.blockchain import BlockchainService
 from app.api.services.contract import ContractService
 from app.schema.request import ContractScanBody
+from app.schema.response import UploadContractResponse
 from app.utils.enums import AuthRequestScopeEnum
 
 
@@ -21,6 +21,7 @@ class BlockchainRouter:
             "/contract",
             self.upload_contract,
             methods=["POST"],
+            response_model=UploadContractResponse,
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
@@ -34,15 +35,15 @@ class BlockchainRouter:
             ],
         )
 
-    async def upload_contract(
-        self, body: Annotated[ContractScanBody, Body(embed=True)]
-    ):
+    async def upload_contract(self, body: Annotated[ContractScanBody, Body()]):
         contract_service = ContractService()
         response = await contract_service.fetch_from_source(
             address=body.address, network=body.network, code=body.code
         )
 
-        return JSONResponse(response, status_code=status.HTTP_202_ACCEPTED)
+        return Response(
+            response.model_dump_json(), status_code=status.HTTP_202_ACCEPTED
+        )
 
     async def get_gas(self):
         blockchain_service = BlockchainService()

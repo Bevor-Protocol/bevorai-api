@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from app.api.core.dependencies import Authentication
@@ -9,30 +9,6 @@ from app.api.services.user import UserService
 from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import AnalyticsResponse
 from app.utils.enums import AuthRequestScopeEnum
-
-
-def _parse_query_params(request: Request) -> FilterParams:
-    """
-    Parses query parameters from the request
-    and returns them as a QueryParams object.
-    """
-    query = FilterParams()
-
-    for k, v in query.model_dump().items():
-        value = request.query_params.get(k)
-        if not value:
-            continue
-        if isinstance(v, list):
-            setattr(query, k, value.split(","))
-        elif isinstance(v, int):
-            setattr(query, k, int(value))
-        elif isinstance(v, str):
-            setattr(query, k, value)
-        # Add more type checks as necessary for other types
-        else:
-            setattr(query, k, value)
-
-    return query
 
 
 class AnalyticsRouter:
@@ -96,28 +72,28 @@ class AnalyticsRouter:
             query=query_params,
         )
 
-        return JSONResponse(response.model_dump(), status_code=200)
+        return JSONResponse(response.model_dump(), status_code=status.HTTP_200_OK)
 
     async def fetch_stats(self) -> AnalyticsResponse:
         audit_service = AuditService()
         response = await audit_service.get_stats()
 
-        return JSONResponse(response.model_dump(), status_code=200)
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 
     async def get_audit(self, request: Request, id: str):
         audit_service = AuditService()
         audit = await audit_service.get_audit(user=request.state.auth, id=id)
 
-        return JSONResponse({"result": audit}, status_code=200)
+        return JSONResponse({"result": audit}, status_code=status.HTTP_200_OK)
 
     async def get_user_info(self, request: Request):
         user_service = UserService()
         user_info = await user_service.get_user_info(request.state.auth)
-        return JSONResponse(user_info.model_dump(), status_code=200)
+        return Response(user_info.model_dump_json(), status_code=status.HTTP_200_OK)
 
     async def submit_feedback(self, request: Request, data: FeedbackBody):
         audit_service = AuditService()
-        response = await audit_service.submit_feeback(
+        response = await audit_service.submit_feedback(
             data=data, user=request.state.auth
         )
-        return JSONResponse({"success": response}, status_code=200)
+        return JSONResponse({"success": response}, status_code=status.HTTP_201_CREATED)

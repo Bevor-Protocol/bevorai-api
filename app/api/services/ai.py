@@ -4,7 +4,7 @@ import re
 
 from arq import create_pool
 from fastapi import HTTPException
-from fastapi.responses import JSONResponse
+from tortoise.exceptions import DoesNotExist
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract
@@ -15,7 +15,7 @@ from app.schema.dependencies import AuthDict
 # from app.lib.prompts.gas import prompt as gas_prompt
 # from app.lib.prompts.security import prompt as security_prompt
 from app.schema.request import EvalBody
-from app.schema.response import EvalResponse, EvalResponseData
+from app.schema.response import CreateEvalResponse, GetEvalResponse
 from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ResponseStructureEnum
 
 # from app.worker import process_eval
@@ -81,7 +81,9 @@ class AiService:
 
         return result.format(**formatter)
 
-    async def process_evaluation(self, auth: AuthDict, data: EvalBody) -> JSONResponse:
+    async def process_evaluation(
+        self, auth: AuthDict, data: EvalBody
+    ) -> CreateEvalResponse:
         if not await Contract.exists(id=data.contract_id):
             raise HTTPException(
                 status_code=404,
@@ -96,8 +98,8 @@ class AiService:
 
         audit = await Audit.create(
             contract_id=data.contract_id,
-            app_id=auth["app"].id,
-            user_id=auth["user"].id,
+            app_id=auth["app"].id if "app" in auth else None,
+            user_id=auth["user"].id if "user" in auth else None,
             audit_type=audit_type,
         )
 
@@ -110,42 +112,53 @@ class AiService:
             _job_id=str(audit.id),
         )
 
-        return {"id": str(audit.id), "status": AuditStatusEnum.WAITING}
+        return CreateEvalResponse(id=audit.id, status=AuditStatusEnum.WAITING)
 
     async def get_eval(
         self, auth: AuthDict, id: str, response_type: ResponseStructureEnum
-    ) -> EvalResponse:
-        audit = await Audit.get(id=id).select_related("contract")
+    ) -> GetEvalResponse:
 
-        response = EvalResponse(
-            success=True,
+        response = GetEvalResponse(
+            id=id,
             exists=True,
         )
 
-        data = {
-            "id": str(audit.id),
-            "response_type": response_type,
-            "contract_address": audit.contract.address,
-            "contract_code": audit.contract.raw_code,
-            "contract_network": audit.contract.network,
-            "status": audit.status,
+        try:
+            audit = await Audit.get(id=id).select_related("contract")
+        except DoesNotExist:
+            response.exists = False
+            response.error = "this audit does not exist"
+            return response
+
+        response.status = audit.status
+
+        contract_data = {
+            "code": audit.contract.raw_code,
+            "address": audit.contract.address,
+            "network": audit.contract.network,
+        }
+
+        audit_data = {
+            "type": response_type,
         }
 
         if audit.status == AuditStatusEnum.SUCCESS:
             if response_type == ResponseStructureEnum.RAW:
-                data["result"] = audit.raw_output
+                audit_data["result"] = audit.raw_output
             else:
                 try:
-                    data["result"] = self.sanitize_data(
+                    audit_data["result"] = self.sanitize_data(
                         audit=audit,
                         as_markdown=response_type == ResponseStructureEnum.MARKDOWN,
                     )
                 except json.JSONDecodeError as err:
+                    response.error = "unable to parse response."
                     logging.error(
                         f"Unable to parse the output correctly for {str(audit.id)}: "
                         f"{err}"
                     )
+                    return response
 
-        response.result = EvalResponseData(**data)
+        response.data = {"contract": contract_data, "audit": audit_data}
 
         return response

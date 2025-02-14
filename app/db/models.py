@@ -58,7 +58,7 @@ class User(AbstractModel):
 
 class App(AbstractModel):
     # Every app will have an owner, unless it's a first party app.
-    owner: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+    owner: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
         "models.User", on_delete=fields.SET_NULL, null=True, related_name="app"
     )
     name = fields.CharField(max_length=255)
@@ -76,11 +76,11 @@ class App(AbstractModel):
 
 
 class Auth(AbstractModel):
-    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
-        "models.App", on_delete=fields.SET_NULL, null=True, related_name="auth"
+    app: fields.OneToOneNullableRelation[App] = fields.OneToOneField(
+        "models.App", on_delete=fields.CASCADE, null=True, related_name="auth"
     )
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", on_delete=fields.SET_NULL, null=True, related_name="auth"
+    user: fields.OneToOneNullableRelation[User] = fields.OneToOneField(
+        "models.User", on_delete=fields.CASCADE, null=True, related_name="auth"
     )
     client_type = fields.CharEnumField(
         enum_type=ClientTypeEnum, default=ClientTypeEnum.USER
@@ -119,10 +119,10 @@ class Credit(AbstractModel):
 
 
 class Transaction(AbstractModel):
-    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+    app: fields.ForeignKeyNullableRelation[App] = fields.ForeignKeyField(
         "models.App", on_delete=fields.SET_NULL, null=True, related_name="transactions"
     )
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+    user: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
         "models.User", on_delete=fields.SET_NULL, null=True, related_name="transactions"
     )
     type = fields.CharEnumField(enum_type=TransactionTypeEnum)
@@ -173,10 +173,10 @@ class Contract(AbstractModel):
 
 
 class Audit(AbstractModel):
-    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
+    app: fields.ForeignKeyNullableRelation[App] = fields.ForeignKeyField(
         "models.App", on_delete=fields.SET_NULL, null=True, related_name="audits"
     )
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+    user: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
         "models.User", on_delete=fields.SET_NULL, null=True, related_name="audits"
     )
     contract: fields.ForeignKeyRelation[Contract] = fields.ForeignKeyField(
@@ -264,10 +264,10 @@ class Webhook(AbstractModel):
 
 class Permission(AbstractModel):
     client_type = fields.CharEnumField(enum_type=ClientTypeEnum)
-    user: fields.OneToOneRelation[User] = fields.OneToOneField(
+    user: fields.OneToOneNullableRelation[User] = fields.OneToOneField(
         "models.User", on_delete=fields.CASCADE, null=True, related_name="permissions"
     )
-    app: fields.OneToOneRelation[App] = fields.OneToOneField(
+    app: fields.OneToOneNullableRelation[App] = fields.OneToOneField(
         "models.App", on_delete=fields.CASCADE, null=True, related_name="permissions"
     )
     can_create_app = fields.BooleanField(default=False)

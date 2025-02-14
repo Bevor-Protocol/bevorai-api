@@ -1,7 +1,9 @@
+import logging
+
 from tortoise.query_utils import Prefetch
 
 from app.api.core.dependencies import AuthDict
-from app.db.models import App, Audit, Permission, User
+from app.db.models import App, Audit, Auth, Permission, User
 from app.schema.response import (
     AnalyticsAudit,
     AnalyticsContract,
@@ -31,34 +33,36 @@ class UserService:
             .select_related("contract")
         )
 
+        app_queryset = App.all().prefetch_related("permissions", "auth")
+
         audit_pf = Prefetch("audits", queryset=audit_queryset)
+        app_pf = Prefetch("app", queryset=app_queryset)
+
+        logging.info("RUNNING QUERY\n\n\n\n")
 
         cur_user = await User.get(id=user["user"].id).prefetch_related(
-            audit_pf, "auth", "permissions"
-        )
-        user_app = (
-            await App.filter(owner_id=user["user"].id)
-            .prefetch_related("auth", "permissions")
-            .first()
+            audit_pf, "auth", "permissions", app_pf
         )
 
         user_audits = cur_user.audits
+        user_auth = cur_user.auth
+        # this is a nullable FK relation, grab the first.
+        user_app: App | None = cur_user.app[0] if cur_user.app else None
         # currently only 1 auth is support per user, but it's not a OneToOne relation
-        user_auth = cur_user.auth[0]
         user_permissions: Permission = cur_user.permissions
-        user_app_permissions: Permission | None = (
-            user_app.permissions if user_app else None
-        )
 
         app_info = AppInfo(
             exists=user_app is not None,
-            name=user_app.name if user_app else None,
             can_create=user_permissions.can_create_app,
         )
 
-        if user_app and user_app_permissions:
-            app_info.exists_auth = user_app.auth is not None
-            app_info.can_create_auth = user_app_permissions.can_create_api_key
+        if user_app:
+            auth: Auth | None = user_app.auth
+            permissions: Permission | None = user_app.permissions
+            app_info.name = user_app.name
+            app_info.exists_auth = auth is not None
+            if permissions:
+                app_info.can_create_auth = permissions.can_create_api_key
 
         n_audits = len(user_audits)
         n_contracts = len(set(map(lambda x: x.contract.id, user_audits)))

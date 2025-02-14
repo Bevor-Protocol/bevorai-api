@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from uuid import UUID
 from xmlrpc.client import boolean
@@ -10,14 +11,12 @@ from pydantic import (
     model_validator,
 )
 
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ModelTypeEnum, NetworkEnum
+from app.utils.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
 
 
 class EvalBody(BaseModel):
     contract_id: str
     audit_type: AuditTypeEnum = Field(default=AuditTypeEnum.GAS)
-    model_type: Optional[ModelTypeEnum] = Field(default=ModelTypeEnum.LLAMA3)
-    webhook_url: Optional[str] = Field(default=None)
 
 
 class FeedbackBody(BaseModel):
@@ -75,6 +74,7 @@ class ContractScanBody(BaseModel):
 
     @model_validator(mode="after")
     def validate_params(self):
+        logging.info(f"Im called {self}")
         if not self.code and not self.address:
             raise ValueError("must provide at least one of address or code")
 

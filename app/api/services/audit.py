@@ -1,6 +1,6 @@
 import math
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from tortoise.timezone import now
 
 from app.api.core.dependencies import AuthDict
@@ -183,13 +183,14 @@ class AuditService:
             "findings": findings,
         }
 
-    async def submit_feeback(self, data: FeedbackBody, user: AuthDict) -> bool:
+    async def submit_feedback(self, data: FeedbackBody, user: AuthDict) -> bool:
 
         finding = await Finding.get(id=data.id).select_related("audit__user")
 
         if finding.audit.user.address != user["user"].address:
             raise HTTPException(
-                status_code=401, detail="user did not create this finding"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="user did not create this finding",
             )
 
         finding.is_attested = True
