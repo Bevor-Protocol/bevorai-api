@@ -1,38 +1,33 @@
 import math
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from tortoise.timezone import now
 
-from app.api.core.dependencies import UserDict
+from app.api.core.dependencies import AuthDict
 from app.api.services.ai import AiService
 from app.db.models import App, Audit, Contract, Finding, User
-from app.schema.queries import FilterParams
-from app.schema.request import FeedbackBody
+from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import (
     AnalyticsAudit,
     AnalyticsContract,
     AnalyticsResponse,
     StatsResponse,
 )
-from app.utils.enums import (
-    AppTypeEnum,
-    AuditStatusEnum,
-    AuditTypeEnum,
-    FindingLevelEnum,
-)
+from app.utils.enums import AppTypeEnum, AuditTypeEnum, FindingLevelEnum
 
 
 class AuditService:
 
     async def get_audits(
-        self, user: UserDict, query: FilterParams
+        self, auth: AuthDict, query: FilterParams
     ) -> AnalyticsResponse:
 
         limit = query.page_size
         offset = query.page * limit
 
-        filter = {"status": AuditStatusEnum.SUCCESS}
-
+        filter = {}
+        if query.search:
+            filter["status"] = query.search
         if query.search:
             filter["raw_output__icontains"] = query.search
         if query.audit_type:
@@ -41,14 +36,19 @@ class AuditService:
             filter["contract__network__in"] = query.network
         if query.contract_address:
             filter["contract__address__icontains"] = query.contract_address
+        if query.user_address:
+            filter["user__address__icontains"] = query.user_address
         if query.user_id:
-            filter["user__address__icontains"] = query.user_id
+            filter["user_id"] = query.user_id
 
-        if user["app"]:
-            if user["app"].type != AppTypeEnum.FIRST_PARTY:
-                filter["app_id"] = user["app"].id
+        # FIRST_PARTY apps can view all. THIRD_PARTY apps can only view those created
+        # through their app. Users can only view their own audits. If accessed via our
+        # frontend all are viewable.
+        if auth["app"]:
+            if auth["app"].type != AppTypeEnum.FIRST_PARTY:
+                filter["app_id"] = auth["app"].id
         else:
-            filter["user_id"] = user["user"].id
+            filter["user_id"] = auth["user"].id
 
         audit_query = Audit.filter(**filter)
 
@@ -56,7 +56,7 @@ class AuditService:
 
         total_pages = math.ceil(total / limit)
 
-        if total <= (offset * limit):
+        if total <= offset:
             return AnalyticsResponse(results=[], more=False, total_pages=total_pages)
 
         results = (
@@ -91,7 +91,7 @@ class AuditService:
                 n=i + offset,
                 id=result["id"],
                 created_at=result["created_at"],
-                app_id=str(result["app_id"]),
+                app_id=result["app_id"],
                 user_id=result["user__address"],
                 audit_type=result["audit_type"],
                 status=result["status"],
@@ -135,7 +135,7 @@ class AuditService:
 
         return response
 
-    async def get_audit(self, id: str) -> str:
+    async def get_audit(self, user: AuthDict, id: str) -> str:
         audit = (
             await Audit.get(id=id)
             .select_related("contract", "user")
@@ -183,13 +183,14 @@ class AuditService:
             "findings": findings,
         }
 
-    async def submit_feeback(self, data: FeedbackBody, user: UserDict) -> bool:
+    async def submit_feedback(self, data: FeedbackBody, user: AuthDict) -> bool:
 
         finding = await Finding.get(id=data.id).select_related("audit__user")
 
         if finding.audit.user.address != user["user"].address:
             raise HTTPException(
-                status_code=401, detail="user did not create this finding"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="user did not create this finding",
             )
 
         finding.is_attested = True

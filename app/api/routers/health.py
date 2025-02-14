@@ -1,7 +1,8 @@
 import logging
 
 from arq import create_pool
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Response, status
+from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from tortoise import Tortoise
 
@@ -10,7 +11,7 @@ from app.config import redis_settings
 
 class BaseRouter:
     def __init__(self):
-        self.router = APIRouter(tags=["job_status"])
+        self.router = APIRouter(include_in_schema=False, tags=["job_status"])
         self.register_routes()
 
     def register_routes(self):
@@ -25,9 +26,9 @@ class BaseRouter:
     async def health_check(self):
         try:
             await Tortoise.get_connection("default").execute_query("SELECT 1;")
-            return {"ok": True}
+            return JSONResponse({"ok": True})
         except Exception as e:
-            return {"ok": False, "error": str(e)}
+            return JSONResponse({"ok": False, "error": str(e)})
 
     async def test(self):
         redis_pool = await create_pool(redis_settings)
@@ -35,7 +36,9 @@ class BaseRouter:
             "mock",
         )
 
-        return {"ok": True, "job_id": job.job_id}
+        return JSONResponse(
+            {"ok": True, "job_id": job.job_id}, status_code=status.HTTP_200_OK
+        )
 
     async def get_metrics(self):
         logging.info("getting metrics")

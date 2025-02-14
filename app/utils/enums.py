@@ -90,3 +90,21 @@ class FindingLevelEnum(str, Enum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
+
+
+# These should correspond to the field name of the Permission table.
+class PermissionEnum(str, Enum):
+    CREATE_APP = "can_create_app"
+    CREATE_API_KEY = "can_create_api_key"
+
+
+class AuthScopeEnum(str, Enum):
+    WRITE = "write"
+    READ = "read"
+    ADMIN = "admin"
+
+
+class AuthRequestScopeEnum(str, Enum):
+    APP_FIRST_PARTY = "app-first-party"
+    APP = "app"
+    USER = "user"

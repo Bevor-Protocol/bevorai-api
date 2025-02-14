@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.api.services.blockchain import BlockchainService
 from app.db.models import Contract
+from app.schema.response import UploadContractResponse
 from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 from app.utils.mappers import networks_by_type
 
@@ -161,16 +162,14 @@ class ContractService:
 
         def prettify(contract: Contract):
             return {
-                "id": str(contract.id),
+                "id": contract.id,
                 "source_code": contract.raw_code,
                 "network": contract.network,
                 "is_available": contract.is_available,
             }
 
-        obj = {
-            "exact_match": len(contracts) == 1,
-            "exists": bool(len(contracts)),
-            "candidates": list(map(prettify, contracts)),
-        }
-
-        return obj
+        return UploadContractResponse(
+            exact_match=len(contracts) == 1,
+            exists=bool(len(contracts)),
+            candidates=list(map(prettify, contracts)),
+        )

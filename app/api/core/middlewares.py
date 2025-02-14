@@ -23,7 +23,6 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             if endpoint.startswith(grouping):
                 group_use = grouping
                 break
-        logging.info(f"REQUEST RECEIVED {endpoint}, {method}")
 
         if not group_use:
             response = await call_next(request)

@@ -90,7 +90,7 @@ reporter_prompt = """
 You are a smart contract gas optimization audit report generator.
 You are given the critique from an auditing professional, and are tasked with generating a structured report with severity classifications, explanations, and recommendations.
 
-You should carefully classify each vulnerability and strictly follow the expected output structure.
+You should carefully classify each vulnerability and strictly follow the expected output structure. You should not reference an auditor directly in your report.
 """
 
 

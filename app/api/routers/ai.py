@@ -1,13 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
-from tortoise.exceptions import DoesNotExist
+from typing import Annotated
 
-# from app.api.ai.webhook import process_webhook_replicate
-from app.api.core.dependencies import require_auth
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+
+from app.api.core.dependencies import Authentication
 from app.api.services.ai import AiService
 from app.schema.request import EvalBody
-from app.schema.response import EvalResponse
-from app.utils.enums import ResponseStructureEnum
+from app.schema.response import CreateEvalResponse, GetEvalResponse
+from app.utils.enums import AuthRequestScopeEnum, ResponseStructureEnum
 
 
 class AiRouter:
@@ -22,22 +21,33 @@ class AiRouter:
             "/eval",
             self.process_ai_eval,
             methods=["POST"],
-            dependencies=[Depends(require_auth)],
+            response_model=CreateEvalResponse,
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
+            ],
         )
-        self.router.add_api_route("/eval/{id}", self.get_eval_by_id, methods=["GET"])
+        self.router.add_api_route(
+            "/eval/{id}",
+            self.get_eval_by_id,
+            methods=["GET"],
+            response_model=GetEvalResponse,
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+            ],
+        )
 
     async def process_ai_eval(
         self,
         request: Request,
-        data: EvalBody,
+        body: Annotated[EvalBody, Body()],
     ):
         response = await self.ai_service.process_evaluation(
-            user=request.scope["auth"], data=data
+            auth=request.state.auth, data=body
         )
 
-        return JSONResponse(response, status_code=202)
+        return Response(response.model_dump_json(), status_code=status.HTTP_201_CREATED)
 
-    async def get_eval_by_id(self, request: Request, id: str) -> EvalResponse:
+    async def get_eval_by_id(self, request: Request, id: str) -> GetEvalResponse:
         response_type = request.query_params.get(
             "response_type", ResponseStructureEnum.JSON.name
         )
@@ -49,12 +59,7 @@ class AiRouter:
                 status_code=400, detail="Invalid response_type parameter"
             )
 
-        try:
-            response = await self.ai_service.get_eval(id, response_type=response_type)
-            return JSONResponse(
-                response.model_dump()["result"]["result"], status_code=200
-            )
-        except DoesNotExist:
-            return EvalResponse(
-                success=False, exists=False, error="no record of this evaluation exists"
-            )
+        response = await self.ai_service.get_eval(
+            auth=request.state.auth, id=id, response_type=response_type
+        )
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

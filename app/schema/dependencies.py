@@ -1,9 +1,12 @@
 from typing import Optional, TypedDict
 
 from app.db.models import App, User
+from app.utils.enums import AuthScopeEnum, ClientTypeEnum
 
 
-class UserDict(TypedDict):
-    user: Optional[User]
-    app: Optional[App]
-    require_credit_and_limit: bool
+class AuthDict(TypedDict):
+    user: Optional[User] = None
+    app: Optional[App] = None
+    is_delegator: bool = False
+    scope: AuthScopeEnum
+    client_type: ClientTypeEnum
