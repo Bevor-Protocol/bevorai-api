@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-candidate_prompt = """
+candidate_prompts = ["""
 You are a professional smart contract auditor.
 Given smart contract code, you are tasked with identifying gas optimization opportunities.
 This does not have to be a formally structured report, but your answer should be complete.
@@ -64,7 +64,7 @@ Do not make up findings. There are severe implications of the results you produc
 Please adhere strictly to the guidelines provided and don't make mistakes.
 
 The code to be audited for the gas optimization audit is found below:
-"""
+"""]
 
 reviewer_prompt = """
 You are a smart contract gas optimization audit reviewer.

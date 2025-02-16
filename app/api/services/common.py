@@ -123,7 +123,7 @@ class LlmPipeline:
         if to_create:
             await Finding.bulk_create(objects=to_create)
 
-    async def generate_candidates(self, n: int = 3):
+    async def generate_candidates(self, n: int = 7):
         await self.__publish_event(step="generating_candidates")
 
         try:
@@ -156,7 +156,7 @@ class LlmPipeline:
                 f"\n\nAuditor #{i + 1} Findings:\n{choice.message.content}"
             )
 
-        self.candidate_prompt = constructed_prompt
+        self.candidate_prompts = constructed_prompt
 
         contents = list(map(lambda x: x.message.content, response.choices))
 
