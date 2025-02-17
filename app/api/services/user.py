@@ -2,7 +2,7 @@ import logging
 
 from tortoise.query_utils import Prefetch
 
-from app.api.core.dependencies import AuthDict
+from app.api.core.dependencies import AuthState
 from app.db.models import App, Audit, Auth, Permission, User
 from app.schema.response import (
     AnalyticsAudit,
@@ -16,16 +16,16 @@ from app.utils.enums import AuditStatusEnum
 
 
 class UserService:
-    async def upsert_user(self, auth: AuthDict, address: str) -> User:
-        user = await User.filter(app_owner_id=auth["app"].id, address=address).first()
+    async def upsert_user(self, auth: AuthState, address: str) -> User:
+        user = await User.filter(app_owner_id=auth.app_id, address=address).first()
         if user:
             return user
 
-        user = await User.create(app_owner_id=auth["app"].id, address=address)
+        user = await User.create(app_owner_id=auth.app_id, address=address)
 
         return user
 
-    async def get_user_info(self, user: AuthDict):
+    async def get_user_info(self, auth: AuthState):
 
         audit_queryset = (
             Audit.filter(status=AuditStatusEnum.SUCCESS)
@@ -40,7 +40,7 @@ class UserService:
 
         logging.info("RUNNING QUERY\n\n\n\n")
 
-        cur_user = await User.get(id=user["user"].id).prefetch_related(
+        cur_user = await User.get(id=auth.user_id).prefetch_related(
             audit_pf, "auth", "permissions", app_pf
         )
 

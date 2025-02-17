@@ -3,9 +3,9 @@ import math
 from fastapi import HTTPException, status
 from tortoise.timezone import now
 
-from app.api.core.dependencies import AuthDict
 from app.api.services.ai import AiService
 from app.db.models import App, Audit, Contract, Finding, User
+from app.schema.dependencies import AuthState
 from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import (
     AnalyticsAudit,
@@ -13,13 +13,18 @@ from app.schema.response import (
     AnalyticsResponse,
     StatsResponse,
 )
-from app.utils.enums import AppTypeEnum, AuditTypeEnum, FindingLevelEnum
+from app.utils.enums import (
+    AuditTypeEnum,
+    AuthScopeEnum,
+    ClientTypeEnum,
+    FindingLevelEnum,
+)
 
 
 class AuditService:
 
     async def get_audits(
-        self, auth: AuthDict, query: FilterParams
+        self, auth: AuthState, query: FilterParams
     ) -> AnalyticsResponse:
 
         limit = query.page_size
@@ -44,11 +49,11 @@ class AuditService:
         # FIRST_PARTY apps can view all. THIRD_PARTY apps can only view those created
         # through their app. Users can only view their own audits. If accessed via our
         # frontend all are viewable.
-        if auth["app"]:
-            if auth["app"].type != AppTypeEnum.FIRST_PARTY:
-                filter["app_id"] = auth["app"].id
+        if auth.client_type == ClientTypeEnum.APP:
+            if auth.scope != AuthScopeEnum.ADMIN:
+                filter["app_id"] = auth.app_id
         else:
-            filter["user_id"] = auth["user"].id
+            filter["user_id"] = auth.user_id
 
         audit_query = Audit.filter(**filter)
 
@@ -135,9 +140,16 @@ class AuditService:
 
         return response
 
-    async def get_audit(self, user: AuthDict, id: str) -> str:
+    async def get_audit(self, auth: AuthState, id: str) -> str:
+        obj_filter = {"id": id}
+        if auth.client_type == ClientTypeEnum.USER:
+            obj_filter["user_id"] = auth.user_id
+        else:
+            if auth.scope != AuthScopeEnum.ADMIN:
+                obj_filter["app_id"] = auth.app_id
+
         audit = (
-            await Audit.get(id=id)
+            await Audit.get(**obj_filter)
             .select_related("contract", "user")
             .prefetch_related("findings")
         )
@@ -183,15 +195,26 @@ class AuditService:
             "findings": findings,
         }
 
-    async def submit_feedback(self, data: FeedbackBody, user: AuthDict) -> bool:
+    async def submit_feedback(self, data: FeedbackBody, auth: AuthState) -> bool:
 
-        finding = await Finding.get(id=data.id).select_related("audit__user")
+        finding = await Finding.get(id=data.id).select_related("audit")
 
-        if finding.audit.user.address != user["user"].address:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="user did not create this finding",
-            )
+        user_id = finding.audit.user_id
+        app_id = finding.audit.app_id
+
+        if auth.client_type == ClientTypeEnum.USER:
+            if (not user_id) or (user_id != auth.user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="user did not create this finding",
+                )
+        if auth.client_type == ClientTypeEnum.APP:
+            if auth.scope != AuthScopeEnum.ADMIN:
+                if (not app_id) or (app_id != auth.app_id):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="app did not create this finding",
+                    )
 
         finding.is_attested = True
         finding.is_verified = data.verified

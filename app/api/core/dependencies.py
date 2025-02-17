@@ -13,7 +13,7 @@ from tortoise.exceptions import DoesNotExist
 
 from app.config import redis_client
 from app.db.models import Auth, User
-from app.schema.dependencies import AuthDict
+from app.schema.dependencies import AuthState
 from app.utils.enums import (
     AppTypeEnum,
     AuthRequestScopeEnum,
@@ -66,7 +66,7 @@ class Authentication:
 
     async def _infer_authentication(self, request: Request, auth: Auth):
         """
-        Evaluation of the api key. Creates the request.state object as AuthDict
+        Evaluation of the api key. Creates the request.state object as AuthState
         """
         identifier = request.headers.get("x-user-identifier")
         if self.request_scope in [
@@ -86,16 +86,16 @@ class Authentication:
                     detail="invalid api permissions",
                 )
 
-        state = AuthDict(client_type=auth.client_type, scope=auth.scope)
+        state = AuthState(client_type=auth.client_type, scope=auth.scope)
 
         # Apps are able to make requests on behalf of other users.
         if auth.client_type == ClientTypeEnum.APP:
-            state["app"] = auth.app
+            state.app_id = auth.app.id
             if identifier:
-                state["is_delegator"] = True
+                state.is_delegator = True
                 try:
                     user = await User.get(id=identifier)
-                    state["user"] = user
+                    state.user_id = user.id
                 except DoesNotExist:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -104,10 +104,9 @@ class Authentication:
             else:
                 if auth.app.type == AppTypeEnum.THIRD_PARTY:
                     user = auth.app.owner
-                    state["user"] = user
+                    state.user_id = user.id
         else:
-            user = auth.user
-            state["user"] = user
+            state.user_id = auth.user_id
 
         request.state.auth = state
 
@@ -164,7 +163,7 @@ class RateLimit:
         pass
 
     async def __call__(self, request: Request) -> None:
-        auth: AuthDict = request.state
+        auth: AuthState = request.state
         if auth["app"]:
             if auth["app"].type == AppTypeEnum.FIRST_PARTY:
                 return

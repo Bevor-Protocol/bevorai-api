@@ -82,7 +82,7 @@ class AnalyticsRouter:
 
     async def get_audit(self, request: Request, id: str):
         audit_service = AuditService()
-        audit = await audit_service.get_audit(user=request.state.auth, id=id)
+        audit = await audit_service.get_audit(auth=request.state.auth, id=id)
 
         return JSONResponse({"result": audit}, status_code=status.HTTP_200_OK)
 

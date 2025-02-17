@@ -1,12 +1,19 @@
-from typing import Optional, TypedDict
+from uuid import UUID
 
-from app.db.models import App, User
+from pydantic import BaseModel, field_serializer
+
 from app.utils.enums import AuthScopeEnum, ClientTypeEnum
 
 
-class AuthDict(TypedDict):
-    user: Optional[User] = None
-    app: Optional[App] = None
+class AuthState(BaseModel):
+    user_id: str | UUID | None = None
+    app_id: str | UUID | None = None
     is_delegator: bool = False
     scope: AuthScopeEnum
     client_type: ClientTypeEnum
+
+    @field_serializer("user_id", "app_id")
+    def convert_uuid_to_string(self, id):
+        if isinstance(id, UUID):
+            return str(id)
+        return id

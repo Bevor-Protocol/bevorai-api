@@ -117,8 +117,8 @@ class AnalyticsAudit(BaseModel):
     n: int
     id: str | UUID
     created_at: datetime
-    app_id: str | UUID
-    user_id: Optional[str]
+    app_id: str | UUID | None = None
+    user_id: Optional[str] = None
     audit_type: AuditTypeEnum
     status: AuditStatusEnum
     contract: AnalyticsContract

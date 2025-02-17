@@ -2,20 +2,20 @@ from fastapi import HTTPException, status
 
 from app.api.services.permission import PermissionService
 from app.db.models import App, Auth, User
-from app.schema.dependencies import AuthDict
+from app.schema.dependencies import AuthState
 from app.utils.enums import ClientTypeEnum, PermissionEnum
 
 
 class AuthService:
 
-    async def generate_auth(self, auth_obj: AuthDict, client_type: ClientTypeEnum):
+    async def generate_auth(self, auth_obj: AuthState, client_type: ClientTypeEnum):
         # only callable via FIRST_PARTY app, we know to reference the user obj.
         search_criteria = {}
         if client_type == ClientTypeEnum.APP:
-            app = await App.get(owner_id=auth_obj["user"].id)
+            app = await App.get(owner_id=auth_obj.app_id)
             search_criteria["app_id"] = app.id
         else:
-            user = await User.get(id=auth_obj["user"].id)
+            user = await User.get(id=auth_obj.user_id)
             search_criteria["user_id"] = user.id
 
         auth = await Auth.filter(**search_criteria).first()
