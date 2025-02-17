@@ -188,7 +188,7 @@ class AuditService:
             },
             "audit": {
                 "status": audit.status,
-                "model": audit.model,
+                "version": audit.version,
                 "audit_type": audit.audit_type,
                 "result": result,
             },

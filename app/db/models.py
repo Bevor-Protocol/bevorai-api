@@ -13,7 +13,6 @@ from app.utils.enums import (
     ContractMethodEnum,
     CreditTierEnum,
     FindingLevelEnum,
-    IntermediateResponseEnum,
     NetworkEnum,
     TransactionTypeEnum,
     WebhookEventEnum,
@@ -182,7 +181,7 @@ class Audit(AbstractModel):
     contract: fields.ForeignKeyRelation[Contract] = fields.ForeignKeyField(
         "models.Contract", on_delete=fields.CASCADE, related_name="audits"
     )
-    model = fields.CharField(max_length=255, null=True, default=None)
+    version = fields.CharField(max_length=20, null=True, default="v1")
     audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
     processing_time_seconds = fields.IntField(null=True, default=None)
     status = fields.CharEnumField(
@@ -207,7 +206,7 @@ class IntermediateResponse(AbstractModel):
     audit: fields.ForeignKeyRelation[Audit] = fields.ForeignKeyField(
         "models.Audit", on_delete=fields.CASCADE, related_name="intermediate_responses"
     )
-    step = fields.CharEnumField(enum_type=IntermediateResponseEnum)
+    step = fields.CharField(max_length=30)
     result = fields.TextField()
 
     class Meta:
