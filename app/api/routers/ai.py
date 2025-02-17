@@ -5,8 +5,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, 
 from app.api.core.dependencies import Authentication
 from app.api.services.ai import AiService
 from app.schema.request import EvalBody
-from app.schema.response import CreateEvalResponse, GetEvalResponse
+from app.schema.response import CreateEvalResponse, GetCostEstimate, GetEvalResponse
 from app.utils.enums import AuthRequestScopeEnum, ResponseStructureEnum
+from app.utils.pricing import Usage
 
 
 class AiRouter:
@@ -35,6 +36,12 @@ class AiRouter:
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
         )
+        self.router.add_api_route(
+            "/credit/estimate",
+            self.get_credit_estimate,
+            response_model=GetCostEstimate,
+            methods=["GET"],
+        )
 
     async def process_ai_eval(
         self,
@@ -62,4 +69,10 @@ class AiRouter:
         response = await self.ai_service.get_eval(
             auth=request.state.auth, id=id, response_type=response_type
         )
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+
+    async def get_credit_estimate(self):
+        usage = Usage()
+        estimate = usage.estimate_pricing()
+        response = GetCostEstimate(credits=estimate)
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

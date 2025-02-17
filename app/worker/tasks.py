@@ -19,7 +19,7 @@ from app.utils.enums import (
 
 async def handle_eval(audit_id: str):
     now = datetime.now()
-    audit = await Audit.get(id=audit_id).select_related("app", "contract")
+    audit = await Audit.get(id=audit_id).select_related("app", "contract", "user")
 
     # only use pubsub for first-party applications.
     # otherwise, we can rely on webhooks or polling.
@@ -41,8 +41,15 @@ async def handle_eval(audit_id: str):
 
         response = await pipeline.generate_report()
 
+        cost = pipeline.usage.get_cost()
+
         audit.raw_output = response
         audit.status = AuditStatusEnum.SUCCESS
+
+        # NOTE: could remove this if condition in the future. Free via the app.
+        if not should_publish:
+            audit.user.remaining_credits -= cost
+            await audit.user.save()
 
     except Exception as err:
         logging.error(err)

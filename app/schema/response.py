@@ -59,6 +59,10 @@ class GetEvalResponse(BaseModel):
         return id
 
 
+class GetCostEstimate(BaseModel):
+    credits: int
+
+
 class CreateEvalResponse(BaseModel):
     id: str | UUID
     status: AuditStatusEnum
