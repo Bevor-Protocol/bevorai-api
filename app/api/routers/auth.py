@@ -46,6 +46,14 @@ class AuthRouter:
                 )
             ],
         )
+        self.router.add_api_route(
+            "/sync/credits",
+            self.sync_credits,
+            methods=["POST"],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+            ],
+        )
 
     async def get_or_create_user(
         self, request: Request, body: Annotated[UserUpsertBody, Body()]
@@ -83,3 +91,15 @@ class AuthRouter:
         response = await fct(auth=request.state.auth, body=body)
 
         return JSONResponse({"result": response}, status_code=status.HTTP_202_ACCEPTED)
+
+    async def sync_credits(self, request: Request):
+        auth_service = AuthService()
+
+        try:
+            credits = await auth_service.sync_credits(request.state.auth)
+            return JSONResponse({"success": True, **credits}, status_code=200)
+        except Exception:
+            return JSONResponse(
+                {"success": False, "error": "could not connect to network"},
+                status_code=200,
+            )

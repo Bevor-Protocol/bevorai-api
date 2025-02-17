@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 
 from app.api.services.permission import PermissionService
+from app.client.web3 import Web3Client
 from app.db.models import App, Auth, User
 from app.schema.dependencies import AuthState
 from app.utils.enums import ClientTypeEnum, PermissionEnum
@@ -48,3 +49,42 @@ class AuthService:
 
     async def revoke_access(self):
         pass
+
+    async def sync_credits(self, auth: AuthState):
+        web3_client = Web3Client()
+        provider = web3_client.get_deployed_provider()
+
+        user = await User.get(id=auth.user_id)
+
+        prev_credits = user.total_credits
+
+        # Get the contract instance
+        contract_address = "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512".lower()
+        abi = [
+            {
+                "inputs": [{"type": "address"}],
+                "name": "apiCredits",
+                "outputs": [{"type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function",
+            }
+        ]
+        contract_address_use = provider.to_checksum_address(contract_address)
+        contract = provider.eth.contract(address=contract_address_use, abi=abi)
+
+        # Call apiCredits mapping to get credits for the address
+        address_use = provider.to_checksum_address(user.address.lower())
+        credits_raw = await contract.functions.apiCredits(address_use).call()
+        credits = credits_raw / 10**18
+
+        # the contract is the source of truth. Always overwrite.
+        user.total_credits = credits
+        await user.save()
+
+        return {
+            "total_credits": credits,
+            "credits_added": max(0, credits - prev_credits),
+            "credits_removed": max(
+                0, prev_credits - credits
+            ),  # only applicable during refund.
+        }

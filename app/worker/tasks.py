@@ -92,7 +92,7 @@ async def get_deployment_contracts(network: NetworkEnum):
 
     current_block = provider.eth.get_block_number()
     logging.info(f"Network: {network} --- Current block: {current_block}")
-    receipts = provider.eth.get_block_receipts(current_block)
+    receipts = await provider.eth.get_block_receipts(current_block)
 
     logging.info(f"RECEIPTS FOUND {len(receipts)}")
 
