@@ -32,13 +32,12 @@ async def handle_eval(audit_id: str):
         should_write_to_db=True,
     )
 
-    audit.model = pipeline.model
+    audit.version = pipeline.version
     audit.status = AuditStatusEnum.PROCESSING
     await audit.save()
 
     try:
         await pipeline.generate_candidates()
-        await pipeline.generate_judgement()
 
         response = await pipeline.generate_report()
 

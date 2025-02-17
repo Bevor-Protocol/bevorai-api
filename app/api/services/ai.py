@@ -8,12 +8,9 @@ from tortoise.exceptions import DoesNotExist
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract
-from app.lib.v1.markdown.gas import markdown as gas_markdown
-from app.lib.v1.markdown.security import markdown as security_markdown
+from app.lib.gas import versions as gas_versions
+from app.lib.security import versions as sec_versions
 from app.schema.dependencies import AuthState
-
-# from app.lib.prompts.gas import prompt as gas_prompt
-# from app.lib.prompts.security import prompt as security_prompt
 from app.schema.request import EvalBody
 from app.schema.response import CreateEvalResponse, GetEvalResponse
 from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ResponseStructureEnum
@@ -45,9 +42,11 @@ class AiService:
 
     def parse_branded_markdown(self, audit: Audit, findings: dict):
         # See if i can cast it back to the expected Pydantic struct.
-        markdown = (
-            gas_markdown if audit.audit_type == AuditTypeEnum.GAS else security_markdown
+        version_use = (
+            gas_versions if audit.audit_type == AuditTypeEnum.GAS else sec_versions
         )
+        version = version_use[audit.version]
+        markdown = version["markdown"]
         result = markdown
 
         formatter = {

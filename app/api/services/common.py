@@ -1,15 +1,18 @@
+import asyncio
 import json
 import logging
 import re
-from typing import List, Optional, Union
 
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
 from app.client.llm import llm_client
 from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse
-from app.lib.v1.prompts import formatters, prompts
-from app.utils.enums import FindingLevelEnum, IntermediateResponseEnum
+from app.lib.gas import CURRENT_VERSION as gas_version
+from app.lib.gas import structure as gas_structure
+from app.lib.security import CURRENT_VERSION as sec_version
+from app.lib.security import structure as sec_structure
+from app.utils.enums import AuditTypeEnum, FindingLevelEnum
 
 
 class LlmPipeline:
@@ -18,22 +21,28 @@ class LlmPipeline:
         self,
         audit: Audit,
         input: str,
-        model: Optional[str] = None,
         should_publish: bool = False,  # **to pubsub channel**
         should_write_to_db: bool = False,  # **for intermediate response**
     ):
         self.input = input
-        self.model = model or "gpt-4o-mini"
 
         self.audit = audit
         self.audit_type = audit.audit_type
-        self.base_prompts = prompts[audit.audit_type]
-        self.formatter = formatters[audit.audit_type]
+
+        # will always use the most recent version
+        self.version_use = (
+            sec_structure
+            if audit.audit_type == AuditTypeEnum.SECURITY
+            else gas_structure
+        )
+        self.version = (
+            sec_version if audit.audit_type == AuditTypeEnum.SECURITY else gas_version
+        )
         self.should_publish = should_publish
         self.should_write_to_db = should_write_to_db
 
     def _parse_candidates(
-        self, choices: List[ParsedChoice]
+        self, choices: list[ParsedChoice]
     ) -> ChatCompletionMessageParam:
         constructed_prompt = ""
 
@@ -42,7 +51,7 @@ class LlmPipeline:
 
         return {"role": "assistant", "content": choice.message.content}
 
-    async def __publish_event(self, step: str):
+    async def __publish_event(self, name: str, status: str):
         if not self.should_publish:
             return
 
@@ -51,34 +60,22 @@ class LlmPipeline:
             json.dumps(
                 {
                     "type": "eval",
-                    "step": step,
+                    "name": name,
+                    "status": status,
                     "job_id": str(self.audit.id),
                 }
             ),
         )
 
-    async def __write_checkpoint(
-        self, step: IntermediateResponseEnum, result: Union[str, List[str]]
-    ):
+    async def __write_checkpoint(self, step: str, result: str | list[str]):
         if not self.should_write_to_db:
             return
-        if isinstance(result, list):
-            await IntermediateResponse.bulk_create(
-                objects=list(
-                    map(
-                        lambda content: IntermediateResponse(
-                            audit_id=self.audit.id,
-                            step=step,
-                            result=content,
-                        ),
-                        result,
-                    )
-                )
-            )
-        else:
-            await IntermediateResponse.create(
-                audit_id=self.audit.id, step=step, result=result
-            )
+
+        await IntermediateResponse.create(
+            audit_id=self.audit.id,
+            step=step,
+            result=result,
+        )
 
     async def __write_findings(self, response):
         if not self.should_write_to_db:
@@ -101,7 +98,9 @@ class LlmPipeline:
             logging.warn("Failed to parse json, skipping")
             return
 
-        model = self.formatter(**parsed)
+        output_parser = self.version_use["response"]
+
+        model = output_parser(**parsed)
 
         to_create = []
         for severity in FindingLevelEnum:
@@ -123,21 +122,19 @@ class LlmPipeline:
         if to_create:
             await Finding.bulk_create(objects=to_create)
 
-    async def generate_candidates(self, n: int = 3):
-        await self.__publish_event(step="generating_candidates")
+    async def _generate_candidate(self, candidate: str, prompt: str):
+        await self.__publish_event(name=candidate, status="start")
 
+        # allows for some fault tolerance.
         try:
             response = await llm_client.chat.completions.create(
-                model=self.model,
+                model="gpt-4o-mini",
                 max_completion_tokens=2000,
-                n=max(0, min(n, 4)),
-                temperature=0.5,
+                temperature=0.3,
                 messages=[
                     {
                         "role": "developer",
-                        "content": self.base_prompts[
-                            IntermediateResponseEnum.CANDIDATE
-                        ],
+                        "content": prompt,
                     },
                     {
                         "role": "user",
@@ -145,96 +142,65 @@ class LlmPipeline:
                     },
                 ],
             )
+            result = response.choices[0].message.content
+            await self.__publish_event(name=candidate, status="done")
+            await self.__write_checkpoint(step=candidate, result=result)
+
+            return result
+
         except Exception as err:
-            await self.__publish_event(step="error")
-            raise err
+            logging.warning(err)
+            await self.__publish_event(name=candidate, status="error")
+            return None
+
+    async def generate_candidates(self):
+        tasks = []
+        candidate_prompts = self.version_use["prompts"]["candidates"]
+        logging.info(f"CALLED {candidate_prompts}")
+        for candidate, prompt in candidate_prompts.items():
+            task = self._generate_candidate(candidate=candidate, prompt=prompt)
+            tasks.append(task)
+
+        responses: list[str | None] = await asyncio.gather(*tasks)
 
         constructed_prompt = ""
 
-        for i, choice in enumerate(response.choices):
-            constructed_prompt += (
-                f"\n\nAuditor #{i + 1} Findings:\n{choice.message.content}"
-            )
+        for i, response in enumerate(responses):
+            if response is not None:
+                constructed_prompt += f"\n\nAuditor #{i + 1} Findings:\n{response}"
 
         self.candidate_prompt = constructed_prompt
 
-        contents = list(map(lambda x: x.message.content, response.choices))
-
-        await self.__write_checkpoint(
-            step=IntermediateResponseEnum.CANDIDATE, result=contents
-        )
-
-    async def generate_judgement(self):
+    async def generate_report(self):
         if not self.candidate_prompt:
-            raise NotImplementedError("must run generate_candidates() first")
+            raise NotImplementedError("must run generate_judgement() first")
 
-        await self.__publish_event(step="generating_judgements")
+        await self.__publish_event(name="report", status="start")
 
-        judgement_user_input = (
-            "Here is the original smart contract:\n\n{contract}"
-            "\n\nHere are the auditor findings that you are to review:\n\n"
-            "{candidate_prompt}"
-        )
+        output_structure = self.version_use["response"]
+        prompt = self.version_use["prompts"]["reviewer"]
+
         try:
-            response = await llm_client.chat.completions.create(
+            response = await llm_client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
                 max_completion_tokens=2000,
                 temperature=0.2,
                 messages=[
                     {
                         "role": "developer",
-                        "content": self.base_prompts[IntermediateResponseEnum.REVIEWER],
+                        "content": prompt,
                     },
-                    {
-                        "role": "user",
-                        "content": judgement_user_input.format(
-                            contract=self.input, candidate_prompt=self.candidate_prompt
-                        ),
-                    },
+                    {"role": "user", "content": self.candidate_prompt},
                 ],
+                response_format=output_structure,
             )
         except Exception as err:
-            await self.__publish_event(step="error")
-            raise err
-
-        self.judgement_prompt = response.choices[0].message.content
-
-        await self.__write_checkpoint(
-            step=IntermediateResponseEnum.REVIEWER,
-            result=response.choices[0].message.content,
-        )
-
-    async def generate_report(self):
-        if not self.judgement_prompt:
-            raise NotImplementedError("must run generate_judgement() first")
-
-        await self.__publish_event(step="generating_report")
-
-        report_user_input = (
-            f"Generate a report based on the following "
-            f"critique: {self.judgement_prompt}"
-        )
-        try:
-            response = await llm_client.beta.chat.completions.parse(
-                model="gpt-4o-mini",
-                max_completion_tokens=2000,
-                temperature=0.1,
-                messages=[
-                    {
-                        "role": "developer",
-                        "content": self.base_prompts[IntermediateResponseEnum.REPORTER],
-                    },
-                    {"role": "user", "content": report_user_input},
-                ],
-                response_format=self.formatter,
-            )
-        except Exception as err:
-            await self.__publish_event(step="error")
+            await self.__publish_event(name="report", status="error")
             raise err
 
         result = response.choices[0].message.content
 
-        await self.__publish_event(step="done")
+        await self.__publish_event(name="report", status="done")
         await self.__write_findings(result)
 
         return result

@@ -1,5 +1,5 @@
-markdown = """
-# ⛽ Smart Contract Security Audit Report
+template = """
+# ⛽ Smart Contract Gas Audit Report
 
 ---
 
@@ -9,17 +9,17 @@ Produced by: CertaiK AI Agent
 ---
 
 ⚠️ Severity Level Definitions
-- Critical: 🚨 Issues that can lead to contract compromise or significant financial losses.  
-- High: 🔴 Severe bugs that may result in major exploits or disruptions.  
-- Medium: 🟠 Moderate risks with potential functional or security impacts.  
-- Low: 🟢 Minor issues with limited risk or impact.  
+- Critical: 🚨 Significant gas inefficiencies that can lead to substantial cost increases.
+- High: 🔴 Major gas usage issues that may result in noticeable cost impacts.
+- Medium: 🟠 Moderate gas optimization opportunities with potential cost savings.
+- Low: 🟢 Minor gas inefficiencies with limited cost impact.
 
 ---
 
 ## 📝 Audit Summary
 - Contract Address: {address}
-- Audit Date: {date}
-- Auditor: Certaik AI Agent
+- Audit Data: {date}
+- Auditors: Certaik AI Agent
 
 ---
 
@@ -46,7 +46,6 @@ Produced by: CertaiK AI Agent
 
 ### 🟢 Low
 {findings_low}
-
 
 ---
 
