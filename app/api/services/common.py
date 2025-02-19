@@ -13,6 +13,7 @@ from app.lib.gas import structure as gas_structure
 from app.lib.security import CURRENT_VERSION as sec_version
 from app.lib.security import structure as sec_structure
 from app.utils.enums import AuditTypeEnum, FindingLevelEnum
+from app.utils.pricing import Usage
 
 
 class LlmPipeline:
@@ -28,6 +29,7 @@ class LlmPipeline:
 
         self.audit = audit
         self.audit_type = audit.audit_type
+        self.usage = Usage()
 
         # will always use the most recent version
         self.version_use = (
@@ -142,6 +144,9 @@ class LlmPipeline:
                     },
                 ],
             )
+            usage = response.usage
+            self.usage.add_input(usage.prompt_tokens)
+            self.usage.add_output(usage.completion_tokens)
             result = response.choices[0].message.content
             await self.__publish_event(name=candidate, status="done")
             await self.__write_checkpoint(step=candidate, result=result)
@@ -156,7 +161,6 @@ class LlmPipeline:
     async def generate_candidates(self):
         tasks = []
         candidate_prompts = self.version_use["prompts"]["candidates"]
-        logging.info(f"CALLED {candidate_prompts}")
         for candidate, prompt in candidate_prompts.items():
             task = self._generate_candidate(candidate=candidate, prompt=prompt)
             tasks.append(task)
@@ -200,6 +204,9 @@ class LlmPipeline:
 
         result = response.choices[0].message.content
 
+        usage = response.usage
+        self.usage.add_input(usage.prompt_tokens)
+        self.usage.add_output(usage.completion_tokens)
         await self.__publish_event(name="report", status="done")
         await self.__write_findings(result)
 

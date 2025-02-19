@@ -27,7 +27,7 @@ class _GetEvalAudit(BaseModel):
     def validate_result_type(self) -> "_GetEvalAudit":
         if not self.result:
             return self
-        if self.response_type == ResponseStructureEnum.JSON:
+        if self.type == ResponseStructureEnum.JSON:
             if not isinstance(self.result, dict):
                 raise ValueError(
                     "Result must be a dictionary when response_type is JSON"
@@ -57,6 +57,10 @@ class GetEvalResponse(BaseModel):
         if isinstance(id, UUID):
             return str(id)
         return id
+
+
+class GetCostEstimate(BaseModel):
+    credits: int
 
 
 class CreateEvalResponse(BaseModel):

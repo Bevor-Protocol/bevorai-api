@@ -96,6 +96,7 @@ class Authentication:
                 try:
                     user = await User.get(id=identifier)
                     state.user_id = user.id
+                    state.credit_consumer_id = user.id
                 except DoesNotExist:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,6 +108,7 @@ class Authentication:
                     state.user_id = user.id
         else:
             state.user_id = auth.user_id
+            state.credit_consumer_id = auth.user_id
 
         request.state.auth = state
 
@@ -149,10 +151,42 @@ class Authentication:
             auth: Auth = await self._get_auth(request=request)
             await self._infer_authentication(request=request, auth=auth)
             self._infer_authorization(request=request, auth=auth)
-            logging.info("PASSED AUTH")
         except Exception as err:
             logging.warning(err)
             raise err
+
+
+class RequireCredits:
+    """
+    Dependency that dictates whether credits are required to take an action.
+    Requires authentication, as we rely on the request.state.auth object to
+    be injected into the request.
+    """
+
+    def __init__(self):
+        pass
+
+    async def __call__(self, request: Request) -> None:
+        if not request.state.auth:
+            raise NotImplementedError("Authentication must be called")
+
+        auth: AuthState = request.state.auth
+
+        if auth.scope == AuthScopeEnum.ADMIN:
+            # NOTE: will likely change this in the future
+            # denotes the FIRST_PARTY_APP was the caller
+            return
+
+        if auth.credit_consumer_id:
+            user = await User.get(id=auth.credit_consumer_id)
+            if user.total_credits > 0:
+                if user.used_credits < user.total_credits:
+                    return
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="insufficient credits to make request",
+        )
 
 
 class RateLimit:

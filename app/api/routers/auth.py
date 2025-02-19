@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Request, status
@@ -6,7 +7,10 @@ from fastapi.responses import JSONResponse
 from app.api.core.dependencies import Authentication
 from app.api.services.app import AppService
 from app.api.services.auth import AuthService
+from app.api.services.blockchain import BlockchainService
 from app.api.services.user import UserService
+from app.db.models import User
+from app.schema.dependencies import AuthState
 from app.schema.request import AppUpsertBody, UserUpsertBody
 from app.utils.enums import AuthRequestScopeEnum, ClientTypeEnum
 
@@ -46,6 +50,14 @@ class AuthRouter:
                 )
             ],
         )
+        self.router.add_api_route(
+            "/sync/credits",
+            self.sync_credits,
+            methods=["POST"],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+            ],
+        )
 
     async def get_or_create_user(
         self, request: Request, body: Annotated[UserUpsertBody, Body()]
@@ -83,3 +95,32 @@ class AuthRouter:
         response = await fct(auth=request.state.auth, body=body)
 
         return JSONResponse({"result": response}, status_code=status.HTTP_202_ACCEPTED)
+
+    async def sync_credits(self, request: Request):
+        blockchain_service = BlockchainService()
+
+        auth: AuthState = request.state.auth
+        try:
+            user = await User.get(id=auth.user_id)
+            credits = await blockchain_service.get_credits(user.address)
+        except Exception as err:
+            logging.exception(err)
+            return JSONResponse(
+                {"success": False, "error": "could not connect to network"},
+                status_code=status.HTTP_200_OK,
+            )
+
+        prev_credits = user.total_credits
+        user.total_credits = credits
+        await user.save()
+
+        return JSONResponse(
+            {
+                "total_credits": credits,
+                "credits_added": max(0, credits - prev_credits),
+                "credits_removed": max(
+                    0, prev_credits - credits
+                ),  # only applicable during refund.
+            },
+            status_code=status.HTTP_200_OK,
+        )

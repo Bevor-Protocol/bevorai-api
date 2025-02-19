@@ -19,7 +19,7 @@ from app.utils.enums import (
 
 async def handle_eval(audit_id: str):
     now = datetime.now()
-    audit = await Audit.get(id=audit_id).select_related("app", "contract")
+    audit = await Audit.get(id=audit_id).select_related("app", "contract", "user")
 
     # only use pubsub for first-party applications.
     # otherwise, we can rely on webhooks or polling.
@@ -41,11 +41,25 @@ async def handle_eval(audit_id: str):
 
         response = await pipeline.generate_report()
 
+        cost = pipeline.usage.get_cost()
+
         audit.raw_output = response
         audit.status = AuditStatusEnum.SUCCESS
 
+        # NOTE: could remove this if condition in the future. Free via the app.
+        if not should_publish:
+            # implied that it's not a FIRST_PARTY app
+            if audit.app:
+                user = audit.app.owner
+                user.used_credits += cost
+                await user.save()
+            else:
+                user = audit.user
+                user.used_credits += cost
+                await user.save()
+
     except Exception as err:
-        logging.error(err)
+        logging.exception(err)
         audit.status = AuditStatusEnum.FAILED
         audit.processing_time_seconds = (datetime.now() - now).seconds
         await audit.save()
@@ -85,7 +99,7 @@ async def get_deployment_contracts(network: NetworkEnum):
 
     current_block = provider.eth.get_block_number()
     logging.info(f"Network: {network} --- Current block: {current_block}")
-    receipts = provider.eth.get_block_receipts(current_block)
+    receipts = await provider.eth.get_block_receipts(current_block)
 
     logging.info(f"RECEIPTS FOUND {len(receipts)}")
 

@@ -40,7 +40,7 @@ class User(AbstractModel):
     )
     address = fields.CharField(max_length=255, unique=True)
     total_credits = fields.IntField(default=0)
-    remaining_credits = fields.IntField(default=0)
+    used_credits = fields.IntField(default=0)
 
     app: fields.ReverseRelation["App"]
     audits: fields.ReverseRelation["Audit"]

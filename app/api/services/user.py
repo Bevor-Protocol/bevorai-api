@@ -94,7 +94,7 @@ class UserService:
                 address=cur_user.address,
                 created_at=cur_user.created_at,
                 total_credits=cur_user.total_credits,
-                remaining_credits=cur_user.remaining_credits,
+                remaining_credits=cur_user.total_credits - cur_user.used_credits,
             ),
             auth=AuthInfo(
                 exists=user_auth is not None,

@@ -61,9 +61,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if "webhook" in request.url.path:
             response = await call_next(request)
             return response
-        if not request.state.require_credit_and_limit:
-            response = await call_next(request)
-            return response
 
         bearer = request.headers.get("authorization")
         api_key = bearer.split(" ")[1]
