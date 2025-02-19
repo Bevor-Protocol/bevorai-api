@@ -66,6 +66,7 @@ class WebsocketRouter:
                 if message and message["type"] == "message":
                     data = json.loads(message["data"])
                     job_id = data["job_id"]
+                    logging.info(f"event received for job {job_id}")
 
                     websocket = self.pending_jobs.get(job_id)
                     if websocket:
