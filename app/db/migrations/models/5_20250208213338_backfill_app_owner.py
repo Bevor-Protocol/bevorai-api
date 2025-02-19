@@ -12,13 +12,16 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
         auth.scope = AuthScopeEnum.ADMIN
         await auth.save()
 
-        users = await User.all().using_db(db)
-        for user in users:
-            user.app_owner_id = app_id
+        try:
+            users = await User.all().using_db(db)
+            for user in users:
+                user.app_owner_id = app_id
 
-        await User.bulk_update(users, fields=["app_owner_id"], using_db=db)
+            await User.bulk_update(users, fields=["app_owner_id"], using_db=db)
 
-        print(f"backfilled {len(users)} app_owner_id")
+            print(f"backfilled {len(users)} app_owner_id")
+        except Exception as err:
+            print(f"Error, skipping backfill: {err}")
 
     # 🔹 Always return a valid SQL string (using a comment alone does not work)
     return "SELECT * FROM AUTH LIMIT 1;"
