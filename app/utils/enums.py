@@ -14,10 +14,16 @@ class NetworkEnum(str, Enum):
     BSC = "bsc"
     POLYGON = "polygon"
     BASE = "base"
+    AVAX = "avax"
+    MODE = "mode"
+    ARB = "arb"
     ETH_SEPOLIA = "eth_sepolia"
     BSC_TEST = "bsc_test"
     POLYGON_AMOY = "polygon_amoy"
     BASE_SEPOLIA = "base_sepolia"
+    AVAX_FUJI = "avax_fuji"
+    MODE_TESTNET = "mode_testnet"
+    ARB_SEPOLIA = "arb_sepolia"
 
 
 class NetworkTypeEnum(str, Enum):
@@ -73,14 +79,26 @@ class WebhookEventEnum(str, Enum):
     EVAL_UPDATED = "eval.updated"
 
 
-class IntermediateResponseEnum(str, Enum):
-    CANDIDATE = "candidate"
-    REVIEWER = "reviewer"
-    REPORTER = "reporter"
-
-
 class FindingLevelEnum(str, Enum):
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
+
+
+# These should correspond to the field name of the Permission table.
+class PermissionEnum(str, Enum):
+    CREATE_APP = "can_create_app"
+    CREATE_API_KEY = "can_create_api_key"
+
+
+class AuthScopeEnum(str, Enum):
+    WRITE = "write"
+    READ = "read"
+    ADMIN = "admin"
+
+
+class AuthRequestScopeEnum(str, Enum):
+    APP_FIRST_PARTY = "app-first-party"
+    APP = "app"
+    USER = "user"

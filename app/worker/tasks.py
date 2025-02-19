@@ -4,11 +4,11 @@ from datetime import datetime
 
 import httpx
 
-from app.api.ai.pipeline import LlmPipeline
-from app.api.blockchain.scan import ContractService
-from app.api.web3.provider import get_provider
+from app.api.services.blockchain import BlockchainService
+from app.api.services.common import LlmPipeline
+from app.client.web3 import Web3Client
 from app.db.models import Audit, Contract
-from app.pydantic.response import WebhookResponse, WebhookResponseData
+from app.schema.response import WebhookResponse, WebhookResponseData
 from app.utils.enums import (
     AppTypeEnum,
     AuditStatusEnum,
@@ -19,7 +19,7 @@ from app.utils.enums import (
 
 async def handle_eval(audit_id: str):
     now = datetime.now()
-    audit = await Audit.get(id=audit_id).select_related("app", "contract")
+    audit = await Audit.get(id=audit_id).select_related("app", "contract", "user")
 
     # only use pubsub for first-party applications.
     # otherwise, we can rely on webhooks or polling.
@@ -32,21 +32,34 @@ async def handle_eval(audit_id: str):
         should_write_to_db=True,
     )
 
-    audit.model = pipeline.model
+    audit.version = pipeline.version
     audit.status = AuditStatusEnum.PROCESSING
     await audit.save()
 
     try:
         await pipeline.generate_candidates()
-        await pipeline.generate_judgement()
 
         response = await pipeline.generate_report()
+
+        cost = pipeline.usage.get_cost()
 
         audit.raw_output = response
         audit.status = AuditStatusEnum.SUCCESS
 
+        # NOTE: could remove this if condition in the future. Free via the app.
+        if not should_publish:
+            # implied that it's not a FIRST_PARTY app
+            if audit.app:
+                user = audit.app.owner
+                user.used_credits += cost
+                await user.save()
+            else:
+                user = audit.user
+                user.used_credits += cost
+                await user.save()
+
     except Exception as err:
-        logging.error(err)
+        logging.exception(err)
         audit.status = AuditStatusEnum.FAILED
         audit.processing_time_seconds = (datetime.now() - now).seconds
         await audit.save()
@@ -81,11 +94,12 @@ async def handle_outgoing_webhook(
 
 async def get_deployment_contracts(network: NetworkEnum):
     logging.info(f"RUNNING contract scan for {network}")
-    provider = get_provider(network)
+    web3_client = Web3Client()
+    provider = web3_client.get_provider(network)
 
     current_block = provider.eth.get_block_number()
     logging.info(f"Network: {network} --- Current block: {current_block}")
-    receipts = provider.eth.get_block_receipts(current_block)
+    receipts = await provider.eth.get_block_receipts(current_block)
 
     logging.info(f"RECEIPTS FOUND {len(receipts)}")
 
@@ -105,12 +119,12 @@ async def get_deployment_contracts(network: NetworkEnum):
         return
 
     tasks = []
-    contract_service = ContractService()
+    blockchain_service = BlockchainService()
     async with httpx.AsyncClient() as client:
         for address in deployment_addresses:
             tasks.append(
                 asyncio.create_task(
-                    contract_service.fetch_contract_source_code_from_explorer(
+                    blockchain_service.fetch_contract_source_code_from_explorer(
                         client, address=address, network=network
                     )
                 )

@@ -16,6 +16,8 @@ from app.utils.enums import NetworkEnum
 # from app.prometheus import logger
 from .tasks import get_deployment_contracts, handle_eval
 
+logging.basicConfig(level=logging.INFO)
+
 
 class PrometheusMiddleware:
     HEALTH_REGEX = "j_complete=(?P<completed>[0-9]+).j_failed=(?P<failed>[0-9]+).j_retried=(?P<retried>[0-9]+).j_ongoing=(?P<ongoing>[0-9]+).queued=(?P<queued>[0-9]+)"  # noqa
@@ -93,6 +95,7 @@ class JobContext(TypedDict):
 
 
 async def on_startup(ctx: JobContext):
+    logging.info(TORTOISE_ORM)
     await Tortoise.init(config=TORTOISE_ORM)
     ctx["prometheus"] = PrometheusMiddleware(ctx)
     await ctx["prometheus"].start()
