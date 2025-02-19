@@ -13,8 +13,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
         await auth.save()
 
     return f"""
-    UPDATE "user" SET app_owner_id = {app_id};
-"""
+    UPDATE "user" SET app_owner_id = {app_id};"""
 
 
 async def downgrade(db: BaseDBAsyncClient) -> str:
