@@ -34,7 +34,7 @@ class WebsocketRouter:
 
     async def websocket(self, websocket: WebSocket):
         try:
-            await self.require_auth(websocket)
+            # await self.require_auth(websocket)
             await self.connect(websocket)
 
             while True:
