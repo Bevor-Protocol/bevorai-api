@@ -1,5 +1,3 @@
-import logging
-
 from tortoise.query_utils import Prefetch
 
 from app.api.core.dependencies import AuthState
@@ -37,8 +35,6 @@ class UserService:
 
         audit_pf = Prefetch("audits", queryset=audit_queryset)
         app_pf = Prefetch("app", queryset=app_queryset)
-
-        logging.info("RUNNING QUERY\n\n\n\n")
 
         cur_user = await User.get(id=auth.user_id).prefetch_related(
             audit_pf, "auth", "permissions", app_pf

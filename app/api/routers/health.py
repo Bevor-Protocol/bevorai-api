@@ -1,5 +1,3 @@
-import logging
-
 from arq import create_pool
 from fastapi import APIRouter, Response, status
 from fastapi.responses import JSONResponse
@@ -41,5 +39,4 @@ class BaseRouter:
         )
 
     async def get_metrics(self):
-        logging.info("getting metrics")
         return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)

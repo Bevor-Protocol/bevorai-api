@@ -57,16 +57,18 @@ class LlmPipeline:
         if not self.should_publish:
             return
 
+        message = {
+            "type": "eval",
+            "name": name,
+            "status": status,
+            "job_id": str(self.audit.id),
+        }
+
+        logging.info(f"publishing event {message}")
+
         await redis_client.publish(
             "evals",
-            json.dumps(
-                {
-                    "type": "eval",
-                    "name": name,
-                    "status": status,
-                    "job_id": str(self.audit.id),
-                }
-            ),
+            json.dumps(message),
         )
 
     async def __write_checkpoint(self, step: str, result: str | list[str]):

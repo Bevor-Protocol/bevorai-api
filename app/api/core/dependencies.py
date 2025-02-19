@@ -50,7 +50,6 @@ class Authentication:
             )
         api_key = authorization.split(" ")[1]
         hashed_key = Auth.hash_key(api_key)
-        logging.info(hashed_key)
         try:
             auth = await Auth.get(hashed_key=hashed_key).select_related(
                 "user", "app__owner"

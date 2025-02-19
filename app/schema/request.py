@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 from uuid import UUID
 from xmlrpc.client import boolean
@@ -74,7 +73,6 @@ class ContractScanBody(BaseModel):
 
     @model_validator(mode="after")
     def validate_params(self):
-        logging.info(f"Im called {self}")
         if not self.code and not self.address:
             raise ValueError("must provide at least one of address or code")
 

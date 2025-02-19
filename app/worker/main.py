@@ -95,7 +95,6 @@ class JobContext(TypedDict):
 
 
 async def on_startup(ctx: JobContext):
-    logging.info(TORTOISE_ORM)
     await Tortoise.init(config=TORTOISE_ORM)
     ctx["prometheus"] = PrometheusMiddleware(ctx)
     await ctx["prometheus"].start()

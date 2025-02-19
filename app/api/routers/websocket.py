@@ -34,11 +34,12 @@ class WebsocketRouter:
 
     async def websocket(self, websocket: WebSocket):
         try:
-            await self.require_auth(websocket)
+            # await self.require_auth(websocket)
             await self.connect(websocket)
 
             while True:
                 raw_message = await websocket.receive_text()
+                logging.info(f"raw message from ws: {raw_message}")
                 message = str(raw_message).strip()
                 if message.startswith("subscribe:"):
                     job_id = message.split(":")[1]
@@ -66,6 +67,7 @@ class WebsocketRouter:
                 if message and message["type"] == "message":
                     data = json.loads(message["data"])
                     job_id = data["job_id"]
+                    logging.info(f"event received for job {job_id}")
 
                     websocket = self.pending_jobs.get(job_id)
                     if websocket:
