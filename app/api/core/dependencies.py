@@ -151,7 +151,7 @@ class Authentication:
             await self._infer_authentication(request=request, auth=auth)
             self._infer_authorization(request=request, auth=auth)
         except Exception as err:
-            logging.warning(err)
+            logging.exception(err)
             raise err
 
 

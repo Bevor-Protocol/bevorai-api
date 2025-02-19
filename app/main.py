@@ -34,6 +34,6 @@ app.include_router(routers.base_router)
 app.include_router(routers.blockchain_router)
 app.include_router(routers.ai_router)
 app.include_router(routers.status_router)
-app.include_router(routers.websocket_router)
+# app.include_router(routers.websocket_router) # exclude in favor of polling
 app.include_router(routers.auth_router)
 app.include_router(routers.analytics_router)

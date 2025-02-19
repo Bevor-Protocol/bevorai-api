@@ -59,6 +59,16 @@ class GetEvalResponse(BaseModel):
         return id
 
 
+class _GetEvalStep(BaseModel):
+    step: str
+    status: AuditStatusEnum
+
+
+class GetEvalStepsResponse(BaseModel):
+    status: AuditStatusEnum
+    steps: list[_GetEvalStep] = Field(default_factory=lambda: [])
+
+
 class GetCostEstimate(BaseModel):
     credits: int
 

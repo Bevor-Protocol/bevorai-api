@@ -5,7 +5,7 @@ from datetime import datetime
 import httpx
 
 from app.api.services.blockchain import BlockchainService
-from app.api.services.common import LlmPipeline
+from app.api.services.llm_pipeline import LlmPipeline
 from app.client.web3 import Web3Client
 from app.db.models import Audit, Contract
 from app.schema.response import WebhookResponse, WebhookResponseData
@@ -23,13 +23,13 @@ async def handle_eval(audit_id: str):
 
     # only use pubsub for first-party applications.
     # otherwise, we can rely on webhooks or polling.
-    should_publish = audit.app and audit.app.type == AppTypeEnum.FIRST_PARTY
+    # should_publish = audit.app and audit.app.type == AppTypeEnum.FIRST_PARTY
+    consume_credits = (not audit.app) or (audit.app.type != AppTypeEnum.FIRST_PARTY)
 
     pipeline = LlmPipeline(
         input=audit.contract.raw_code,
         audit=audit,
-        should_publish=should_publish,
-        should_write_to_db=True,
+        should_publish=False,
     )
 
     audit.version = pipeline.version
@@ -47,7 +47,7 @@ async def handle_eval(audit_id: str):
         audit.status = AuditStatusEnum.SUCCESS
 
         # NOTE: could remove this if condition in the future. Free via the app.
-        if not should_publish:
+        if consume_credits:
             # implied that it's not a FIRST_PARTY app
             if audit.app:
                 user = audit.app.owner
