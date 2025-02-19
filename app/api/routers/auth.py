@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Request, status
@@ -6,7 +7,10 @@ from fastapi.responses import JSONResponse
 from app.api.core.dependencies import Authentication
 from app.api.services.app import AppService
 from app.api.services.auth import AuthService
+from app.api.services.blockchain import BlockchainService
 from app.api.services.user import UserService
+from app.db.models import User
+from app.schema.dependencies import AuthState
 from app.schema.request import AppUpsertBody, UserUpsertBody
 from app.utils.enums import AuthRequestScopeEnum, ClientTypeEnum
 
@@ -93,13 +97,30 @@ class AuthRouter:
         return JSONResponse({"result": response}, status_code=status.HTTP_202_ACCEPTED)
 
     async def sync_credits(self, request: Request):
-        auth_service = AuthService()
+        blockchain_service = BlockchainService()
 
+        auth: AuthState = request.state.auth
         try:
-            credits = await auth_service.sync_credits(request.state.auth)
-            return JSONResponse({"success": True, **credits}, status_code=200)
-        except Exception:
+            user = await User.get(id=auth.user_id)
+            credits = await blockchain_service.get_credits(user.address)
+        except Exception as err:
+            logging.exception(err)
             return JSONResponse(
                 {"success": False, "error": "could not connect to network"},
-                status_code=200,
+                status_code=status.HTTP_200_OK,
             )
+
+        prev_credits = user.total_credits
+        user.total_credits = credits
+        await user.save()
+
+        return JSONResponse(
+            {
+                "total_credits": credits,
+                "credits_added": max(0, credits - prev_credits),
+                "credits_removed": max(
+                    0, prev_credits - credits
+                ),  # only applicable during refund.
+            },
+            status_code=status.HTTP_200_OK,
+        )

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 
-from app.api.core.dependencies import Authentication
+from app.api.core.dependencies import Authentication, RequireCredits
 from app.api.services.ai import AiService
 from app.schema.request import EvalBody
 from app.schema.response import CreateEvalResponse, GetCostEstimate, GetEvalResponse
@@ -25,6 +25,7 @@ class AiRouter:
             response_model=CreateEvalResponse,
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
+                Depends(RequireCredits()),
             ],
         )
         self.router.add_api_route(
@@ -48,6 +49,7 @@ class AiRouter:
         request: Request,
         body: Annotated[EvalBody, Body()],
     ):
+        return
         response = await self.ai_service.process_evaluation(
             auth=request.state.auth, data=body
         )

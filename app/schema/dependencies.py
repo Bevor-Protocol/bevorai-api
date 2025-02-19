@@ -8,6 +8,7 @@ from app.utils.enums import AuthScopeEnum, ClientTypeEnum
 class AuthState(BaseModel):
     user_id: str | UUID | None = None
     app_id: str | UUID | None = None
+    credit_consumer_id: str | UUID | None = None
     is_delegator: bool = False
     scope: AuthScopeEnum
     client_type: ClientTypeEnum

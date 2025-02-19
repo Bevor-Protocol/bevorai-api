@@ -48,11 +48,18 @@ async def handle_eval(audit_id: str):
 
         # NOTE: could remove this if condition in the future. Free via the app.
         if not should_publish:
-            audit.user.remaining_credits -= cost
-            await audit.user.save()
+            # implied that it's not a FIRST_PARTY app
+            if audit.app:
+                user = audit.app.owner
+                user.used_credits += cost
+                await user.save()
+            else:
+                user = audit.user
+                user.used_credits += cost
+                await user.save()
 
     except Exception as err:
-        logging.error(err)
+        logging.exception(err)
         audit.status = AuditStatusEnum.FAILED
         audit.processing_time_seconds = (datetime.now() - now).seconds
         await audit.save()

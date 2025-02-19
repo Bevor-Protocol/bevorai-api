@@ -12,7 +12,13 @@ from app.lib.gas import versions as gas_versions
 from app.lib.security import versions as sec_versions
 from app.schema.dependencies import AuthState
 from app.schema.request import EvalBody
-from app.schema.response import CreateEvalResponse, GetEvalResponse
+from app.schema.response import (
+    CreateEvalResponse,
+    GetEvalResponse,
+    _GetEvalAudit,
+    _GetEvalContract,
+    _GetEvalData,
+)
 from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ResponseStructureEnum
 
 # from app.worker import process_eval
@@ -131,22 +137,20 @@ class AiService:
 
         response.status = audit.status
 
-        contract_data = {
-            "code": audit.contract.raw_code,
-            "address": audit.contract.address,
-            "network": audit.contract.network,
-        }
+        contract_data = _GetEvalContract(
+            code=audit.contract.raw_code,
+            address=audit.contract.address,
+            network=audit.contract.network,
+        )
 
-        audit_data = {
-            "type": response_type,
-        }
+        audit_data = _GetEvalAudit(type=response_type)
 
         if audit.status == AuditStatusEnum.SUCCESS:
             if response_type == ResponseStructureEnum.RAW:
                 audit_data["result"] = audit.raw_output
             else:
                 try:
-                    audit_data["result"] = self.sanitize_data(
+                    audit_data.result = self.sanitize_data(
                         audit=audit,
                         as_markdown=response_type == ResponseStructureEnum.MARKDOWN,
                     )
@@ -158,6 +162,6 @@ class AiService:
                     )
                     return response
 
-        response.data = {"contract": contract_data, "audit": audit_data}
+        response.data = _GetEvalData(contract=contract_data, audit=audit_data)
 
         return response
