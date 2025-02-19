@@ -49,7 +49,6 @@ class AiRouter:
         request: Request,
         body: Annotated[EvalBody, Body()],
     ):
-        return
         response = await self.ai_service.process_evaluation(
             auth=request.state.auth, data=body
         )
