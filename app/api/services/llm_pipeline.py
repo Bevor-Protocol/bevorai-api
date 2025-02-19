@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+from datetime import datetime
 
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
@@ -12,7 +13,7 @@ from app.lib.gas import CURRENT_VERSION as gas_version
 from app.lib.gas import structure as gas_structure
 from app.lib.security import CURRENT_VERSION as sec_version
 from app.lib.security import structure as sec_structure
-from app.utils.enums import AuditTypeEnum, FindingLevelEnum
+from app.utils.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 from app.utils.pricing import Usage
 
 
@@ -23,7 +24,6 @@ class LlmPipeline:
         audit: Audit,
         input: str,
         should_publish: bool = False,  # **to pubsub channel**
-        should_write_to_db: bool = False,  # **for intermediate response**
     ):
         self.input = input
 
@@ -41,7 +41,6 @@ class LlmPipeline:
             sec_version if audit.audit_type == AuditTypeEnum.SECURITY else gas_version
         )
         self.should_publish = should_publish
-        self.should_write_to_db = should_write_to_db
 
     def _parse_candidates(
         self, choices: list[ParsedChoice]
@@ -64,26 +63,39 @@ class LlmPipeline:
             "job_id": str(self.audit.id),
         }
 
-        logging.info(f"publishing event {message}")
-
         await redis_client.publish(
             "evals",
             json.dumps(message),
         )
 
-    async def __write_checkpoint(self, step: str, result: str | list[str]):
-        if not self.should_write_to_db:
+    async def __checkpoint(
+        self,
+        step: str,
+        status: AuditStatusEnum,
+        result: str | None = None,
+        processing_time: int | None = None,
+    ):
+
+        checkpoint = await IntermediateResponse.filter(
+            audit_id=self.audit.id, step=step
+        ).first()
+
+        if checkpoint:
+            checkpoint.status = status
+            checkpoint.result = result
+            checkpoint.processing_time_seconds = processing_time
+            await checkpoint.save()
             return
 
         await IntermediateResponse.create(
             audit_id=self.audit.id,
             step=step,
+            status=status,
             result=result,
+            processing_time_seconds=processing_time,
         )
 
     async def __write_findings(self, response):
-        if not self.should_write_to_db:
-            return
 
         pattern = r"<<(.*?)>>"
 
@@ -130,6 +142,8 @@ class LlmPipeline:
         await self.__publish_event(name=candidate, status="start")
 
         # allows for some fault tolerance.
+        now = datetime.now()
+        await self.__checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
         try:
             response = await llm_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -151,13 +165,23 @@ class LlmPipeline:
             self.usage.add_output(usage.completion_tokens)
             result = response.choices[0].message.content
             await self.__publish_event(name=candidate, status="done")
-            await self.__write_checkpoint(step=candidate, result=result)
+            await self.__checkpoint(
+                step=candidate,
+                status=AuditStatusEnum.SUCCESS,
+                result=result,
+                processing_time=(datetime.now() - now).seconds,
+            )
 
             return result
 
         except Exception as err:
             logging.warning(err)
             await self.__publish_event(name=candidate, status="error")
+            await self.__checkpoint(
+                step=candidate,
+                status=AuditStatusEnum.FAILED,
+                processing_time=(datetime.now() - now).seconds,
+            )
             return None
 
     async def generate_candidates(self):
@@ -186,6 +210,9 @@ class LlmPipeline:
         output_structure = self.version_use["response"]
         prompt = self.version_use["prompts"]["reviewer"]
 
+        now = datetime.now()
+        await self.__checkpoint(step="report", status=AuditStatusEnum.PROCESSING)
+
         try:
             response = await llm_client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
@@ -202,6 +229,11 @@ class LlmPipeline:
             )
         except Exception as err:
             await self.__publish_event(name="report", status="error")
+            await self.__checkpoint(
+                step="report",
+                status=AuditStatusEnum.FAILED,
+                processing_time=(datetime.now() - now).seconds,
+            )
             raise err
 
         result = response.choices[0].message.content
@@ -210,6 +242,11 @@ class LlmPipeline:
         self.usage.add_input(usage.prompt_tokens)
         self.usage.add_output(usage.completion_tokens)
         await self.__publish_event(name="report", status="done")
+        await self.__checkpoint(
+            step="report",
+            status=AuditStatusEnum.SUCCESS,
+            processing_time=(datetime.now() - now).seconds,
+        )
         await self.__write_findings(result)
 
         return result

@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
@@ -5,7 +6,12 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, 
 from app.api.core.dependencies import Authentication, RequireCredits
 from app.api.services.ai import AiService
 from app.schema.request import EvalBody
-from app.schema.response import CreateEvalResponse, GetCostEstimate, GetEvalResponse
+from app.schema.response import (
+    CreateEvalResponse,
+    GetCostEstimate,
+    GetEvalResponse,
+    GetEvalStepsResponse,
+)
 from app.utils.enums import AuthRequestScopeEnum, ResponseStructureEnum
 from app.utils.pricing import Usage
 
@@ -36,6 +42,11 @@ class AiRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+        )
+        self.router.add_api_route(
+            "/eval/{id}/steps",
+            self.get_eval_steps_by_id,
+            methods=["GET"],
         )
         self.router.add_api_route(
             "/credit/estimate",
@@ -70,6 +81,15 @@ class AiRouter:
         response = await self.ai_service.get_eval(
             auth=request.state.auth, id=id, response_type=response_type
         )
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+
+    async def get_eval_steps_by_id(
+        self, request: Request, id: str
+    ) -> GetEvalStepsResponse:
+        logging.info("CALLED")
+        response = await self.ai_service.get_eval_steps(id=id)
+        logging.info("OK")
+
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 
     async def get_credit_estimate(self):

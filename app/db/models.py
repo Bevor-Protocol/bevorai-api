@@ -189,6 +189,8 @@ class Audit(AbstractModel):
     )
     raw_output = fields.TextField(null=True, default=None)
 
+    intermediate_responses: fields.ReverseRelation["IntermediateResponse"]
+
     class Meta:
         table = "audit"
         indexes = (
@@ -207,7 +209,11 @@ class IntermediateResponse(AbstractModel):
         "models.Audit", on_delete=fields.CASCADE, related_name="intermediate_responses"
     )
     step = fields.CharField(max_length=30)
-    result = fields.TextField()
+    status = fields.CharEnumField(
+        enum_type=AuditStatusEnum, null=True, default=AuditStatusEnum.WAITING
+    )
+    processing_time_seconds = fields.IntField(null=True, default=None)
+    result = fields.TextField(null=True, default=None)
 
     class Meta:
         table = "intermediate_response"
