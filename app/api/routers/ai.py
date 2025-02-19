@@ -1,4 +1,3 @@
-import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
@@ -86,9 +85,7 @@ class AiRouter:
     async def get_eval_steps_by_id(
         self, request: Request, id: str
     ) -> GetEvalStepsResponse:
-        logging.info("CALLED")
         response = await self.ai_service.get_eval_steps(id=id)
-        logging.info("OK")
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 
