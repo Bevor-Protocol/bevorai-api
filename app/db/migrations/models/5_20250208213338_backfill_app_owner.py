@@ -1,7 +1,7 @@
 from tortoise import BaseDBAsyncClient
 from tortoise.transactions import in_transaction
 
-from app.db.models import Auth
+from app.db.models import Auth, User
 from app.utils.enums import AuthScopeEnum
 
 
@@ -12,8 +12,10 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
         auth.scope = AuthScopeEnum.ADMIN
         await auth.save()
 
-    return f"""
-    UPDATE "user" SET app_owner_id = {app_id};"""
+        await db.execute_query('UPDATE "user" SET app_owner_id = $1', [app_id])
+
+    # 🔹 Always return a valid SQL string (using a comment alone does not work)
+    return "SELECT * FROM AUTH LIMIT 1;"
 
 
 async def downgrade(db: BaseDBAsyncClient) -> str:
