@@ -15,9 +15,11 @@ from app.schema.request import EvalBody
 from app.schema.response import (
     CreateEvalResponse,
     GetEvalResponse,
+    GetEvalStepsResponse,
     _GetEvalAudit,
     _GetEvalContract,
     _GetEvalData,
+    _GetEvalStep,
 )
 from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ResponseStructureEnum
 
@@ -163,5 +165,17 @@ class AiService:
                     return response
 
         response.data = _GetEvalData(contract=contract_data, audit=audit_data)
+
+        return response
+
+    async def get_eval_steps(self, id: str) -> GetEvalStepsResponse:
+
+        audit = await Audit.get(id=id).prefetch_related("intermediate_responses")
+
+        steps = []
+        for step in audit.intermediate_responses:
+            steps.append(_GetEvalStep(step=step.step, status=step.status))
+
+        response = GetEvalStepsResponse(status=audit.status, steps=steps)
 
         return response

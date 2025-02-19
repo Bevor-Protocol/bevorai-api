@@ -25,7 +25,13 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
                 break
 
         if not group_use:
-            response = await call_next(request)
+            logging.info("CALLED")
+            try:
+                response = await call_next(request)
+                logging.info(response.status_code)
+            except Exception as e:
+                logging.exception(e)
+                raise e
             return response
 
         logger.api_active.inc()
