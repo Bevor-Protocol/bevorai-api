@@ -39,6 +39,7 @@ class WebsocketRouter:
 
             while True:
                 raw_message = await websocket.receive_text()
+                logging.info(f"raw message from ws: {raw_message}")
                 message = str(raw_message).strip()
                 if message.startswith("subscribe:"):
                     job_id = message.split(":")[1]
