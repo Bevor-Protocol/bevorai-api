@@ -12,7 +12,7 @@ class AuthService:
         # only callable via FIRST_PARTY app, we know to reference the user obj.
         search_criteria = {}
         if client_type == ClientTypeEnum.APP:
-            app = await App.get(owner_id=auth_obj.app_id)
+            app = await App.get(owner_id=auth_obj.user_id)
             search_criteria["app_id"] = app.id
         else:
             user = await User.get(id=auth_obj.user_id)
