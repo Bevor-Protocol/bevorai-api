@@ -13,6 +13,7 @@ from app.db.models import User
 from app.schema.dependencies import AuthState
 from app.schema.request import AppUpsertBody, UserUpsertBody
 from app.utils.enums import AuthRequestScopeEnum, ClientTypeEnum
+from app.utils.openapi import OPENAPI_SPEC
 
 
 class AuthRouter:
@@ -29,6 +30,7 @@ class AuthRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.APP))
             ],
+            **OPENAPI_SPEC["upsert_user"]
         )
         self.router.add_api_route(
             "/generate/{client_type}",
@@ -39,6 +41,7 @@ class AuthRouter:
                     Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
                 )
             ],
+            include_in_schema=False,
         )
         self.router.add_api_route(
             "/app",
@@ -49,6 +52,8 @@ class AuthRouter:
                     Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
                 )
             ],
+            operation_id="upsert_app",
+            include_in_schema=False,
         )
         self.router.add_api_route(
             "/sync/credits",
@@ -57,6 +62,7 @@ class AuthRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            include_in_schema=False,
         )
 
     async def get_or_create_user(

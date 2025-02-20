@@ -1,17 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 
 from app.api.core.dependencies import Authentication, RequireCredits
 from app.api.services.ai import AiService
-from app.schema.request import EvalBody
-from app.schema.response import (
-    CreateEvalResponse,
-    GetCostEstimate,
-    GetEvalResponse,
-    GetEvalStepsResponse,
-)
-from app.utils.enums import AuthRequestScopeEnum, ResponseStructureEnum
+from app.schema.request import EvalBody, EvalParams
+from app.schema.response import GetCostEstimate
+from app.utils.enums import AuthRequestScopeEnum
+from app.utils.openapi import OPENAPI_SPEC
 from app.utils.pricing import Usage
 
 
@@ -27,31 +23,32 @@ class AiRouter:
             "/eval",
             self.process_ai_eval,
             methods=["POST"],
-            response_model=CreateEvalResponse,
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
                 Depends(RequireCredits()),
             ],
+            **OPENAPI_SPEC["start_eval"]
         )
         self.router.add_api_route(
             "/eval/{id}",
             self.get_eval_by_id,
             methods=["GET"],
-            response_model=GetEvalResponse,
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            **OPENAPI_SPEC["get_eval"]
         )
         self.router.add_api_route(
             "/eval/{id}/steps",
             self.get_eval_steps_by_id,
             methods=["GET"],
+            **OPENAPI_SPEC["get_eval_steps"]
         )
         self.router.add_api_route(
             "/credit/estimate",
             self.get_credit_estimate,
-            response_model=GetCostEstimate,
             methods=["GET"],
+            **OPENAPI_SPEC["cost_estimate"]
         )
 
     async def process_ai_eval(
@@ -65,26 +62,16 @@ class AiRouter:
 
         return Response(response.model_dump_json(), status_code=status.HTTP_201_CREATED)
 
-    async def get_eval_by_id(self, request: Request, id: str) -> GetEvalResponse:
-        response_type = request.query_params.get(
-            "response_type", ResponseStructureEnum.JSON.name
-        )
-
-        try:
-            response_type = ResponseStructureEnum._value2member_map_[response_type]
-        except Exception:
-            raise HTTPException(
-                status_code=400, detail="Invalid response_type parameter"
-            )
+    async def get_eval_by_id(
+        self, request: Request, id: str, query_params: Annotated[EvalParams, Query()]
+    ):
 
         response = await self.ai_service.get_eval(
-            auth=request.state.auth, id=id, response_type=response_type
+            auth=request.state.auth, id=id, response_type=query_params.response_type
         )
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 
-    async def get_eval_steps_by_id(
-        self, request: Request, id: str
-    ) -> GetEvalStepsResponse:
+    async def get_eval_steps_by_id(self, request: Request, id: str):
         response = await self.ai_service.get_eval_steps(id=id)
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

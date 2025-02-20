@@ -10,11 +10,16 @@ from pydantic import (
     model_validator,
 )
 
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
+from app.utils.enums import (
+    AuditStatusEnum,
+    AuditTypeEnum,
+    NetworkEnum,
+    ResponseStructureEnum,
+)
 
 
 class EvalBody(BaseModel):
-    contract_id: str
+    contract_id: str = Field(description="contract to evaluate")
     audit_type: AuditTypeEnum = Field(default=AuditTypeEnum.GAS)
 
 
@@ -26,6 +31,12 @@ class FeedbackBody(BaseModel):
 
 class UserUpsertBody(BaseModel):
     address: str
+
+
+class EvalParams(BaseModel):
+    response_type: Optional[ResponseStructureEnum] = Field(
+        default=ResponseStructureEnum.JSON
+    )
 
 
 class FilterParams(BaseModel):

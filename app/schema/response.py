@@ -13,6 +13,43 @@ from app.utils.enums import (
 )
 
 
+class _Finding(BaseModel):
+    id: str
+    level: str
+    name: str
+    explanation: str
+    recommendation: str
+    reference: str
+    is_attested: bool
+    is_verified: bool
+    feedback: Optional[str] = None
+
+
+class _Contract(BaseModel):
+    address: str
+    network: str
+    code: str
+
+
+class _User(BaseModel):
+    id: str
+    address: str
+
+
+class _Audit(BaseModel):
+    status: str
+    version: str
+    audit_type: AuditTypeEnum
+    result: Optional[str] = None
+
+
+class GetAuditResponse(BaseModel):
+    contract: _Contract
+    user: _User
+    audit: _Audit
+    findings: list[_Finding]
+
+
 class _GetEvalContract(BaseModel):
     code: Optional[str] = Field(default=None)
     address: Optional[str] = Field(default=None)
@@ -201,3 +238,11 @@ class UserInfoResponse(BaseModel):
     audits: list[AnalyticsAudit]
     n_contracts: int
     n_audits: int
+
+
+class BooleanResponse(BaseModel):
+    success: bool
+
+
+class UpsertUserResponse(BaseModel):
+    user_id: str
