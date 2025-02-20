@@ -11,7 +11,12 @@ from app.schema.response import (
     AnalyticsAudit,
     AnalyticsContract,
     AnalyticsResponse,
+    GetAuditResponse,
     StatsResponse,
+    _Audit,
+    _Contract,
+    _Finding,
+    _User,
 )
 from app.utils.enums import (
     AuditTypeEnum,
@@ -140,7 +145,7 @@ class AuditService:
 
         return response
 
-    async def get_audit(self, auth: AuthState, id: str) -> str:
+    async def get_audit(self, auth: AuthState, id: str) -> GetAuditResponse:
         obj_filter = {"id": id}
         if auth.client_type == ClientTypeEnum.USER:
             obj_filter["user_id"] = auth.user_id
@@ -163,37 +168,37 @@ class AuditService:
         finding: Finding
         for finding in audit.findings:
             findings.append(
-                {
-                    "id": str(finding.id),
-                    "level": finding.level,
-                    "name": finding.name,
-                    "explanation": finding.explanation,
-                    "recommendation": finding.recommendation,
-                    "reference": finding.reference,
-                    "is_attested": finding.is_attested,
-                    "is_verified": finding.is_verified,
-                    "feedback": finding.feedback,
-                }
+                _Finding(
+                    id=str(finding.id),
+                    level=finding.level,
+                    name=finding.name,
+                    explanation=finding.explanation,
+                    recommendation=finding.recommendation,
+                    reference=finding.reference,
+                    is_attested=finding.is_attested,
+                    is_verified=finding.is_verified,
+                    feedback=finding.feedback,
+                )
             )
 
-        return {
-            "contract": {
-                "address": audit.contract.address,
-                "network": audit.contract.network,
-                "code": audit.contract.raw_code,
-            },
-            "user": {
-                "id": str(audit.user.id),
-                "address": audit.user.address,
-            },
-            "audit": {
-                "status": audit.status,
-                "version": audit.version,
-                "audit_type": audit.audit_type,
-                "result": result,
-            },
-            "findings": findings,
-        }
+        return GetAuditResponse(
+            contract=_Contract(
+                address=audit.contract.address,
+                network=audit.contract.network,
+                code=audit.contract.raw_code,
+            ),
+            user=_User(
+                id=str(audit.user.id),
+                address=audit.user.address,
+            ),
+            audit=_Audit(
+                status=audit.status,
+                version=audit.version,
+                audit_type=audit.audit_type,
+                result=result,
+            ),
+            findings=findings,
+        )
 
     async def submit_feedback(self, data: FeedbackBody, auth: AuthState) -> bool:
 

@@ -6,8 +6,8 @@ from app.api.core.dependencies import Authentication
 from app.api.services.blockchain import BlockchainService
 from app.api.services.contract import ContractService
 from app.schema.request import ContractScanBody
-from app.schema.response import UploadContractResponse
 from app.utils.enums import AuthRequestScopeEnum
+from app.utils.openapi import OPENAPI_SPEC
 
 
 class BlockchainRouter:
@@ -21,10 +21,10 @@ class BlockchainRouter:
             "/contract",
             self.upload_contract,
             methods=["POST"],
-            response_model=UploadContractResponse,
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            **OPENAPI_SPEC["upsert_contract"],
         )
         self.router.add_api_route(
             "/gas",
@@ -33,6 +33,7 @@ class BlockchainRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            include_in_schema=False,
         )
 
     async def upload_contract(self, body: Annotated[ContractScanBody, Body()]):

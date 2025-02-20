@@ -23,7 +23,7 @@ class UserService:
 
         return user
 
-    async def get_user_info(self, auth: AuthState):
+    async def get_user_info(self, auth: AuthState) -> UserInfoResponse:
 
         audit_queryset = (
             Audit.filter(status=AuditStatusEnum.SUCCESS)
