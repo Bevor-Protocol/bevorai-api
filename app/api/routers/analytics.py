@@ -9,6 +9,7 @@ from app.api.services.user import UserService
 from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import AnalyticsResponse
 from app.utils.enums import AuthRequestScopeEnum
+from app.utils.openapi import OPENAPI_SPEC
 
 
 class AnalyticsRouter:
@@ -24,6 +25,7 @@ class AnalyticsRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            **OPENAPI_SPEC["get_audits"]
         )
         self.router.add_api_route(
             "/stats",
@@ -34,6 +36,7 @@ class AnalyticsRouter:
                     Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
                 )
             ],
+            include_in_schema=False,
         )
         self.router.add_api_route(
             "/audit/{id}",
@@ -42,6 +45,7 @@ class AnalyticsRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            **OPENAPI_SPEC["get_audit"]
         )
         self.router.add_api_route(
             "/feedback",
@@ -50,6 +54,7 @@ class AnalyticsRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            **OPENAPI_SPEC["submit_feedback"]
         )
         self.router.add_api_route(
             "/user",
@@ -58,13 +63,14 @@ class AnalyticsRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            include_in_schema=False,
         )
 
     async def fetch_audits(
         self,
         request: Request,
         query_params: Annotated[FilterParams, Query()],
-    ) -> AnalyticsResponse:
+    ):
         # rate_limit(request=request, user=user)
         audit_service = AuditService()
         response = await audit_service.get_audits(
@@ -84,7 +90,7 @@ class AnalyticsRouter:
         audit_service = AuditService()
         audit = await audit_service.get_audit(auth=request.state.auth, id=id)
 
-        return JSONResponse({"result": audit}, status_code=status.HTTP_200_OK)
+        return Response(audit.model_dump_json(), status_code=status.HTTP_200_OK)
 
     async def get_user_info(self, request: Request):
         user_service = UserService()
