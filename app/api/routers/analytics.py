@@ -100,6 +100,6 @@ class AnalyticsRouter:
     async def submit_feedback(self, request: Request, data: FeedbackBody):
         audit_service = AuditService()
         response = await audit_service.submit_feedback(
-            data=data, user=request.state.auth
+            data=data, auth=request.state.auth
         )
         return JSONResponse({"success": response}, status_code=status.HTTP_201_CREATED)
