@@ -16,19 +16,19 @@ from app.utils.enums import (
 class _Finding(BaseModel):
     id: str
     level: str
-    name: str
-    explanation: str
-    recommendation: str
-    reference: str
+    name: Optional[str] = None
+    explanation: Optional[str] = None
+    recommendation: Optional[str] = None
+    reference: Optional[str] = None
     is_attested: bool
     is_verified: bool
     feedback: Optional[str] = None
 
 
 class _Contract(BaseModel):
-    address: str
-    network: str
-    code: str
+    address: Optional[str] = None
+    network: Optional[NetworkEnum] = None
+    code: Optional[str] = None
 
 
 class _User(BaseModel):
