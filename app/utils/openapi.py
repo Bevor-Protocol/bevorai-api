@@ -107,3 +107,11 @@ OPENAPI_SPEC: OpenApiSpec = {
         "response_model": UpsertUserResponse,
     },
 }
+
+
+OPENAPI_SCHEMA = {
+    "title": "BevorAI API docs",
+    "version": "1.0.0",
+    "summary": "BevorAI smart contract auditor",
+    "description": "To gain access to BevorAI, go to <a href='https://app.bevor.ai/dashboard' target='_blank'>BevorAI App</a>",
+}
