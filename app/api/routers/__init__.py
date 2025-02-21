@@ -2,8 +2,8 @@ from app.api.routers.auth import AuthRouter
 
 from .ai import AiRouter
 from .analytics import AnalyticsRouter
+from .base import BaseRouter
 from .blockchain import BlockchainRouter
-from .health import BaseRouter
 from .status import StatusRouter
 from .websocket import WebsocketRouter
 
