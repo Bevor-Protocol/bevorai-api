@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 
 from app.api.core.dependencies import Authentication, RequireCredits
 from app.api.services.ai import AiService
+from app.api.services.static_analyzer import process_static_eval_token
 from app.schema.request import EvalBody, EvalParams
 from app.schema.response import GetCostEstimate
 from app.utils.enums import AuthRequestScopeEnum
@@ -29,6 +30,16 @@ class AiRouter:
             ],
             **OPENAPI_SPEC["start_eval"]
         )
+        self.router.add_api_route(
+            "/eval/token/",
+            self.process_ai_eval_token,
+            methods=["POST"],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
+                Depends(RequireCredits()),
+            ],
+            **OPENAPI_SPEC["start_eval_token"]
+        ) 
         self.router.add_api_route(
             "/eval/{id}",
             self.get_eval_by_id,
@@ -64,6 +75,15 @@ class AiRouter:
         )
 
         return Response(response.model_dump_json(), status_code=status.HTTP_201_CREATED)
+    
+    async def process_ai_eval_token(
+        self,
+        request: Request,
+        body: Annotated[EvalBody, Body()],
+    ):
+        response = await self.process_static_eval_token(body.address)
+
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 
     async def get_eval_by_id(
         self, request: Request, id: str, query_params: Annotated[EvalParams, Query()]
