@@ -42,7 +42,7 @@ class OpenApiSpec(TypedDict):
 # Define OpenAPI spec as a plain dictionary (no instantiation required)
 OPENAPI_SPEC: OpenApiSpec = {
     "upsert_contract": {
-        "summary": "Handles smart contract scans and uploads",
+        "summary": "Contract scan/upload",
         "description": """
         Get or create a smart contract reference. `address` or `code` are required.
         If `network` is provided, it will likely speed up the response. Scanning requires
@@ -52,7 +52,7 @@ OPENAPI_SPEC: OpenApiSpec = {
         "response_model": UploadContractResponse,
     },
     "start_eval": {
-        "summary": "Initialize an AI audit evaluation",
+        "summary": "Create AI eval",
         "description": """
         Initializes an AI smart contract audit. `contract_id` is the referenced contract obtained
         from [`/blockchain/contract`](/redoc#tag/blockchain/operation/upload_contract_blockchain_contract_post).
@@ -94,7 +94,7 @@ OPENAPI_SPEC: OpenApiSpec = {
         "response_model": GetAuditResponse,
     },
     "submit_feedback": {
-        "summary": "Submit feedback for a finding",
+        "summary": "Submit feedback",
         "description": """
         Submit feedback for a specific finding. Only the creator of the audit can submit feedback, for now.
         `verified` represents whether the user agreed / disagreed with the findings.
@@ -108,10 +108,45 @@ OPENAPI_SPEC: OpenApiSpec = {
     },
 }
 
+_description = """
+We're in private Beta. Reach out to our team if you'd like access. Once granted access, 
+go to <a href='https://app.bevor.ai/dashboard' target='_blank'>BevorAI App</a> to create your API key.
+
+### Authentication
+There are **2 roles** that you can create authentication for:
+- `User`
+- `App`
+
+The `App` role is a superset of the `User` role. It allows you to create users, and make requests on behalf
+of other users. This is useful if you'd like to natively distinguish requests across users on your application.
+If you do not need this capability, it's recommended to authenticate as a `User`.
+
+*Note: the `x-user-identifier` header can be ignored if making requests as a `User`*
+
+### Contracts
+You can scan contracts, OR upload raw smart contract code.
+
+### AI Eval
+BevorAI will conduct its smart contract security audit given the Contract instance, and the type of
+audit you'd like. We support `security` and `gas optimization` audits.
+Completions generally takes 30-60s.
+"""
+
 
 OPENAPI_SCHEMA = {
     "title": "BevorAI API docs",
     "version": "1.0.0",
-    "summary": "BevorAI smart contract auditor",
-    "description": "To gain access to BevorAI, go to <a href='https://app.bevor.ai/dashboard' target='_blank'>BevorAI App</a>",
+    "summary": "**BevorAI smart contract auditor**",
+    "description": _description,
+    "tags": [
+        {
+            "name": "blockchain",
+            "description": "Operations interacting with on-chain data",
+        },
+        {
+            "name": "ai",
+            "description": "Core of the API. Used to create evaluations, get responses, and poll the API",
+        },
+        {"name": "auth", "description": "Relevant for `App` callers"},
+    ],
 }

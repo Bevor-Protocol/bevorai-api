@@ -42,6 +42,9 @@ class AiRouter:
             "/eval/{id}/steps",
             self.get_eval_steps_by_id,
             methods=["GET"],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+            ],
             **OPENAPI_SPEC["get_eval_steps"]
         )
         self.router.add_api_route(

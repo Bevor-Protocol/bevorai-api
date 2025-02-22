@@ -6,9 +6,10 @@ used without explicitly needing to whitelist / blacklist routes.
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from tortoise.exceptions import DoesNotExist
 
 from app.config import redis_client
@@ -20,6 +21,8 @@ from app.utils.enums import (
     AuthScopeEnum,
     ClientTypeEnum,
 )
+
+security = HTTPBearer(description="API key authorization")
 
 
 class Authentication:
@@ -41,15 +44,8 @@ class Authentication:
         self.request_scope = request_scope
         self.scope_override = scope_override
 
-    async def _get_auth(self, request: Request) -> Auth:
-        authorization = request.headers.get("authorization")
-        if not authorization:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="proper authorization headers not provided",
-            )
-        api_key = authorization.split(" ")[1]
-        hashed_key = Auth.hash_key(api_key)
+    async def _get_auth(self, credentials: str) -> Auth:
+        hashed_key = Auth.hash_key(credentials)
         try:
             auth = await Auth.get(hashed_key=hashed_key).select_related(
                 "user", "app__owner"
@@ -63,11 +59,12 @@ class Authentication:
 
         return auth
 
-    async def _infer_authentication(self, request: Request, auth: Auth):
+    async def _infer_authentication(
+        self, request: Request, user_identifier: Optional[str], auth: Auth
+    ):
         """
         Evaluation of the api key. Creates the request.state object as AuthState
         """
-        identifier = request.headers.get("x-user-identifier")
         if self.request_scope in [
             AuthRequestScopeEnum.APP_FIRST_PARTY,
             AuthRequestScopeEnum.APP,
@@ -90,10 +87,10 @@ class Authentication:
         # Apps are able to make requests on behalf of other users.
         if auth.client_type == ClientTypeEnum.APP:
             state.app_id = auth.app.id
-            if identifier:
+            if user_identifier:
                 state.is_delegator = True
                 try:
-                    user = await User.get(id=identifier)
+                    user = await User.get(id=user_identifier)
                     state.user_id = user.id
                     state.credit_consumer_id = user.id
                 except DoesNotExist:
@@ -145,10 +142,24 @@ class Authentication:
 
     # NOTE: if the arguments are anything other than request, it breaks.
     # ie, don't use *args, **kwargs
-    async def __call__(self, request: Request) -> None:
+    async def __call__(
+        self,
+        request: Request,
+        # authorization: str = Header(
+        #     ...,
+        #     example="Bearer <api_key>",
+        # ),
+        authorization: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+        x_user_identifier: Optional[str] = Header(
+            None,
+            description="Unique user identifier (optional). Only relevant for `App` role",  # noqa
+        ),
+    ) -> None:
         try:
-            auth: Auth = await self._get_auth(request=request)
-            await self._infer_authentication(request=request, auth=auth)
+            auth: Auth = await self._get_auth(credentials=authorization.credentials)
+            await self._infer_authentication(
+                request=request, user_identifier=x_user_identifier, auth=auth
+            )
             self._infer_authorization(request=request, auth=auth)
         except Exception as err:
             logging.exception(err)

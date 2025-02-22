@@ -32,6 +32,11 @@ def custom_openapi():
         "url": "https://app.bevor.ai/logo.png",
         "backgroundColor": "black",
     }
+    openapi_schema["x-traitTag"] = {
+        "name": "Pagination",
+        "description": "Pagination description (can use markdown syntax)",
+        "x-traitTag": True,
+    }
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 

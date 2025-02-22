@@ -1,6 +1,6 @@
 from arq import create_pool
 from fastapi import APIRouter, Response, status
-from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.openapi.docs import get_redoc_html
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from tortoise import Tortoise
@@ -18,7 +18,6 @@ class BaseRouter:
         self.router.add_api_route("/health", self.health_check, methods=["GET"])
         self.router.add_api_route("/metrics", self.get_metrics, methods=["GET"])
         self.router.add_api_route("/test", self.test, methods=["GET"])
-        self.router.add_api_route("/docs", self.docs, methods=["GET"])
         self.router.add_api_route("/redoc", self.redoc, methods=["GET"])
 
     async def read_root(self):
@@ -39,13 +38,6 @@ class BaseRouter:
 
         return JSONResponse(
             {"ok": True, "job_id": job.job_id}, status_code=status.HTTP_200_OK
-        )
-
-    async def docs(self):
-        return get_swagger_ui_html(
-            openapi_url="/openapi.json",
-            title="BevorAI API - Docs",
-            swagger_favicon_url="https://app.bevor.ai/favicon.ico",
         )
 
     async def redoc(self):
