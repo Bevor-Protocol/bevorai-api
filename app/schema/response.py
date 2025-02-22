@@ -191,12 +191,19 @@ class AnalyticsResponse(BaseModel):
     total_pages: int
 
 
+class Timeseries(BaseModel):
+    date: str
+    count: int
+
+
 class StatsResponse(BaseModel):
     n_audits: int
     n_contracts: int
     n_users: int
     n_apps: int
     findings: dict
+    audits_timeseries: list[Timeseries]
+    users_timeseries: list[Timeseries]
 
 
 class UserInfo(BaseModel):
@@ -235,7 +242,6 @@ class UserInfoResponse(BaseModel):
     user: UserInfo
     auth: AuthInfo
     app: AppInfo
-    audits: list[AnalyticsAudit]
     n_contracts: int
     n_audits: int
 

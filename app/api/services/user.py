@@ -3,14 +3,7 @@ from tortoise.transactions import in_transaction
 
 from app.api.core.dependencies import AuthState
 from app.db.models import App, Audit, Auth, Permission, User
-from app.schema.response import (
-    AnalyticsAudit,
-    AnalyticsContract,
-    AppInfo,
-    AuthInfo,
-    UserInfo,
-    UserInfoResponse,
-)
+from app.schema.response import AppInfo, AuthInfo, UserInfo, UserInfoResponse
 from app.utils.enums import AuditStatusEnum, ClientTypeEnum
 
 
@@ -28,10 +21,8 @@ class UserService:
 
     async def get_user_info(self, auth: AuthState) -> UserInfoResponse:
 
-        audit_queryset = (
-            Audit.filter(status=AuditStatusEnum.SUCCESS)
-            .order_by("-created_at")
-            .select_related("contract")
+        audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS).select_related(
+            "contract"
         )
 
         app_queryset = App.all().prefetch_related("permissions", "auth")
@@ -66,27 +57,6 @@ class UserService:
         n_audits = len(user_audits)
         n_contracts = len(set(map(lambda x: x.contract.id, user_audits)))
 
-        recent_audits = []
-        audit: Audit
-        for i, audit in enumerate(user_audits[:5]):
-            contract = AnalyticsContract(
-                id=audit.contract.id,
-                method=audit.contract.method,
-                address=audit.contract.address,
-                network=audit.contract.network,
-            )
-            response = AnalyticsAudit(
-                n=i,
-                id=audit.id,
-                created_at=audit.created_at,
-                app_id=audit.app_id,
-                user_id=cur_user.address,
-                audit_type=audit.audit_type,
-                status=audit.status,
-                contract=contract,
-            )
-            recent_audits.append(response)
-
         return UserInfoResponse(
             user=UserInfo(
                 id=cur_user.id,
@@ -101,7 +71,6 @@ class UserService:
                 can_create=user_permissions.can_create_api_key,
             ),
             app=app_info,
-            audits=recent_audits,
             n_contracts=n_contracts,
             n_audits=n_audits,
         )

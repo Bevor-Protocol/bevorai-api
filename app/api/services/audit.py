@@ -1,6 +1,8 @@
 import math
 
 from fastapi import HTTPException, status
+from pypika import CustomFunction
+from tortoise.functions import Count, Function
 from tortoise.timezone import now
 
 from app.api.services.ai import AiService
@@ -13,6 +15,7 @@ from app.schema.response import (
     AnalyticsResponse,
     GetAuditResponse,
     StatsResponse,
+    Timeseries,
     _Audit,
     _Contract,
     _Finding,
@@ -116,10 +119,49 @@ class AuditService:
     async def get_stats(self) -> StatsResponse:
         n_audits = 0
         n_contracts = await Contract.all().count()
-        n_users = await User.all().count()
         n_apps = await App.all().count()
 
-        n_audits = await Audit.all().count()
+        class TruncMonth(Function):
+            database_func = CustomFunction("TO_CHAR", ["name", "format"])
+
+        audits_by_date = (
+            await Audit.annotate(
+                date=TruncMonth("created_at", "'YYYY-MM-DD'")
+            )  # Extract the date part
+            .annotate(count=Count("id"))  # Count the number of audits
+            .group_by("date")  # Group by the formatted date
+            .values("date", "count")
+        )
+
+        users_by_date = (
+            await User.annotate(
+                date=TruncMonth(
+                    "created_at", "'YYYY-MM-DD'"
+                )  # Extract the date part as a string
+            )  # Extract the date part
+            .annotate(count=Count("id"))  # Count the number of audits
+            .group_by("date")  # Group by the formatted date
+            .values("date", "count")
+        )
+
+        users_timeseries = sorted(
+            [
+                Timeseries(date=user["date"], count=user["count"])
+                for user in users_by_date
+            ],
+            key=lambda x: x.date,
+        )
+        n_users = sum(map(lambda x: x.count, users_timeseries))
+
+        audits_timeseries = sorted(
+            [
+                Timeseries(date=audit["date"], count=audit["count"])
+                for audit in audits_by_date
+            ],
+            key=lambda x: x.date,
+        )
+        n_audits = sum(map(lambda x: x.count, audits_timeseries))
+
         findings = await Finding.all()
 
         gas_findings = {k.value: 0 for k in FindingLevelEnum}
@@ -141,6 +183,8 @@ class AuditService:
                 AuditTypeEnum.GAS: gas_findings,
                 AuditTypeEnum.SECURITY: sec_findings,
             },
+            users_timeseries=users_timeseries,
+            audits_timeseries=audits_timeseries,
         )
 
         return response
