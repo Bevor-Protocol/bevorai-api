@@ -63,7 +63,7 @@ OPENAPI_SPEC: OpenApiSpec = {
     },
     "get_eval": {
         "summary": "Get an AI evaluation",
-        "description": "Retrieve an evaluation by `id`. Response type is determined by `response_type`",
+        "description": "Retrieve an evaluation by `id`. Response type is determined by `response_type`. We provide our own markdown, if needed.",
         "response_model": GetEvalResponse,
     },
     "get_eval_steps": {
