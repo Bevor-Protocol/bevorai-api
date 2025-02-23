@@ -5,35 +5,24 @@ from fastapi import APIRouter, Body, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.core.dependencies import Authentication
-from app.api.services.app import AppService
 from app.api.services.auth import AuthService
 from app.api.services.blockchain import BlockchainService
 from app.api.services.user import UserService
 from app.db.models import User
 from app.schema.dependencies import AuthState
-from app.schema.request import AppUpsertBody, UserUpsertBody
+from app.schema.request import UserUpsertBody
 from app.utils.enums import AuthRequestScopeEnum, ClientTypeEnum
-from app.utils.openapi import OPENAPI_SPEC
 
 
 class AuthRouter:
     def __init__(self):
         super().__init__()
-        self.router = APIRouter(prefix="/auth", tags=["auth"])
+        self.router = APIRouter(prefix="/auth", tags=["auth"], include_in_schema=False)
         self.register_routes()
 
     def register_routes(self):
         self.router.add_api_route(
-            "/user",
-            self.get_or_create_user,
-            methods=["POST"],
-            dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.APP))
-            ],
-            **OPENAPI_SPEC["upsert_user"]
-        )
-        self.router.add_api_route(
-            "/generate/{client_type}",
+            "/{client_type}",
             self.generate_api_key,
             methods=["POST"],
             dependencies=[
@@ -41,18 +30,6 @@ class AuthRouter:
                     Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
                 )
             ],
-            include_in_schema=False,
-        )
-        self.router.add_api_route(
-            "/app",
-            self.upsert_app,
-            methods=["POST", "PATCH"],
-            dependencies=[
-                Depends(
-                    Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
-                )
-            ],
-            operation_id="upsert_app",
             include_in_schema=False,
         )
         self.router.add_api_route(
@@ -87,20 +64,6 @@ class AuthRouter:
         )
 
         return JSONResponse({"api_key": api_key}, status_code=status.HTTP_202_ACCEPTED)
-
-    async def upsert_app(
-        self, request: Request, body: Annotated[AppUpsertBody, Body()]
-    ):
-        app_service = AppService()
-
-        if request.method == "POST":
-            fct = app_service.create_app
-        if request.method == "PATCH":
-            fct = app_service.update_app
-
-        response = await fct(auth=request.state.auth, body=body)
-
-        return JSONResponse({"result": response}, status_code=status.HTTP_202_ACCEPTED)
 
     async def sync_credits(self, request: Request):
         blockchain_service = BlockchainService()

@@ -14,11 +14,12 @@ from app.schema.response import (
     AnalyticsContract,
     AnalyticsResponse,
     GetAuditResponse,
+    GetAuditStatusResponse,
     StatsResponse,
     Timeseries,
-    _Audit,
     _Contract,
     _Finding,
+    _GetAuditStep,
     _User,
 )
 from app.utils.enums import (
@@ -235,14 +236,24 @@ class AuditService:
                 id=str(audit.user.id),
                 address=audit.user.address,
             ),
-            audit=_Audit(
-                status=audit.status,
-                version=audit.version,
-                audit_type=audit.audit_type,
-                result=result,
-            ),
+            status=audit.status,
+            version=audit.version,
+            audit_type=audit.audit_type,
+            result=result,
             findings=findings,
         )
+
+    async def get_audit_status(self, id: str) -> GetAuditStatusResponse:
+
+        audit = await Audit.get(id=id).prefetch_related("intermediate_responses")
+
+        steps = []
+        for step in audit.intermediate_responses:
+            steps.append(_GetAuditStep(step=step.step, status=step.status))
+
+        response = GetAuditStatusResponse(status=audit.status, steps=steps)
+
+        return response
 
     async def submit_feedback(self, data: FeedbackBody, auth: AuthState) -> bool:
 

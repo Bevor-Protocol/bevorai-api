@@ -56,10 +56,12 @@ register_tortoise(
 
 app.add_middleware(PrometheusMiddleware)
 
+app.include_router(routers.app_router)
+app.include_router(routers.audit_router)
+app.include_router(routers.auth_router)
 app.include_router(routers.base_router)
 app.include_router(routers.blockchain_router)
-app.include_router(routers.ai_router)
-app.include_router(routers.status_router)
+app.include_router(routers.contract_router)
+app.include_router(routers.platform_router)
+app.include_router(routers.user_router)
 # app.include_router(routers.websocket_router) # exclude in favor of polling
-app.include_router(routers.auth_router)
-app.include_router(routers.analytics_router)

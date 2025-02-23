@@ -1,16 +1,19 @@
-from app.api.routers.auth import AuthRouter
-
-from .ai import AiRouter
-from .analytics import AnalyticsRouter
+from .app import AppRouter
+from .audit import AuditRouter
+from .auth import AuthRouter
 from .base import BaseRouter
 from .blockchain import BlockchainRouter
-from .status import StatusRouter
+from .contract import ContractRouter
+from .platform import PlatformRouter
+from .user import UserRouter
 from .websocket import WebsocketRouter
 
-base_router = BaseRouter().router
-ai_router = AiRouter().router
-blockchain_router = BlockchainRouter().router
-status_router = StatusRouter().router
-websocket_router = WebsocketRouter().router
+app_router = AppRouter().router
+audit_router = AuditRouter().router
 auth_router = AuthRouter().router
-analytics_router = AnalyticsRouter().router
+base_router = BaseRouter().router
+blockchain_router = BlockchainRouter().router
+contract_router = ContractRouter().router
+platform_router = PlatformRouter().router
+user_router = UserRouter().router
+websocket_router = WebsocketRouter().router

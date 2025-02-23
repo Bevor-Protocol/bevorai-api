@@ -13,6 +13,24 @@ from app.utils.enums import (
 )
 
 
+class IdResponse(BaseModel):
+    id: str | UUID
+
+    @field_serializer("id")
+    def convert_uuid_to_string(self, id):
+        if isinstance(id, UUID):
+            return str(id)
+        return id
+
+
+class CreatedAtResponse(BaseModel):
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_dt(self, dt: datetime, _info):
+        return dt.astimezone(timezone.utc).isoformat()
+
+
 class _Finding(BaseModel):
     id: str
     level: str
@@ -36,18 +54,14 @@ class _User(BaseModel):
     address: str
 
 
-class _Audit(BaseModel):
+class GetAuditResponse(BaseModel):
     status: str
     version: str
     audit_type: AuditTypeEnum
     result: Optional[str] = None
-
-
-class GetAuditResponse(BaseModel):
+    findings: list[_Finding]
     contract: _Contract
     user: _User
-    audit: _Audit
-    findings: list[_Finding]
 
 
 class _GetEvalContract(BaseModel):
@@ -82,56 +96,35 @@ class _GetEvalData(BaseModel):
     audit: _GetEvalAudit
 
 
-class GetEvalResponse(BaseModel):
-    id: str | UUID
+class GetEvalResponse(IdResponse):
     status: Optional[AuditStatusEnum] = None
     exists: bool
     error: Optional[str] = None
     data: Optional[_GetEvalData] = Field(default_factory=lambda: {})
 
-    @field_serializer("id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class _GetEvalStep(BaseModel):
+class _GetAuditStep(BaseModel):
     step: str
     status: AuditStatusEnum
 
 
-class GetEvalStepsResponse(BaseModel):
+class GetAuditStatusResponse(BaseModel):
     status: AuditStatusEnum
-    steps: list[_GetEvalStep] = Field(default_factory=lambda: [])
+    steps: list[_GetAuditStep] = Field(default_factory=lambda: [])
 
 
-class GetCostEstimate(BaseModel):
+class GetCostEstimateResponse(BaseModel):
     credits: int
 
 
-class CreateEvalResponse(BaseModel):
-    id: str | UUID
+class CreateEvalResponse(IdResponse):
     status: AuditStatusEnum
 
-    @field_serializer("id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class _ContractCandidateResponse(BaseModel):
-    id: str | UUID
+class _ContractCandidateResponse(IdResponse):
     source_code: str
     network: Optional[NetworkEnum] = None
     is_available: bool
-
-    @field_serializer("id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
 
 class UploadContractResponse(BaseModel):
@@ -151,35 +144,24 @@ class WebhookResponse(BaseModel):
     result: Optional[WebhookResponseData] = Field(default=None)
 
 
-class AnalyticsContract(BaseModel):
-    id: Union[str, UUID]
+class AnalyticsContract(IdResponse):
     method: ContractMethodEnum
     address: Optional[str]
     network: Optional[NetworkEnum]
 
-    @field_serializer("id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class AnalyticsAudit(BaseModel):
+class AnalyticsAudit(IdResponse, CreatedAtResponse):
     n: int
-    id: str | UUID
-    created_at: datetime
-    app_id: str | UUID | None = None
-    user_id: Optional[str] = None
+    app_id: Optional[str | UUID] = None
+    user_id: Optional[str | UUID] = None
     audit_type: AuditTypeEnum
     status: AuditStatusEnum
     contract: AnalyticsContract
 
-    @field_serializer("created_at")
-    def serialize_dt(self, dt: datetime, _info):
-        return dt.astimezone(timezone.utc).isoformat()
-
-    @field_serializer("id", "app_id")
+    @field_serializer("app_id", "user_id")
     def convert_uuid_to_string(self, id):
+        if not id:
+            return id
         if isinstance(id, UUID):
             return str(id)
         return id
@@ -206,22 +188,10 @@ class StatsResponse(BaseModel):
     users_timeseries: list[Timeseries]
 
 
-class UserInfo(BaseModel):
-    id: Union[str, UUID]
+class UserInfo(IdResponse, CreatedAtResponse):
     address: str
-    created_at: datetime
     total_credits: float
     remaining_credits: float
-
-    @field_serializer("created_at")
-    def serialize_dt(self, dt: datetime, _info):
-        return dt.astimezone(timezone.utc).isoformat()
-
-    @field_serializer("id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
 
 class AuthInfo(BaseModel):
@@ -250,5 +220,13 @@ class BooleanResponse(BaseModel):
     success: bool
 
 
-class UpsertUserResponse(BaseModel):
-    user_id: str
+class GetContractResponse(BaseModel):
+    method: ContractMethodEnum
+    is_available: bool
+    address: Optional[str] = None
+    network: Optional[NetworkEnum] = None
+    code: Optional[str] = None
+
+
+class ErrorResponse(BaseModel):
+    detail: str

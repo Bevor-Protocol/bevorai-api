@@ -1,5 +1,4 @@
 # flake8: noqa
-from re import M
 
 from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
@@ -8,12 +7,13 @@ from app.schema.response import (
     AnalyticsResponse,
     BooleanResponse,
     CreateEvalResponse,
+    ErrorResponse,
     GetAuditResponse,
-    GetCostEstimate,
-    GetEvalResponse,
-    GetEvalStepsResponse,
+    GetAuditStatusResponse,
+    GetContractResponse,
+    GetCostEstimateResponse,
+    IdResponse,
     UploadContractResponse,
-    UpsertUserResponse,
     UserInfoResponse,
 )
 
@@ -28,57 +28,38 @@ class OpenApiParams(TypedDict, total=False):
 
 
 class OpenApiSpec(TypedDict):
+    get_app_info: OpenApiParams
     upsert_contract: OpenApiParams
-    start_eval: OpenApiParams
-    get_eval: OpenApiParams
-    get_eval_steps: OpenApiParams
-    cost_estimate: OpenApiParams
+    create_audit: OpenApiParams
     get_audits: OpenApiParams
     get_audit: OpenApiParams
+    get_audit_status: OpenApiParams
     submit_feedback: OpenApiParams
-    upsert_user: OpenApiParams
+    get_or_create_contract: OpenApiParams
+    get_contract: OpenApiParams
+    get_cost_estimate: OpenApiParams
+    get_or_create_user: OpenApiParams
+    get_user_info: OpenApiParams
 
 
 # Define OpenAPI spec as a plain dictionary (no instantiation required)
 OPENAPI_SPEC: OpenApiSpec = {
-    "upsert_contract": {
-        "summary": "Contract scan/upload",
-        "description": """
-        Get or create a smart contract reference. `address` or `code` are required.
-        If `network` is provided, it will likely speed up the response. Scanning requires
-        that a smart contract is verified, and the source code is available. It is possible that
-        a given address exists on multiple chains, which is why `candidates` is provided.
-        """,
-        "response_model": UploadContractResponse,
+    "get_app_info": {
+        "summary": "Get App Info",
+        "description": "Get App-level information",
+        "response_model": UserInfoResponse,
+        "responses": {401: {"model": ErrorResponse}},
     },
-    "start_eval": {
+    "create_audit": {
         "summary": "Create AI eval",
         "description": """
-        Initializes an AI smart contract audit. `contract_id` is the referenced contract obtained
-        from [`/blockchain/contract`](/redoc#tag/blockchain/operation/upload_contract_blockchain_contract_post).
-        `audit_type` is of type `AuditTypeEnum`.\n\n
-        Note, that this **consumes credits**.
+Initializes an AI smart contract audit. `contract_id` is the referenced contract obtained
+from [`POST /contract`](/redoc#tag/contract/operation/upload_contract_contract__post).
+`audit_type` is of type `AuditTypeEnum`.\n\n
+Note, that this **consumes credits**.
         """,
         "response_model": CreateEvalResponse,
-    },
-    "get_eval": {
-        "summary": "Get an AI evaluation",
-        "description": "Retrieve an evaluation by `id`. Response type is determined by `response_type`. We provide our own markdown, if needed.",
-        "response_model": GetEvalResponse,
-    },
-    "get_eval_steps": {
-        "summary": "Get status of each expert",
-        "description": """
-        To be used during processing. Returns the status of each AI agent used to generate results, called `steps`.
-        In addition to the `steps` statuses, it will return the status of the audit as a whole. Useful in polling responses
-        while waiting for processing to complete.
-        """,
-        "response_model": GetEvalStepsResponse,
-    },
-    "cost_estimate": {
-        "summary": "Get current cost estimate",
-        "description": "Can be used to infer current cost of running an eval. Response is in terms of credits.",
-        "response_model": GetCostEstimate,
+        "responses": {401: {"model": ErrorResponse}},
     },
     "get_audits": {
         "summary": "Get audits",
@@ -87,11 +68,23 @@ OPENAPI_SPEC: OpenApiSpec = {
         through your app. If calling as a `User`, you'll be able to view your own audits (making `user_id` or `user_address` irrelevant).
         """,
         "response_model": AnalyticsResponse,
+        "responses": {401: {"model": ErrorResponse}},
     },
     "get_audit": {
-        "summary": "Get an AI evaluation, granular",
-        "description": "Retrieve an evaluation by `id`. Slightly more granular info than [`/eval/{id}`](/redoc#tag/ai/operation/get_eval_by_id_ai_eval__id__get)",
+        "summary": "Get audit",
+        "description": "Retrieve an evaluation by `id`",
         "response_model": GetAuditResponse,
+        "responses": {401: {"model": ErrorResponse}},
+    },
+    "get_audit_status": {
+        "summary": "Poll audit status",
+        "description": """
+        To be used during processing. Returns the status of each AI agent used in generating results, called `steps`.
+        In addition to the `steps` statuses, it will return the status of the audit as a whole. Useful in polling responses
+        while waiting for processing to complete.
+        """,
+        "response_model": GetAuditStatusResponse,
+        "responses": {401: {"model": ErrorResponse}},
     },
     "submit_feedback": {
         "summary": "Submit feedback",
@@ -100,11 +93,42 @@ OPENAPI_SPEC: OpenApiSpec = {
         `verified` represents whether the user agreed / disagreed with the findings.
         """,
         "response_model": BooleanResponse,
+        "responses": {401: {"model": ErrorResponse}},
     },
-    "upsert_user": {
-        "summary": "Upsert a user",
-        "description": "Only callable from an authenticated `App`",
-        "response_model": UpsertUserResponse,
+    "get_or_create_contract": {
+        "summary": "Contract scan/upload",
+        "description": """
+        Get or create a smart contract reference. `address` or `code` are required.
+        If `network` is provided, it will likely speed up the response. Scanning requires
+        that a smart contract is verified, and the source code is available. It is possible that
+        a given address exists on multiple chains, which is why `candidates` is provided.
+        """,
+        "response_model": UploadContractResponse,
+        "responses": {401: {"model": ErrorResponse}},
+    },
+    "get_contract": {
+        "summary": "Get Contract",
+        "description": "Retrieve a previously uploaded contract by `id`",
+        "response_model": GetContractResponse,
+        "responses": {401: {"model": ErrorResponse}},
+    },
+    "get_cost_estimate": {
+        "summary": "Get current cost estimate",
+        "description": "Can be used to infer current cost of running an eval. Response is in terms of credits.",
+        "response_model": GetCostEstimateResponse,
+        "responses": {401: {"model": ErrorResponse}},
+    },
+    "get_or_create_user": {
+        "summary": "Create a user",
+        "description": "Only callable from an authenticated `App`. If already exists, will return the user `id`.",
+        "response_model": IdResponse,
+        "responses": {401: {"model": ErrorResponse}},
+    },
+    "get_user_info": {
+        "summary": "Get User info",
+        "description": "Get stats related to a user",
+        "response_model": UserInfoResponse,
+        "responses": {401: {"model": ErrorResponse}},
     },
 }
 
@@ -139,14 +163,19 @@ OPENAPI_SCHEMA = {
     "summary": "**BevorAI smart contract auditor**",
     "description": _description,
     "tags": [
+        {"name": "app", "description": "Relevant for `App` callers"},
         {
-            "name": "blockchain",
-            "description": "Operations interacting with on-chain data",
+            "name": "audit",
+            "description": "The core of the BevorAI API, used for generating audits",
         },
         {
-            "name": "ai",
-            "description": "Core of the API. Used to create evaluations, get responses, and poll the API",
+            "name": "contract",
+            "description": "Used for uploading, scanning, and creating smart contract references. Required for creating audits.",
         },
-        {"name": "auth", "description": "Relevant for `App` callers"},
+        {"name": "platform"},
+        {
+            "name": "user",
+            "description": "Creating users as an `App`, or getting user level information",
+        },
     ],
 }
