@@ -126,6 +126,15 @@ class AuditRouter:
                 detail="No audit was created under these credentials",
             )
 
+    async def process_ai_eval_token(
+        self,
+        request: Request,
+        body: Annotated[EvalBody, Body()],
+    ):
+        response = await self.process_static_eval_token(body.address)
+
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+
     async def submit_feedback(self, request: Request, data: FeedbackBody):
         audit_service = AuditService()
         response = await audit_service.submit_feedback(
