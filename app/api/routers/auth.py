@@ -50,7 +50,7 @@ class AuthRouter:
         # but might have different app owners that they were created through.
         user_service = UserService()
 
-        response = await user_service.upsert_user(request.state.auth, body.address)
+        response = await user_service.get_or_create(request.state.auth, body.address)
 
         return JSONResponse(
             {"user_id": str(response.id)}, status_code=status.HTTP_202_ACCEPTED
@@ -59,7 +59,7 @@ class AuthRouter:
     async def generate_api_key(self, request: Request, client_type: ClientTypeEnum):
         auth_service = AuthService()
 
-        api_key = await auth_service.generate_auth(
+        api_key = await auth_service.generate(
             auth_obj=request.state.auth, client_type=client_type
         )
 

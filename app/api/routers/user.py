@@ -17,7 +17,7 @@ class UserRouter:
 
     def register_routes(self):
         self.router.add_api_route(
-            "/",
+            "",
             self.get_or_create_user,
             methods=["POST"],
             dependencies=[
@@ -43,7 +43,7 @@ class UserRouter:
         # but might have different app owners that they were created through.
         user_service = UserService()
 
-        result = await user_service.upsert_user(request.state.auth, body.address)
+        result = await user_service.get_or_create(request.state.auth, body.address)
         response = IdResponse(id=result.id)
 
         return Response(
@@ -52,5 +52,5 @@ class UserRouter:
 
     async def get_user_info(self, request: Request):
         user_service = UserService()
-        user_info = await user_service.get_user_info(request.state.auth)
+        user_info = await user_service.get_info(request.state.auth)
         return Response(user_info.model_dump_json(), status_code=status.HTTP_200_OK)

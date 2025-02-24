@@ -24,7 +24,6 @@ class EvalBody(BaseModel):
 
 
 class FeedbackBody(BaseModel):
-    id: str
     feedback: Optional[str] = Field(default=None)
     verified: boolean
 

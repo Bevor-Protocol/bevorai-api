@@ -8,7 +8,7 @@ from app.utils.enums import ClientTypeEnum, PermissionEnum
 
 class AuthService:
 
-    async def generate_auth(self, auth_obj: AuthState, client_type: ClientTypeEnum):
+    async def generate(self, auth_obj: AuthState, client_type: ClientTypeEnum):
         # only callable via FIRST_PARTY app, we know to reference the user obj.
         search_criteria = {}
         if client_type == ClientTypeEnum.APP:

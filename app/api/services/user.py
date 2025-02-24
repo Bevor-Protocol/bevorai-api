@@ -2,24 +2,28 @@ from tortoise.query_utils import Prefetch
 from tortoise.transactions import in_transaction
 
 from app.api.core.dependencies import AuthState
+from app.api.services.permission import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
 from app.schema.response import AppInfo, AuthInfo, UserInfo, UserInfoResponse
 from app.utils.enums import AuditStatusEnum, ClientTypeEnum
 
 
 class UserService:
-    async def upsert_user(self, auth: AuthState, address: str) -> User:
+    async def get_or_create(self, auth: AuthState, address: str) -> User:
         user = await User.filter(app_owner_id=auth.app_id, address=address).first()
         if user:
             return user
 
+        permission_service = PermissionService()
         async with in_transaction():
             user = await User.create(app_owner_id=auth.app_id, address=address)
-            await Permission.create(client_type=ClientTypeEnum.USER, user_id=user.id)
+            await permission_service.create(
+                client_type=ClientTypeEnum.USER, identifier=user.id
+            )
 
         return user
 
-    async def get_user_info(self, auth: AuthState) -> UserInfoResponse:
+    async def get_info(self, auth: AuthState) -> UserInfoResponse:
 
         audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS).select_related(
             "contract"

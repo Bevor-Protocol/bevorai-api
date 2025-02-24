@@ -1,12 +1,10 @@
 import math
 
 from fastapi import HTTPException, status
-from pypika import CustomFunction
-from tortoise.functions import Count, Function
 from tortoise.timezone import now
 
 from app.api.services.ai import AiService
-from app.db.models import App, Audit, Contract, Finding, User
+from app.db.models import Audit, Finding
 from app.schema.dependencies import AuthState
 from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import (
@@ -15,19 +13,12 @@ from app.schema.response import (
     AnalyticsResponse,
     GetAuditResponse,
     GetAuditStatusResponse,
-    StatsResponse,
-    Timeseries,
     _Contract,
     _Finding,
     _GetAuditStep,
     _User,
 )
-from app.utils.enums import (
-    AuditTypeEnum,
-    AuthScopeEnum,
-    ClientTypeEnum,
-    FindingLevelEnum,
-)
+from app.utils.enums import AuthScopeEnum, ClientTypeEnum
 
 
 class AuditService:
@@ -117,79 +108,6 @@ class AuditService:
             results=data, more=len(results) > query.page_size, total_pages=total_pages
         )
 
-    async def get_stats(self) -> StatsResponse:
-        n_audits = 0
-        n_contracts = await Contract.all().count()
-        n_apps = await App.all().count()
-
-        class TruncMonth(Function):
-            database_func = CustomFunction("TO_CHAR", ["name", "format"])
-
-        audits_by_date = (
-            await Audit.annotate(
-                date=TruncMonth("created_at", "'YYYY-MM-DD'")
-            )  # Extract the date part
-            .annotate(count=Count("id"))  # Count the number of audits
-            .group_by("date")  # Group by the formatted date
-            .values("date", "count")
-        )
-
-        users_by_date = (
-            await User.annotate(
-                date=TruncMonth(
-                    "created_at", "'YYYY-MM-DD'"
-                )  # Extract the date part as a string
-            )  # Extract the date part
-            .annotate(count=Count("id"))  # Count the number of audits
-            .group_by("date")  # Group by the formatted date
-            .values("date", "count")
-        )
-
-        users_timeseries = sorted(
-            [
-                Timeseries(date=user["date"], count=user["count"])
-                for user in users_by_date
-            ],
-            key=lambda x: x.date,
-        )
-        n_users = sum(map(lambda x: x.count, users_timeseries))
-
-        audits_timeseries = sorted(
-            [
-                Timeseries(date=audit["date"], count=audit["count"])
-                for audit in audits_by_date
-            ],
-            key=lambda x: x.date,
-        )
-        n_audits = sum(map(lambda x: x.count, audits_timeseries))
-
-        findings = await Finding.all()
-
-        gas_findings = {k.value: 0 for k in FindingLevelEnum}
-        sec_findings = {k.value: 0 for k in FindingLevelEnum}
-
-        for finding in findings:
-            match finding.audit_type:
-                case AuditTypeEnum.SECURITY:
-                    sec_findings[finding.level] += 1
-                case AuditTypeEnum.GAS:
-                    gas_findings[finding.level] += 1
-
-        response = StatsResponse(
-            n_apps=n_apps,
-            n_users=n_users,
-            n_contracts=n_contracts,
-            n_audits=n_audits,
-            findings={
-                AuditTypeEnum.GAS: gas_findings,
-                AuditTypeEnum.SECURITY: sec_findings,
-            },
-            users_timeseries=users_timeseries,
-            audits_timeseries=audits_timeseries,
-        )
-
-        return response
-
     async def get_audit(self, auth: AuthState, id: str) -> GetAuditResponse:
         obj_filter = {"id": id}
         if auth.client_type == ClientTypeEnum.USER:
@@ -239,13 +157,20 @@ class AuditService:
             status=audit.status,
             version=audit.version,
             audit_type=audit.audit_type,
+            processing_time_seconds=audit.processing_time_seconds,
             result=result,
             findings=findings,
         )
 
-    async def get_audit_status(self, id: str) -> GetAuditStatusResponse:
+    async def get_status(self, auth: AuthState, id: str) -> GetAuditStatusResponse:
+        obj_filter = {"id": id}
+        if auth.client_type == ClientTypeEnum.USER:
+            obj_filter["user_id"] = auth.user_id
+        else:
+            if auth.scope != AuthScopeEnum.ADMIN:
+                obj_filter["app_id"] = auth.app_id
 
-        audit = await Audit.get(id=id).prefetch_related("intermediate_responses")
+        audit = await Audit.get(**obj_filter).prefetch_related("intermediate_responses")
 
         steps = []
         for step in audit.intermediate_responses:

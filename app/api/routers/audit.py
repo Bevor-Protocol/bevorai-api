@@ -1,9 +1,19 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import JSONResponse
 
 from app.api.core.dependencies import Authentication, RequireCredits
+from app.api.services.ai import AiService
 from app.api.services.audit import AuditService
 from app.schema.request import EvalBody, FeedbackBody, FilterParams
 from app.schema.response import GetAuditStatusResponse
@@ -18,7 +28,7 @@ class AuditRouter:
 
     def register_routes(self):
         self.router.add_api_route(
-            "/",
+            "",
             self.create_audit,
             methods=["POST"],
             dependencies=[
@@ -69,7 +79,8 @@ class AuditRouter:
         request: Request,
         body: Annotated[EvalBody, Body()],
     ):
-        response = await self.ai_service.process_evaluation(
+        ai_service = AiService()
+        response = await ai_service.process_evaluation(
             auth=request.state.auth, data=body
         )
 
@@ -91,16 +102,29 @@ class AuditRouter:
 
     async def get_audit(self, request: Request, id: str):
         audit_service = AuditService()
-        audit = await audit_service.get_audit(auth=request.state.auth, id=id)
 
-        return Response(audit.model_dump_json(), status_code=status.HTTP_200_OK)
+        try:
+            audit = await audit_service.get_audit(auth=request.state.auth, id=id)
+            return Response(audit.model_dump_json(), status_code=status.HTTP_200_OK)
+        except Exception:
+            return HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No audit was created under these credentials",
+            )
 
-    async def get_audit_status(self, id: str) -> GetAuditStatusResponse:
+    async def get_audit_status(
+        self, request: Request, id: str
+    ) -> GetAuditStatusResponse:
         audit_service = AuditService()
 
-        response = await audit_service.get_audit_status(id)
-
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        try:
+            response = await audit_service.get_status(auth=request.state.auth, id=id)
+            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        except Exception:
+            return HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No audit was created under these credentials",
+            )
 
     async def submit_feedback(self, request: Request, data: FeedbackBody):
         audit_service = AuditService()

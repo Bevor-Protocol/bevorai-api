@@ -174,7 +174,7 @@ class ContractService:
             candidates=list(map(prettify, contracts)),
         )
 
-    async def get_contract(self, id: str) -> GetContractResponse:
+    async def get(self, id: str) -> GetContractResponse:
 
         contract = await Contract.get(id=id)
 

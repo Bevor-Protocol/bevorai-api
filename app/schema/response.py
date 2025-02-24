@@ -58,6 +58,7 @@ class GetAuditResponse(BaseModel):
     status: str
     version: str
     audit_type: AuditTypeEnum
+    processing_time_seconds: Optional[int]
     result: Optional[str] = None
     findings: list[_Finding]
     contract: _Contract
@@ -159,7 +160,7 @@ class AnalyticsAudit(IdResponse, CreatedAtResponse):
     contract: AnalyticsContract
 
     @field_serializer("app_id", "user_id")
-    def convert_uuid_to_string(self, id):
+    def convert_to_string(self, id):
         if not id:
             return id
         if isinstance(id, UUID):

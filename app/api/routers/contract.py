@@ -17,7 +17,7 @@ class ContractRouter:
 
     def register_routes(self):
         self.router.add_api_route(
-            "/",
+            "",
             self.upload_contract,
             methods=["POST"],
             dependencies=[
@@ -48,6 +48,6 @@ class ContractRouter:
     async def get_contract(self, id: str):
         contract_service = ContractService()
 
-        response = await contract_service.get_contract(id)
+        response = await contract_service.get(id)
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

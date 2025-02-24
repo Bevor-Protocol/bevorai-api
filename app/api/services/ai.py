@@ -91,7 +91,6 @@ class AiService:
             )
 
         audit_type = data.audit_type
-        # webhook_url = data.webhook_url
 
         audit = await Audit.create(
             contract_id=data.contract_id,

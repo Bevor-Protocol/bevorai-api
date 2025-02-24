@@ -19,11 +19,10 @@ from app.utils.enums import (
 
 async def handle_eval(audit_id: str):
     now = datetime.now()
-    audit = await Audit.get(id=audit_id).select_related("app", "contract", "user")
+    audit = await Audit.get(id=audit_id).select_related(
+        "app__owner", "contract", "user"
+    )
 
-    # only use pubsub for first-party applications.
-    # otherwise, we can rely on webhooks or polling.
-    # should_publish = audit.app and audit.app.type == AppTypeEnum.FIRST_PARTY
     consume_credits = (not audit.app) or (audit.app.type != AppTypeEnum.FIRST_PARTY)
 
     pipeline = LlmPipeline(
@@ -41,23 +40,11 @@ async def handle_eval(audit_id: str):
 
         response = await pipeline.generate_report()
 
-        cost = pipeline.usage.get_cost()
-
         audit.raw_output = response
         audit.status = AuditStatusEnum.SUCCESS
 
-        # NOTE: could remove this if condition in the future. Free via the app.
-        if consume_credits:
-            # implied that it's not a FIRST_PARTY app
-            if audit.app:
-                user = audit.app.owner
-                user.used_credits += cost
-                await user.save()
-            else:
-                user = audit.user
-                user.used_credits += cost
-                await user.save()
-
+        audit.processing_time_seconds = (datetime.now() - now).seconds
+        await audit.save()
     except Exception as err:
         logging.exception(err)
         audit.status = AuditStatusEnum.FAILED
@@ -65,8 +52,18 @@ async def handle_eval(audit_id: str):
         await audit.save()
         raise err
 
-    audit.processing_time_seconds = (datetime.now() - now).seconds
-    await audit.save()
+    # NOTE: could remove this if condition in the future. Free via the app.
+    if consume_credits:
+        cost = pipeline.usage.get_cost()
+        # implied that it's not a FIRST_PARTY app
+        if audit.app:
+            user = audit.app.owner
+            user.used_credits += cost
+            await user.save()
+        else:
+            user = audit.user
+            user.used_credits += cost
+            await user.save()
 
     return {"audit_id": audit_id, "audit_status": audit.status}
 
