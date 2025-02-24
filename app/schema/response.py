@@ -189,12 +189,6 @@ class StatsResponse(BaseModel):
     users_timeseries: list[Timeseries]
 
 
-class UserInfo(IdResponse, CreatedAtResponse):
-    address: str
-    total_credits: float
-    remaining_credits: float
-
-
 class AuthInfo(BaseModel):
     exists: bool
     is_active: bool
@@ -209,8 +203,10 @@ class AppInfo(BaseModel):
     exists_auth: Optional[bool] = False
 
 
-class UserInfoResponse(BaseModel):
-    user: UserInfo
+class UserInfoResponse(IdResponse, CreatedAtResponse):
+    address: str
+    total_credits: float
+    remaining_credits: float
     auth: AuthInfo
     app: AppInfo
     n_contracts: int

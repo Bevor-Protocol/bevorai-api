@@ -4,7 +4,7 @@ from tortoise.transactions import in_transaction
 from app.api.core.dependencies import AuthState
 from app.api.services.permission import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
-from app.schema.response import AppInfo, AuthInfo, UserInfo, UserInfoResponse
+from app.schema.response import AppInfo, AuthInfo, UserInfoResponse
 from app.utils.enums import AuditStatusEnum, ClientTypeEnum
 
 
@@ -62,13 +62,11 @@ class UserService:
         n_contracts = len(set(map(lambda x: x.contract.id, user_audits)))
 
         return UserInfoResponse(
-            user=UserInfo(
-                id=cur_user.id,
-                address=cur_user.address,
-                created_at=cur_user.created_at,
-                total_credits=cur_user.total_credits,
-                remaining_credits=cur_user.total_credits - cur_user.used_credits,
-            ),
+            id=cur_user.id,
+            address=cur_user.address,
+            created_at=cur_user.created_at,
+            total_credits=cur_user.total_credits,
+            remaining_credits=cur_user.total_credits - cur_user.used_credits,
             auth=AuthInfo(
                 exists=user_auth is not None,
                 is_active=not user_auth.revoked_at if user_auth else False,
