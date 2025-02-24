@@ -38,7 +38,7 @@ class User(AbstractModel):
         description="app that the user was created through",
         null=True,  # need to set this to null so i can backfill.
     )
-    address = fields.CharField(max_length=255, unique=True)
+    address = fields.CharField(max_length=255)
     total_credits = fields.IntField(default=0)
     used_credits = fields.IntField(default=0)
 
@@ -64,6 +64,8 @@ class App(AbstractModel):
     type = fields.CharEnumField(enum_type=AppTypeEnum, default=AppTypeEnum.THIRD_PARTY)
 
     auth: fields.ReverseRelation["Auth"]
+    users: fields.ReverseRelation["User"]
+    audits: fields.ReverseRelation["Audit"]
     permissions: fields.ReverseRelation["Permission"]
 
     class Meta:
@@ -190,6 +192,7 @@ class Audit(AbstractModel):
     raw_output = fields.TextField(null=True, default=None)
 
     intermediate_responses: fields.ReverseRelation["IntermediateResponse"]
+    findings: fields.ReverseRelation["Finding"]
 
     class Meta:
         table = "audit"

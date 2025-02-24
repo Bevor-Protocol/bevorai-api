@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from tortoise.timezone import now
 
 from app.api.services.ai import AiService
-from app.db.models import App, Audit, Contract, Finding, User
+from app.db.models import Audit, Finding
 from app.schema.dependencies import AuthState
 from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import (
@@ -12,18 +12,13 @@ from app.schema.response import (
     AnalyticsContract,
     AnalyticsResponse,
     GetAuditResponse,
-    StatsResponse,
-    _Audit,
+    GetAuditStatusResponse,
     _Contract,
     _Finding,
+    _GetAuditStep,
     _User,
 )
-from app.utils.enums import (
-    AuditTypeEnum,
-    AuthScopeEnum,
-    ClientTypeEnum,
-    FindingLevelEnum,
-)
+from app.utils.enums import AuthScopeEnum, ClientTypeEnum
 
 
 class AuditService:
@@ -113,38 +108,6 @@ class AuditService:
             results=data, more=len(results) > query.page_size, total_pages=total_pages
         )
 
-    async def get_stats(self) -> StatsResponse:
-        n_audits = 0
-        n_contracts = await Contract.all().count()
-        n_users = await User.all().count()
-        n_apps = await App.all().count()
-
-        n_audits = await Audit.all().count()
-        findings = await Finding.all()
-
-        gas_findings = {k.value: 0 for k in FindingLevelEnum}
-        sec_findings = {k.value: 0 for k in FindingLevelEnum}
-
-        for finding in findings:
-            match finding.audit_type:
-                case AuditTypeEnum.SECURITY:
-                    sec_findings[finding.level] += 1
-                case AuditTypeEnum.GAS:
-                    gas_findings[finding.level] += 1
-
-        response = StatsResponse(
-            n_apps=n_apps,
-            n_users=n_users,
-            n_contracts=n_contracts,
-            n_audits=n_audits,
-            findings={
-                AuditTypeEnum.GAS: gas_findings,
-                AuditTypeEnum.SECURITY: sec_findings,
-            },
-        )
-
-        return response
-
     async def get_audit(self, auth: AuthState, id: str) -> GetAuditResponse:
         obj_filter = {"id": id}
         if auth.client_type == ClientTypeEnum.USER:
@@ -191,14 +154,31 @@ class AuditService:
                 id=str(audit.user.id),
                 address=audit.user.address,
             ),
-            audit=_Audit(
-                status=audit.status,
-                version=audit.version,
-                audit_type=audit.audit_type,
-                result=result,
-            ),
+            status=audit.status,
+            version=audit.version,
+            audit_type=audit.audit_type,
+            processing_time_seconds=audit.processing_time_seconds,
+            result=result,
             findings=findings,
         )
+
+    async def get_status(self, auth: AuthState, id: str) -> GetAuditStatusResponse:
+        obj_filter = {"id": id}
+        if auth.client_type == ClientTypeEnum.USER:
+            obj_filter["user_id"] = auth.user_id
+        else:
+            if auth.scope != AuthScopeEnum.ADMIN:
+                obj_filter["app_id"] = auth.app_id
+
+        audit = await Audit.get(**obj_filter).prefetch_related("intermediate_responses")
+
+        steps = []
+        for step in audit.intermediate_responses:
+            steps.append(_GetAuditStep(step=step.step, status=step.status))
+
+        response = GetAuditStatusResponse(status=audit.status, steps=steps)
+
+        return response
 
     async def submit_feedback(self, data: FeedbackBody, auth: AuthState) -> bool:
 

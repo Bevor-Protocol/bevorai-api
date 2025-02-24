@@ -85,14 +85,15 @@ class Authentication:
         state = AuthState(client_type=auth.client_type, scope=auth.scope)
 
         # Apps are able to make requests on behalf of other users.
+        # however, the app is still the credit consumer.
         if auth.client_type == ClientTypeEnum.APP:
             state.app_id = auth.app.id
+            state.credit_consumer_id = auth.app.owner_id
             if user_identifier:
                 state.is_delegator = True
                 try:
                     user = await User.get(id=user_identifier)
                     state.user_id = user.id
-                    state.credit_consumer_id = user.id
                 except DoesNotExist:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -194,7 +195,7 @@ class RequireCredits:
                     return
 
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="insufficient credits to make request",
         )
 

@@ -3,28 +3,36 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Response, status
 
 from app.api.core.dependencies import Authentication
-from app.api.services.blockchain import BlockchainService
 from app.api.services.contract import ContractService
 from app.schema.request import ContractScanBody
 from app.utils.enums import AuthRequestScopeEnum
+from app.utils.openapi import OPENAPI_SPEC
 
 
-class BlockchainRouter:
+class ContractRouter:
     def __init__(self):
         super().__init__()
-        self.router = APIRouter(
-            prefix="/blockchain", tags=["blockchain"], include_in_schema=False
-        )
+        self.router = APIRouter(prefix="/contract", tags=["contract"])
         self.register_routes()
 
     def register_routes(self):
         self.router.add_api_route(
-            "/gas",
-            self.get_gas,
+            "",
+            self.upload_contract,
+            methods=["POST"],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+            ],
+            **OPENAPI_SPEC["get_or_create_contract"],
+        )
+        self.router.add_api_route(
+            "/{id}",
+            self.get_contract,
             methods=["GET"],
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
+            **OPENAPI_SPEC["get_contract"],
         )
 
     async def upload_contract(self, body: Annotated[ContractScanBody, Body()]):
@@ -37,6 +45,9 @@ class BlockchainRouter:
             response.model_dump_json(), status_code=status.HTTP_202_ACCEPTED
         )
 
-    async def get_gas(self):
-        blockchain_service = BlockchainService()
-        return await blockchain_service.get_gas()
+    async def get_contract(self, id: str):
+        contract_service = ContractService()
+
+        response = await contract_service.get(id)
+
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

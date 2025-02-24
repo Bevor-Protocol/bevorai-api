@@ -7,7 +7,7 @@ from fastapi import HTTPException
 
 from app.api.services.blockchain import BlockchainService
 from app.db.models import Contract
-from app.schema.response import UploadContractResponse
+from app.schema.response import GetContractResponse, UploadContractResponse
 from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 from app.utils.mappers import networks_by_type
 
@@ -172,4 +172,16 @@ class ContractService:
             exact_match=len(contracts) == 1,
             exists=bool(len(contracts)),
             candidates=list(map(prettify, contracts)),
+        )
+
+    async def get(self, id: str) -> GetContractResponse:
+
+        contract = await Contract.get(id=id)
+
+        return GetContractResponse(
+            method=contract.method,
+            is_available=contract.is_available,
+            address=contract.address,
+            network=contract.network,
+            code=contract.raw_code,
         )

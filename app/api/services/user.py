@@ -2,36 +2,31 @@ from tortoise.query_utils import Prefetch
 from tortoise.transactions import in_transaction
 
 from app.api.core.dependencies import AuthState
+from app.api.services.permission import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
-from app.schema.response import (
-    AnalyticsAudit,
-    AnalyticsContract,
-    AppInfo,
-    AuthInfo,
-    UserInfo,
-    UserInfoResponse,
-)
+from app.schema.response import AppInfo, AuthInfo, UserInfoResponse
 from app.utils.enums import AuditStatusEnum, ClientTypeEnum
 
 
 class UserService:
-    async def upsert_user(self, auth: AuthState, address: str) -> User:
+    async def get_or_create(self, auth: AuthState, address: str) -> User:
         user = await User.filter(app_owner_id=auth.app_id, address=address).first()
         if user:
             return user
 
+        permission_service = PermissionService()
         async with in_transaction():
             user = await User.create(app_owner_id=auth.app_id, address=address)
-            await Permission.create(client_type=ClientTypeEnum.USER, user_id=user.id)
+            await permission_service.create(
+                client_type=ClientTypeEnum.USER, identifier=user.id
+            )
 
         return user
 
-    async def get_user_info(self, auth: AuthState) -> UserInfoResponse:
+    async def get_info(self, auth: AuthState) -> UserInfoResponse:
 
-        audit_queryset = (
-            Audit.filter(status=AuditStatusEnum.SUCCESS)
-            .order_by("-created_at")
-            .select_related("contract")
+        audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS).select_related(
+            "contract"
         )
 
         app_queryset = App.all().prefetch_related("permissions", "auth")
@@ -66,42 +61,18 @@ class UserService:
         n_audits = len(user_audits)
         n_contracts = len(set(map(lambda x: x.contract.id, user_audits)))
 
-        recent_audits = []
-        audit: Audit
-        for i, audit in enumerate(user_audits[:5]):
-            contract = AnalyticsContract(
-                id=audit.contract.id,
-                method=audit.contract.method,
-                address=audit.contract.address,
-                network=audit.contract.network,
-            )
-            response = AnalyticsAudit(
-                n=i,
-                id=audit.id,
-                created_at=audit.created_at,
-                app_id=audit.app_id,
-                user_id=cur_user.address,
-                audit_type=audit.audit_type,
-                status=audit.status,
-                contract=contract,
-            )
-            recent_audits.append(response)
-
         return UserInfoResponse(
-            user=UserInfo(
-                id=cur_user.id,
-                address=cur_user.address,
-                created_at=cur_user.created_at,
-                total_credits=cur_user.total_credits,
-                remaining_credits=cur_user.total_credits - cur_user.used_credits,
-            ),
+            id=cur_user.id,
+            address=cur_user.address,
+            created_at=cur_user.created_at,
+            total_credits=cur_user.total_credits,
+            remaining_credits=cur_user.total_credits - cur_user.used_credits,
             auth=AuthInfo(
                 exists=user_auth is not None,
                 is_active=not user_auth.revoked_at if user_auth else False,
                 can_create=user_permissions.can_create_api_key,
             ),
             app=app_info,
-            audits=recent_audits,
             n_contracts=n_contracts,
             n_audits=n_audits,
         )
