@@ -38,7 +38,7 @@ class User(AbstractModel):
         description="app that the user was created through",
         null=True,  # need to set this to null so i can backfill.
     )
-    address = fields.CharField(max_length=255, unique=True)
+    address = fields.CharField(max_length=255)
     total_credits = fields.IntField(default=0)
     used_credits = fields.IntField(default=0)
 
