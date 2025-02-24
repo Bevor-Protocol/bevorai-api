@@ -1,10 +1,8 @@
 import json
-import logging
 import re
 
 from arq import create_pool
 from fastapi import HTTPException
-from tortoise.exceptions import DoesNotExist
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract
@@ -12,16 +10,8 @@ from app.lib.gas import versions as gas_versions
 from app.lib.security import versions as sec_versions
 from app.schema.dependencies import AuthState
 from app.schema.request import EvalBody
-from app.schema.response import (
-    CreateEvalResponse,
-    GetEvalResponse,
-    GetEvalStepsResponse,
-    _GetEvalAudit,
-    _GetEvalContract,
-    _GetEvalData,
-    _GetEvalStep,
-)
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum, ResponseStructureEnum
+from app.schema.response import CreateEvalResponse
+from app.utils.enums import AuditStatusEnum, AuditTypeEnum
 
 # from app.worker import process_eval
 
@@ -120,62 +110,3 @@ class AiService:
         )
 
         return CreateEvalResponse(id=audit.id, status=AuditStatusEnum.WAITING)
-
-    async def get_eval(
-        self, auth: AuthState, id: str, response_type: ResponseStructureEnum
-    ) -> GetEvalResponse:
-
-        response = GetEvalResponse(
-            id=id,
-            exists=True,
-        )
-
-        try:
-            audit = await Audit.get(id=id).select_related("contract")
-        except DoesNotExist:
-            response.exists = False
-            response.error = "this audit does not exist"
-            return response
-
-        response.status = audit.status
-
-        contract_data = _GetEvalContract(
-            code=audit.contract.raw_code,
-            address=audit.contract.address,
-            network=audit.contract.network,
-        )
-
-        audit_data = _GetEvalAudit(type=response_type)
-
-        if audit.status == AuditStatusEnum.SUCCESS:
-            if response_type == ResponseStructureEnum.RAW:
-                audit_data["result"] = audit.raw_output
-            else:
-                try:
-                    audit_data.result = self.sanitize_data(
-                        audit=audit,
-                        as_markdown=response_type == ResponseStructureEnum.MARKDOWN,
-                    )
-                except json.JSONDecodeError as err:
-                    response.error = "unable to parse response."
-                    logging.error(
-                        f"Unable to parse the output correctly for {str(audit.id)}: "
-                        f"{err}"
-                    )
-                    return response
-
-        response.data = _GetEvalData(contract=contract_data, audit=audit_data)
-
-        return response
-
-    async def get_eval_steps(self, id: str) -> GetEvalStepsResponse:
-
-        audit = await Audit.get(id=id).prefetch_related("intermediate_responses")
-
-        steps = []
-        for step in audit.intermediate_responses:
-            steps.append(_GetEvalStep(step=step.step, status=step.status))
-
-        response = GetEvalStepsResponse(status=audit.status, steps=steps)
-
-        return response
