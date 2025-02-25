@@ -3,19 +3,19 @@
 from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
 
+from app.schema.contract import ContractWithCodePydantic
 from app.schema.response import (
-    AnalyticsResponse,
-    BooleanResponse,
+    AppInfoResponse,
+    AuditResponse,
+    AuditsResponse,
     CreateEvalResponse,
-    ErrorResponse,
-    GetAuditResponse,
     GetAuditStatusResponse,
-    GetContractResponse,
     GetCostEstimateResponse,
     IdResponse,
     UploadContractResponse,
     UserInfoResponse,
 )
+from app.schema.shared import BooleanResponse, ErrorResponse
 
 
 class OpenApiParams(TypedDict, total=False):
@@ -47,14 +47,14 @@ OPENAPI_SPEC: OpenApiSpec = {
     "get_app_info": {
         "summary": "Get App Info",
         "description": "Get App-level information",
-        "response_model": UserInfoResponse,
+        "response_model": AppInfoResponse,
         "responses": {401: {"model": ErrorResponse}},
     },
     "create_audit": {
         "summary": "Create AI eval",
         "description": """
 Initializes an AI smart contract audit. `contract_id` is the referenced contract obtained
-from [`POST /contract`](/redoc#tag/contract/operation/upload_contract_contract__post).
+from [`POST /contract`](/docs#tag/contract/operation/upload_contract_contract__post).
 `audit_type` is of type `AuditTypeEnum`.\n\n
 Note, that this **consumes credits**.
         """,
@@ -67,13 +67,16 @@ Note, that this **consumes credits**.
         Get audits according to a filter set. If calling as an `App`, you'll be able to view all audits generated
         through your app. If calling as a `User`, you'll be able to view your own audits (making `user_id` or `user_address` irrelevant).
         """,
-        "response_model": AnalyticsResponse,
+        "response_model": AuditsResponse,
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_audit": {
         "summary": "Get audit",
-        "description": "Retrieve an evaluation by `id`",
-        "response_model": GetAuditResponse,
+        "description": """
+Retrieve an evaluation by `id`. If uncertain whether the audit is completed, or simply polling responses,
+it is recommended to use [Poll audit status](/docs#tag/audit/operation/get_audit_status_audit__id__status_get)
+""",
+        "response_model": AuditResponse,
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_audit_status": {
@@ -109,7 +112,7 @@ Note, that this **consumes credits**.
     "get_contract": {
         "summary": "Get Contract",
         "description": "Retrieve a previously uploaded contract by `id`",
-        "response_model": GetContractResponse,
+        "response_model": ContractWithCodePydantic,
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_cost_estimate": {
@@ -241,25 +244,42 @@ print(findings_json)
 
 
 OPENAPI_SCHEMA = {
-    "title": "BevorAI API docs",
-    "version": "1.0.0",
-    "summary": "**BevorAI smart contract auditor**",
-    "description": _description,
-    "tags": [
-        {"name": "app", "description": "Relevant for `App` callers"},
-        {
-            "name": "audit",
-            "description": "The core of the BevorAI API, used for generating audits",
+    "core": {
+        "title": "BevorAI API docs",
+        "version": "1.0.0",
+        "summary": "**BevorAI smart contract auditor**",
+        "description": _description,
+        "tags": [
+            {"name": "app", "description": "Relevant for `App` callers"},
+            {
+                "name": "audit",
+                "description": "Used for creating audits",
+            },
+            {
+                "name": "contract",
+                "description": "Used for uploading, scanning, and creating smart contract references. Required for creating audits.",
+            },
+            {"name": "platform"},
+            {
+                "name": "user",
+                "description": "Creating users as an `App`, or getting user level information",
+            },
+            {"name": "basic implementation", "description": code_example},
+        ],
+    },
+    # openapi extensions
+    "other": {
+        "x-tagGroups": [
+            {"name": "Core Features", "tags": ["contract", "audit"]},
+            {"name": "Management", "tags": ["user", "app"]},
+            {"name": "Misc", "tags": ["platform"]},
+            {"name": "Examples", "tags": ["basic implementation"]},
+        ],
+        "info": {
+            "x-logo": {
+                "url": "https://app.bevor.ai/logo.png",
+                "backgroundColor": "black",
+            }
         },
-        {
-            "name": "contract",
-            "description": "Used for uploading, scanning, and creating smart contract references. Required for creating audits.",
-        },
-        {"name": "platform"},
-        {
-            "name": "user",
-            "description": "Creating users as an `App`, or getting user level information",
-        },
-        {"name": "code example", "description": code_example},
-    ],
+    },
 }

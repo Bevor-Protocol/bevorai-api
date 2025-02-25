@@ -43,7 +43,7 @@ class FilterParams(BaseModel):
     user_address: Optional[str] = None
     page: int = 0
     page_size: int = 15
-    search: Optional[str] = None
+    search: Optional[str] = Field(default=None, description="search the audit result")
     audit_type: list[AuditTypeEnum] = Field(default_factory=list)
     status: Optional[AuditStatusEnum] = None
     network: list[NetworkEnum] = Field(default_factory=list)

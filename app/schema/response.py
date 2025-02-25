@@ -1,117 +1,20 @@
-from datetime import datetime, timezone
-from typing import Optional, Union
-from uuid import UUID
+from typing import Optional
 
-from pydantic import BaseModel, Field, field_serializer, model_validator
+from pydantic import BaseModel, Field
 
-from app.utils.enums import (
-    AuditStatusEnum,
-    AuditTypeEnum,
-    ContractMethodEnum,
-    NetworkEnum,
-    ResponseStructureEnum,
-)
+from app.utils.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
-
-class IdResponse(BaseModel):
-    id: str | UUID
-
-    @field_serializer("id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
-
-
-class CreatedAtResponse(BaseModel):
-    created_at: datetime
-
-    @field_serializer("created_at")
-    def serialize_dt(self, dt: datetime, _info):
-        return dt.astimezone(timezone.utc).isoformat()
-
-
-class _Finding(BaseModel):
-    id: str
-    level: str
-    name: Optional[str] = None
-    explanation: Optional[str] = None
-    recommendation: Optional[str] = None
-    reference: Optional[str] = None
-    is_attested: bool
-    is_verified: bool
-    feedback: Optional[str] = None
-
-
-class _Contract(BaseModel):
-    address: Optional[str] = None
-    network: Optional[NetworkEnum] = None
-    code: Optional[str] = None
-
-
-class _User(BaseModel):
-    id: str
-    address: str
-
-
-class GetAuditResponse(BaseModel):
-    status: str
-    version: str
-    audit_type: AuditTypeEnum
-    processing_time_seconds: Optional[int]
-    result: Optional[str] = None
-    findings: list[_Finding]
-    contract: _Contract
-    user: _User
-
-
-class _GetEvalContract(BaseModel):
-    code: Optional[str] = Field(default=None)
-    address: Optional[str] = Field(default=None)
-    network: Optional[NetworkEnum] = Field(default=None)
-
-
-class _GetEvalAudit(BaseModel):
-    type: ResponseStructureEnum
-    result: Optional[Union[str, dict]] = Field(default=None)
-
-    @model_validator(mode="after")
-    def validate_result_type(self) -> "_GetEvalAudit":
-        if not self.result:
-            return self
-        if self.type == ResponseStructureEnum.JSON:
-            if not isinstance(self.result, dict):
-                raise ValueError(
-                    "Result must be a dictionary when response_type is JSON"
-                )
-        else:
-            if not isinstance(self.result, str):
-                raise ValueError(
-                    "Result must be a string when response_type is RAW or MARKDOWN"
-                )
-        return self
-
-
-class _GetEvalData(BaseModel):
-    contract: _GetEvalContract
-    audit: _GetEvalAudit
-
-
-class GetEvalResponse(IdResponse):
-    status: Optional[AuditStatusEnum] = None
-    exists: bool
-    error: Optional[str] = None
-    data: Optional[_GetEvalData] = Field(default_factory=lambda: {})
-
-
-class _GetAuditStep(BaseModel):
-    step: str
-    status: AuditStatusEnum
+from .audit import AuditPydantic, AuditStepPydantic, FindingPydantic
+from .contract import ContractPydantic, ContractWithCodePydantic
+from .shared import CreatedAtResponse, IdResponse, Timeseries
+from .user import UserPydantic
 
 
 class GetAuditStatusResponse(BaseModel):
-    status: AuditStatusEnum
-    steps: list[_GetAuditStep] = Field(default_factory=lambda: [])
+    status: AuditStatusEnum = Field(
+        description="status of entire audit, depends on steps"
+    )
+    steps: list[AuditStepPydantic] = Field(default_factory=lambda: [])
 
 
 class GetCostEstimateResponse(BaseModel):
@@ -119,74 +22,41 @@ class GetCostEstimateResponse(BaseModel):
 
 
 class CreateEvalResponse(IdResponse):
-    status: AuditStatusEnum
-
-
-class _ContractCandidateResponse(IdResponse):
-    source_code: str
-    network: Optional[NetworkEnum] = None
-    is_available: bool
+    status: AuditStatusEnum = Field(description="initial status of created audit")
 
 
 class UploadContractResponse(BaseModel):
-    exists: bool
-    exact_match: bool
-    candidates: list[_ContractCandidateResponse] = Field(default_factory=lambda: [])
+    exists: bool = Field(
+        description="whether at least 1 contract was found with source code"
+    )
+    exact_match: bool = Field(
+        description="whether there is only 1 candidate contract with source code available"  # noqa
+    )
+    candidates: list[ContractWithCodePydantic] = Field(default_factory=lambda: [])
 
 
-class WebhookResponseData(BaseModel):
-    status: AuditStatusEnum
-    id: str
-
-
-class WebhookResponse(BaseModel):
-    success: bool
-    error: Optional[str] = Field(default=None)
-    result: Optional[WebhookResponseData] = Field(default=None)
-
-
-class AnalyticsContract(IdResponse):
-    method: ContractMethodEnum
-    address: Optional[str]
-    network: Optional[NetworkEnum]
-
-
-class AnalyticsAudit(IdResponse, CreatedAtResponse):
+class AuditMetadata(IdResponse, CreatedAtResponse):
     n: int
-    app_id: Optional[str | UUID] = None
-    user_id: Optional[str | UUID] = None
     audit_type: AuditTypeEnum
     status: AuditStatusEnum
-    contract: AnalyticsContract
-
-    @field_serializer("app_id", "user_id")
-    def convert_to_string(self, id):
-        if not id:
-            return id
-        if isinstance(id, UUID):
-            return str(id)
-        return id
+    contract: ContractPydantic
+    user: UserPydantic
 
 
-class AnalyticsResponse(BaseModel):
-    results: list[AnalyticsAudit]
-    more: bool
-    total_pages: int
+class AuditResponse(AuditPydantic):
+    findings: list[FindingPydantic] = Field(default_factory=lambda: [])
+    contract: ContractWithCodePydantic
+    user: UserPydantic
 
 
-class Timeseries(BaseModel):
-    date: str
-    count: int
-
-
-class StatsResponse(BaseModel):
-    n_audits: int
-    n_contracts: int
-    n_users: int
-    n_apps: int
-    findings: dict
-    audits_timeseries: list[Timeseries]
-    users_timeseries: list[Timeseries]
+class AuditsResponse(BaseModel):
+    results: list[AuditMetadata] = Field(
+        default_factory=lambda: [], description="array of audits"
+    )
+    more: bool = Field(
+        description="whether more audits exist, given page and page_size"
+    )
+    total_pages: int = Field(description="total pages, given page_size")
 
 
 class AuthInfo(BaseModel):
@@ -195,7 +65,7 @@ class AuthInfo(BaseModel):
     can_create: bool
 
 
-class AppInfo(BaseModel):
+class UserAppInfo(BaseModel):
     exists: bool
     name: Optional[str] = None
     can_create: bool
@@ -208,22 +78,23 @@ class UserInfoResponse(IdResponse, CreatedAtResponse):
     total_credits: float
     remaining_credits: float
     auth: AuthInfo
-    app: AppInfo
+    app: UserAppInfo
     n_contracts: int
     n_audits: int
 
 
-class BooleanResponse(BaseModel):
-    success: bool
+class AppInfoResponse(IdResponse, CreatedAtResponse):
+    name: str
+    n_audits: int
+    n_contracts: int
+    n_users: int
 
 
-class GetContractResponse(BaseModel):
-    method: ContractMethodEnum
-    is_available: bool
-    address: Optional[str] = None
-    network: Optional[NetworkEnum] = None
-    code: Optional[str] = None
-
-
-class ErrorResponse(BaseModel):
-    detail: str
+class AllStatsResponse(BaseModel):
+    n_audits: int
+    n_contracts: int
+    n_users: int
+    n_apps: int
+    findings: dict[AuditTypeEnum, dict[FindingLevelEnum, int]]
+    audits_timeseries: list[Timeseries]
+    users_timeseries: list[Timeseries]

@@ -11,7 +11,7 @@ from app.lib.security import versions as sec_versions
 from app.schema.dependencies import AuthState
 from app.schema.request import EvalBody
 from app.schema.response import CreateEvalResponse
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum
+from app.utils.enums import AuditTypeEnum
 
 # from app.worker import process_eval
 
@@ -86,7 +86,7 @@ class AiService:
                 status_code=404,
                 detail=(
                     "you must provide a valid internal contract_id, "
-                    "call /blockchain/scan first"
+                    "call POST /contract first"
                 ),
             )
 
@@ -108,4 +108,4 @@ class AiService:
             _job_id=str(audit.id),
         )
 
-        return CreateEvalResponse(id=audit.id, status=AuditStatusEnum.WAITING)
+        return CreateEvalResponse(id=audit.id, status=audit.status)

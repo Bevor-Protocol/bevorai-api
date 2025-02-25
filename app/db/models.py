@@ -204,7 +204,7 @@ class Audit(AbstractModel):
         )
 
     def __str__(self):
-        return f"{str(self.id)} | {self.job_id}"
+        return f"{str(self.id)}"
 
 
 class IntermediateResponse(AbstractModel):

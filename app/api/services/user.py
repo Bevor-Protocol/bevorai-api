@@ -4,7 +4,7 @@ from tortoise.transactions import in_transaction
 from app.api.core.dependencies import AuthState
 from app.api.services.permission import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
-from app.schema.response import AppInfo, AuthInfo, UserInfoResponse
+from app.schema.response import AuthInfo, UserAppInfo, UserInfoResponse
 from app.utils.enums import AuditStatusEnum, ClientTypeEnum
 
 
@@ -25,9 +25,7 @@ class UserService:
 
     async def get_info(self, auth: AuthState) -> UserInfoResponse:
 
-        audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS).select_related(
-            "contract"
-        )
+        audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS)
 
         app_queryset = App.all().prefetch_related("permissions", "auth")
 
@@ -45,7 +43,7 @@ class UserService:
         # currently only 1 auth is support per user, but it's not a OneToOne relation
         user_permissions: Permission = cur_user.permissions
 
-        app_info = AppInfo(
+        app_info = UserAppInfo(
             exists=user_app is not None,
             can_create=user_permissions.can_create_app,
         )
@@ -59,7 +57,7 @@ class UserService:
                 app_info.can_create_auth = permissions.can_create_api_key
 
         n_audits = len(user_audits)
-        n_contracts = len(set(map(lambda x: x.contract.id, user_audits)))
+        n_contracts = len(set(map(lambda x: x.contract_id, user_audits)))
 
         return UserInfoResponse(
             id=cur_user.id,

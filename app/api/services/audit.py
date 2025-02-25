@@ -1,3 +1,4 @@
+import logging
 import math
 
 from fastapi import HTTPException, status
@@ -5,27 +6,27 @@ from tortoise.timezone import now
 
 from app.api.services.ai import AiService
 from app.db.models import Audit, Finding
+from app.schema.audit import AuditStepPydantic
 from app.schema.dependencies import AuthState
 from app.schema.request import FeedbackBody, FilterParams
 from app.schema.response import (
-    AnalyticsAudit,
-    AnalyticsContract,
-    AnalyticsResponse,
-    GetAuditResponse,
+    AuditMetadata,
+    AuditResponse,
+    AuditsResponse,
     GetAuditStatusResponse,
-    _Contract,
-    _Finding,
-    _GetAuditStep,
-    _User,
 )
 from app.utils.enums import AuthScopeEnum, ClientTypeEnum
+from app.utils.model_parser import (
+    cast_contract,
+    cast_contract_with_code,
+    cast_finding,
+    cast_user,
+)
 
 
 class AuditService:
 
-    async def get_audits(
-        self, auth: AuthState, query: FilterParams
-    ) -> AnalyticsResponse:
+    async def get_audits(self, auth: AuthState, query: FilterParams) -> AuditsResponse:
 
         limit = query.page_size
         offset = query.page * limit
@@ -62,53 +63,39 @@ class AuditService:
         total_pages = math.ceil(total / limit)
 
         if total <= offset:
-            return AnalyticsResponse(results=[], more=False, total_pages=total_pages)
+            return AuditsResponse(results=[], more=False, total_pages=total_pages)
 
         results = (
             await audit_query.order_by("-created_at")
             .offset(offset)
             .limit(limit + 1)
-            .values(
-                "id",
-                "created_at",
-                "app_id",
-                "user__address",
-                "audit_type",
-                "status",
-                "contract__id",
-                "contract__method",
-                "contract__address",
-                "contract__network",
-            )
+            .select_related("user", "contract")
         )
 
         results_trimmed = results[:-1] if len(results) > limit else results
 
         data = []
         for i, result in enumerate(results_trimmed):
-            contract = AnalyticsContract(
-                id=result["contract__id"],
-                method=result["contract__method"],
-                address=result["contract__address"],
-                network=result["contract__network"],
-            )
-            response = AnalyticsAudit(
+            contract = cast_contract(result.contract)
+            user = cast_user(result.user)
+            response = AuditMetadata(
+                id=result.id,
+                created_at=result.created_at,
                 n=i + offset,
-                id=result["id"],
-                created_at=result["created_at"],
-                app_id=result["app_id"],
-                user_id=result["user__address"],
-                audit_type=result["audit_type"],
-                status=result["status"],
+                audit_type=result.audit_type,
+                status=result.status,
+                user=user,
                 contract=contract,
             )
             data.append(response)
 
-        return AnalyticsResponse(
+        return AuditsResponse(
             results=data, more=len(results) > query.page_size, total_pages=total_pages
         )
 
-    async def get_audit(self, auth: AuthState, id: str) -> GetAuditResponse:
+    async def get_audit(self, auth: AuthState, id: str) -> AuditResponse:
+        logging.info(auth)
+        logging.info(id)
         obj_filter = {"id": id}
         if auth.client_type == ClientTypeEnum.USER:
             obj_filter["user_id"] = auth.user_id
@@ -127,39 +114,21 @@ class AuditService:
             ai_service = AiService()
             result = ai_service.sanitize_data(audit=audit, as_markdown=True)
 
-        findings = []
-        finding: Finding
-        for finding in audit.findings:
-            findings.append(
-                _Finding(
-                    id=str(finding.id),
-                    level=finding.level,
-                    name=finding.name,
-                    explanation=finding.explanation,
-                    recommendation=finding.recommendation,
-                    reference=finding.reference,
-                    is_attested=finding.is_attested,
-                    is_verified=finding.is_verified,
-                    feedback=finding.feedback,
-                )
-            )
+        findings = list(map(cast_finding, audit.findings))
+        contract = cast_contract_with_code(audit.contract)
+        user = cast_user(audit.user)
 
-        return GetAuditResponse(
-            contract=_Contract(
-                address=audit.contract.address,
-                network=audit.contract.network,
-                code=audit.contract.raw_code,
-            ),
-            user=_User(
-                id=str(audit.user.id),
-                address=audit.user.address,
-            ),
+        return AuditResponse(
+            id=audit.id,
+            created_at=audit.created_at,
             status=audit.status,
             version=audit.version,
             audit_type=audit.audit_type,
             processing_time_seconds=audit.processing_time_seconds,
             result=result,
             findings=findings,
+            contract=contract,
+            user=user,
         )
 
     async def get_status(self, auth: AuthState, id: str) -> GetAuditStatusResponse:
@@ -174,15 +143,21 @@ class AuditService:
 
         steps = []
         for step in audit.intermediate_responses:
-            steps.append(_GetAuditStep(step=step.step, status=step.status))
+            steps.append(
+                AuditStepPydantic(
+                    step=step.step,
+                    status=step.status,
+                    processing_time_seconds=step.processing_time_seconds,
+                )
+            )
 
         response = GetAuditStatusResponse(status=audit.status, steps=steps)
 
         return response
 
-    async def submit_feedback(self, data: FeedbackBody, auth: AuthState) -> bool:
+    async def submit_feedback(self, data: FeedbackBody, auth: AuthState, id=id) -> bool:
 
-        finding = await Finding.get(id=data.id).select_related("audit")
+        finding = await Finding.get(id=id).select_related("audit")
 
         user_id = finding.audit.user_id
         app_id = finding.audit.app_id

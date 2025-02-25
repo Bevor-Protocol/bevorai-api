@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Response, status
 
-from app.api.core.dependencies import Authentication
+from app.api.core.dependencies import AuthenticationWithoutDelegation
 from app.api.services.contract import ContractService
 from app.schema.request import ContractScanBody
 from app.utils.enums import AuthRequestScopeEnum
@@ -21,7 +21,11 @@ class ContractRouter:
             self.upload_contract,
             methods=["POST"],
             dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.USER
+                    )
+                )
             ],
             **OPENAPI_SPEC["get_or_create_contract"],
         )
@@ -30,7 +34,11 @@ class ContractRouter:
             self.get_contract,
             methods=["GET"],
             dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.USER
+                    )
+                )
             ],
             **OPENAPI_SPEC["get_contract"],
         )
