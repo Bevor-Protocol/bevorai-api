@@ -3,7 +3,7 @@ import hashlib
 from typing import Optional
 
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.api.services.blockchain import BlockchainService
 from app.db.models import Contract
@@ -146,7 +146,8 @@ class ContractService:
 
         if not contracts:
             raise HTTPException(
-                status_code=500, detail="unable to get or create contract source code"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="unable to get or create contract source code",
             )
 
         first_candidate = next(filter(lambda x: x.is_available, contracts), None)

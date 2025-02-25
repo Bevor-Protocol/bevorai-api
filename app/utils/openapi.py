@@ -54,7 +54,7 @@ OPENAPI_SPEC: OpenApiSpec = {
         "summary": "Get App Info",
         "description": "Get App-level information",
         "response_model": AppInfoResponse,
-        "responses": {404: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "create_audit": {
         "summary": "Create AI eval",
@@ -65,7 +65,7 @@ from [`POST /contract`](/docs#tag/contract/operation/upload_contract_contract__p
 Note, that this **consumes credits**.
         """,
         "response_model": CreateEvalResponse,
-        "responses": {404: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_audits": {
         "summary": "Get audits",
@@ -114,13 +114,13 @@ to it. Scanning requires that a smart contract is verified, and the source code 
 a given address exists on multiple chains, which is why `candidates` is provided.
         """,
         "response_model": UploadContractResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_contract": {
         "summary": "Get contract by id",
         "description": "Retrieve a previously uploaded contract by `id`",
         "response_model": ContractWithCodePydantic,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_cost_estimate": {
         "summary": "Get current cost estimate",
@@ -138,7 +138,7 @@ a given address exists on multiple chains, which is why `candidates` is provided
         "summary": "Get User info",
         "description": "Get stats related to a user",
         "response_model": UserInfoResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "analyze_token": {
         "summary": "Token static analysis",
