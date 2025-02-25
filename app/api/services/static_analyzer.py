@@ -1,5 +1,4 @@
 import requests
-from solidity_parser import parser
 from app.client.explorer import ExplorerClient
 
 

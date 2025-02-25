@@ -43,7 +43,7 @@ class ContractService:
 
         return contracts or []
 
-    def generate_ast(self, source_code: str):
+    def generate_ast(self, source_code: str) -> str:
         try:
             ast = parser.parse(source_code)
             print("AST:", ast)
@@ -51,7 +51,6 @@ class ContractService:
         except Exception as e:
             print("Error parsing source code:", e)
             raise e
-        return parser.parse(source_code)
 
     async def __get_or_create_contract(
         self,
