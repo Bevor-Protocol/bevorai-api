@@ -1,5 +1,5 @@
 from app.db.models import Permission
-from app.utils.enums import ClientTypeEnum, PermissionEnum
+from app.utils.types.enums import ClientTypeEnum, PermissionEnum
 
 
 class PermissionService:

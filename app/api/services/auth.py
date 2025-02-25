@@ -2,8 +2,8 @@ from fastapi import HTTPException, status
 
 from app.api.services.permission import PermissionService
 from app.db.models import App, Auth, User
-from app.schema.dependencies import AuthState
-from app.utils.enums import ClientTypeEnum, PermissionEnum
+from app.utils.schema.dependencies import AuthState
+from app.utils.types.enums import ClientTypeEnum, PermissionEnum
 
 
 class AuthService:

@@ -10,7 +10,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.utils.enums import (
+from app.utils.types.enums import (
     AuditStatusEnum,
     AuditTypeEnum,
     NetworkEnum,

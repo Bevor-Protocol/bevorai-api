@@ -1,8 +1,8 @@
 from tortoise import BaseDBAsyncClient
 from tortoise.transactions import in_transaction
 
-from app.db.models import Auth, User
-from app.utils.enums import AuthScopeEnum
+from app.db.models import Auth
+from app.utils.types.enums import AuthScopeEnum
 
 
 async def upgrade(db: BaseDBAsyncClient) -> str:

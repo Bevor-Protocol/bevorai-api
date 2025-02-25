@@ -5,9 +5,9 @@ from tortoise.exceptions import DoesNotExist
 
 from app.api.core.dependencies import AuthenticationWithoutDelegation
 from app.api.services.contract import ContractService
-from app.schema.request import ContractScanBody
-from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
+from app.utils.schema.request import ContractScanBody
+from app.utils.types.enums import AuthRequestScopeEnum
 
 
 class ContractRouter:

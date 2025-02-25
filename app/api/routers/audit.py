@@ -15,11 +15,11 @@ from tortoise.exceptions import DoesNotExist
 from app.api.core.dependencies import Authentication, RequireCredits
 from app.api.services.ai import AiService
 from app.api.services.audit import AuditService
-from app.schema.request import EvalBody, FeedbackBody, FilterParams
-from app.schema.response import GetAuditStatusResponse
-from app.schema.shared import BooleanResponse
-from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
+from app.utils.schema.request import EvalBody, FeedbackBody, FilterParams
+from app.utils.schema.response import GetAuditStatusResponse
+from app.utils.schema.shared import BooleanResponse
+from app.utils.types.enums import AuthRequestScopeEnum
 
 
 class AuditRouter:

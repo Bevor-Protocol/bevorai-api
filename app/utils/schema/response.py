@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
+from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
 from .audit import AuditPydantic, AuditStepPydantic, FindingPydantic
 from .contract import ContractPydantic, ContractWithCodePydantic

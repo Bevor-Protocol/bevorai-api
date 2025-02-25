@@ -1,7 +1,7 @@
 from app.db.models import Contract, Finding, IntermediateResponse, User
-from app.schema.audit import AuditStepPydantic, FindingPydantic
-from app.schema.contract import ContractPydantic, ContractWithCodePydantic
-from app.schema.user import UserPydantic
+from app.utils.schema.audit import AuditStepPydantic, FindingPydantic
+from app.utils.schema.contract import ContractPydantic, ContractWithCodePydantic
+from app.utils.schema.user import UserPydantic
 
 """
 Used to convert tortoise ORM models into pydantic models, with baked

@@ -5,8 +5,8 @@ import httpx
 
 from app.client.explorer import ExplorerClient
 from app.client.web3 import Web3Client
-from app.utils.enums import NetworkEnum
-from app.utils.errors import NoSourceCodeError
+from app.utils.types.enums import NetworkEnum
+from app.utils.types.errors import NoSourceCodeError
 
 
 class BlockchainService:

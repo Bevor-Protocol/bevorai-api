@@ -6,8 +6,8 @@ from uu import Error
 from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
 
-from app.schema.contract import ContractWithCodePydantic
-from app.schema.response import (
+from app.utils.schema.contract import ContractWithCodePydantic
+from app.utils.schema.response import (
     AppInfoResponse,
     AuditResponse,
     AuditsResponse,
@@ -19,7 +19,7 @@ from app.schema.response import (
     UploadContractResponse,
     UserInfoResponse,
 )
-from app.schema.shared import BooleanResponse, ErrorResponse
+from app.utils.schema.shared import BooleanResponse, ErrorResponse
 
 
 class OpenApiParams(TypedDict, total=False):

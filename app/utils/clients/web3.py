@@ -2,8 +2,8 @@ import os
 
 from web3 import AsyncWeb3
 
-from app.utils.enums import NetworkEnum
-from app.utils.mappers import network_rpc_mapper
+from app.utils.helpers.mappers import network_rpc_mapper
+from app.utils.types.enums import NetworkEnum
 
 
 class Web3Client:

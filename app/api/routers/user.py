@@ -5,10 +5,10 @@ from tortoise.exceptions import DoesNotExist
 
 from app.api.core.dependencies import Authentication
 from app.api.services.user import UserService
-from app.schema.request import UserUpsertBody
-from app.schema.response import IdResponse
-from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
+from app.utils.schema.request import UserUpsertBody
+from app.utils.schema.response import IdResponse
+from app.utils.types.enums import AuthRequestScopeEnum
 
 
 class UserRouter:

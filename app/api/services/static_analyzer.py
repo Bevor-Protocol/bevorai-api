@@ -2,8 +2,8 @@ from fastapi import HTTPException, status
 from solidity_parser import parser
 
 from app.api.services.contract import ContractService
-from app.schema.request import ContractScanBody
-from app.schema.response import StaticAnalysisTokenResult
+from app.utils.schema.request import ContractScanBody
+from app.utils.schema.response import StaticAnalysisTokenResult
 
 
 class StaticAnalysisService:

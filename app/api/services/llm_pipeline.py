@@ -13,8 +13,8 @@ from app.lib.gas import CURRENT_VERSION as gas_version
 from app.lib.gas import structure as gas_structure
 from app.lib.security import CURRENT_VERSION as sec_version
 from app.lib.security import structure as sec_structure
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 from app.utils.pricing import Usage
+from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
 
 class LlmPipeline:

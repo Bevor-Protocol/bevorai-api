@@ -4,8 +4,8 @@ from tortoise.transactions import in_transaction
 from app.api.core.dependencies import AuthState
 from app.api.services.permission import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
-from app.schema.response import AuthInfo, UserAppInfo, UserInfoResponse
-from app.utils.enums import AuditStatusEnum, ClientTypeEnum
+from app.utils.schema.response import AuthInfo, UserAppInfo, UserInfoResponse
+from app.utils.types.enums import AuditStatusEnum, ClientTypeEnum
 
 
 class UserService:

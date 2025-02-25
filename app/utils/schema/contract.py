@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import Field
 
-from app.utils.enums import ContractMethodEnum, NetworkEnum
+from app.utils.types.enums import ContractMethodEnum, NetworkEnum
 
 from .shared import IdResponse
 

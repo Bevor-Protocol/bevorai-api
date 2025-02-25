@@ -4,9 +4,9 @@ from fastapi import APIRouter, Body, Depends, Request, Response, status
 
 from app.api.core.dependencies import AuthenticationWithoutDelegation, RequireCredits
 from app.api.services.static_analyzer import StaticAnalysisService
-from app.schema.request import ContractScanBody
-from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
+from app.utils.schema.request import ContractScanBody
+from app.utils.types.enums import AuthRequestScopeEnum
 
 
 class StaticRouter:

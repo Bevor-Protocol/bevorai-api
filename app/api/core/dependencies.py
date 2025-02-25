@@ -14,8 +14,8 @@ from tortoise.exceptions import DoesNotExist
 
 from app.config import redis_client
 from app.db.models import Auth, User
-from app.schema.dependencies import AuthState
-from app.utils.enums import (
+from app.utils.schema.dependencies import AuthState
+from app.utils.types.enums import (
     AppTypeEnum,
     AuthRequestScopeEnum,
     AuthScopeEnum,

@@ -5,22 +5,22 @@ from tortoise.timezone import now
 
 from app.api.services.ai import AiService
 from app.db.models import Audit, Finding
-from app.schema.audit import AuditStepPydantic
-from app.schema.dependencies import AuthState
-from app.schema.request import FeedbackBody, FilterParams
-from app.schema.response import (
-    AuditMetadata,
-    AuditResponse,
-    AuditsResponse,
-    GetAuditStatusResponse,
-)
-from app.utils.enums import AuthScopeEnum, ClientTypeEnum
-from app.utils.model_parser import (
+from app.utils.helpers.model_parser import (
     cast_contract,
     cast_contract_with_code,
     cast_finding,
     cast_user,
 )
+from app.utils.schema.audit import AuditStepPydantic
+from app.utils.schema.dependencies import AuthState
+from app.utils.schema.request import FeedbackBody, FilterParams
+from app.utils.schema.response import (
+    AuditMetadata,
+    AuditResponse,
+    AuditsResponse,
+    GetAuditStatusResponse,
+)
+from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
 
 
 class AuditService:

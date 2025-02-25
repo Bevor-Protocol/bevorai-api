@@ -7,10 +7,10 @@ from tortoise.exceptions import DoesNotExist
 
 from app.api.core.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.api.services.app import AppService
-from app.schema.dependencies import AuthState
-from app.schema.request import AppUpsertBody
-from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
+from app.utils.schema.dependencies import AuthState
+from app.utils.schema.request import AppUpsertBody
+from app.utils.types.enums import AuthRequestScopeEnum
 
 
 class AppRouter:

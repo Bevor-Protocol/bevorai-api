@@ -9,9 +9,9 @@ from app.api.services.auth import AuthService
 from app.api.services.blockchain import BlockchainService
 from app.api.services.user import UserService
 from app.db.models import User
-from app.schema.dependencies import AuthState
-from app.schema.request import UserUpsertBody
-from app.utils.enums import AuthRequestScopeEnum, ClientTypeEnum
+from app.utils.schema.dependencies import AuthState
+from app.utils.schema.request import UserUpsertBody
+from app.utils.types.enums import AuthRequestScopeEnum, ClientTypeEnum
 
 
 class AuthRouter:

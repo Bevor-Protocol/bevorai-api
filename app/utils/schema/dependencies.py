@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_serializer
 
-from app.utils.enums import AuthScopeEnum, ClientTypeEnum
+from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
 
 
 class AuthState(BaseModel):

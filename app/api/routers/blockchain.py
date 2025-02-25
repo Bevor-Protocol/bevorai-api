@@ -5,8 +5,8 @@ from fastapi import APIRouter, Body, Depends, Response, status
 from app.api.core.dependencies import Authentication
 from app.api.services.blockchain import BlockchainService
 from app.api.services.contract import ContractService
-from app.schema.request import ContractScanBody
-from app.utils.enums import AuthRequestScopeEnum
+from app.utils.schema.request import ContractScanBody
+from app.utils.types.enums import AuthRequestScopeEnum
 
 
 class BlockchainRouter:

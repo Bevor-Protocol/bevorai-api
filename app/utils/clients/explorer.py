@@ -2,13 +2,13 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.utils.enums import NetworkEnum, NetworkTypeEnum
-from app.utils.mappers import (
+from app.utils.helpers.mappers import (
     network_chainid_mapper,
     network_explorer_apikey_mapper,
     network_explorer_mapper,
     networks_by_type,
 )
+from app.utils.types.enums import NetworkEnum, NetworkTypeEnum
 
 
 class ExplorerClient:

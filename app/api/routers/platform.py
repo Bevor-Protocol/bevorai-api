@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Response, status
 
 from app.api.core.dependencies import AuthenticationWithoutDelegation
-from app.schema.response import GetCostEstimateResponse
-from app.utils.enums import AuthRequestScopeEnum
+from app.api.pricing.service import Usage
 from app.utils.openapi import OPENAPI_SPEC
-from app.utils.pricing import Usage
+from app.utils.schema.response import GetCostEstimateResponse
+from app.utils.types.enums import AuthRequestScopeEnum
 
 
 class PlatformRouter:

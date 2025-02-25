@@ -1,6 +1,6 @@
 import os
 
-from .enums import NetworkEnum, NetworkTypeEnum
+from app.utils.types.enums import NetworkEnum, NetworkTypeEnum
 
 network_explorer_mapper = {
     NetworkEnum.ARB: "api.arbiscan.io",

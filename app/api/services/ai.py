@@ -8,10 +8,10 @@ from app.config import redis_settings
 from app.db.models import Audit, Contract
 from app.lib.gas import versions as gas_versions
 from app.lib.security import versions as sec_versions
-from app.schema.dependencies import AuthState
-from app.schema.request import EvalBody
-from app.schema.response import CreateEvalResponse
-from app.utils.enums import AuditTypeEnum
+from app.utils.schema.dependencies import AuthState
+from app.utils.schema.request import EvalBody
+from app.utils.schema.response import CreateEvalResponse
+from app.utils.types.enums import AuditTypeEnum
 
 # from app.worker import process_eval
 

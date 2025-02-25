@@ -7,11 +7,11 @@ from fastapi import HTTPException, status
 
 from app.api.services.blockchain import BlockchainService
 from app.db.models import Contract
-from app.schema.contract import ContractWithCodePydantic
-from app.schema.response import UploadContractResponse
-from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
-from app.utils.mappers import networks_by_type
-from app.utils.model_parser import cast_contract_with_code
+from app.utils.helpers.mappers import networks_by_type
+from app.utils.helpers.model_parser import cast_contract_with_code
+from app.utils.schema.contract import ContractWithCodePydantic
+from app.utils.schema.response import UploadContractResponse
+from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 
 
 class ContractService:
