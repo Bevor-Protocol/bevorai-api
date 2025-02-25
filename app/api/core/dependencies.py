@@ -92,7 +92,12 @@ class Authentication:
             if user_identifier:
                 state.is_delegator = True
                 try:
-                    user = await User.get(id=user_identifier)
+                    if auth.app.type == AppTypeEnum.THIRD_PARTY:
+                        user = await User.get(
+                            app_owner_id=auth.app.id, id=user_identifier
+                        )
+                    else:
+                        user = await User.get(id=user_identifier)
                     state.user_id = user.id
                 except DoesNotExist:
                     raise HTTPException(
@@ -160,6 +165,145 @@ class Authentication:
             auth: Auth = await self._get_auth(credentials=authorization.credentials)
             await self._infer_authentication(
                 request=request, user_identifier=x_user_identifier, auth=auth
+            )
+            self._infer_authorization(request=request, auth=auth)
+        except Exception as err:
+            logging.exception(err)
+            raise err
+
+
+class AuthenticationWithoutDelegation:
+    """
+    Similar to Authentication class, but doesn't use the x-user-identifier header.
+
+    Only exists for openapi schema purposes.
+    """  # noqa
+
+    def __init__(
+        self,
+        request_scope: AuthRequestScopeEnum,
+        scope_override: Optional[AuthScopeEnum] = None,
+    ):
+        self.request_scope = request_scope
+        self.scope_override = scope_override
+
+    async def _get_auth(self, credentials: str) -> Auth:
+        hashed_key = Auth.hash_key(credentials)
+        try:
+            auth = await Auth.get(hashed_key=hashed_key).select_related(
+                "user", "app__owner"
+            )
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key"
+            )
+        if auth.revoked_at:
+            raise HTTPException(status_code=401, detail="This token was revoked")
+
+        return auth
+
+    async def _infer_authentication(
+        self, request: Request, user_identifier: Optional[str], auth: Auth
+    ):
+        """
+        Evaluation of the api key. Creates the request.state object as AuthState
+        """
+        if self.request_scope in [
+            AuthRequestScopeEnum.APP_FIRST_PARTY,
+            AuthRequestScopeEnum.APP,
+        ]:
+            if auth.client_type != ClientTypeEnum.APP or not auth.app:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="invalid api permissions",
+                )
+
+        if self.request_scope == AuthRequestScopeEnum.APP_FIRST_PARTY:
+            if auth.app.type != AppTypeEnum.FIRST_PARTY:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="invalid api permissions",
+                )
+
+        state = AuthState(client_type=auth.client_type, scope=auth.scope)
+
+        # Apps are able to make requests on behalf of other users.
+        # however, the app is still the credit consumer.
+        if auth.client_type == ClientTypeEnum.APP:
+            state.app_id = auth.app.id
+            state.credit_consumer_id = auth.app.owner_id
+            if user_identifier:
+                state.is_delegator = True
+                try:
+                    if auth.app.type == AppTypeEnum.THIRD_PARTY:
+                        user = await User.get(
+                            app_owner_id=auth.app.id, id=user_identifier
+                        )
+                    else:
+                        user = await User.get(id=user_identifier)
+                    state.user_id = user.id
+                except DoesNotExist:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="user-identifier does not exist",
+                    )
+            else:
+                if auth.app.type == AppTypeEnum.THIRD_PARTY:
+                    user = auth.app.owner
+                    state.user_id = user.id
+        else:
+            state.user_id = auth.user_id
+            state.credit_consumer_id = auth.user_id
+
+        request.state.auth = state
+
+    def _infer_authorization(self, request: Request, auth: Auth):
+        """
+        Evaluation of auth scope. If not overriden, will look at request.method
+        """
+        method = request.method
+        cur_scope = auth.scope
+        if not cur_scope:
+            # only possible if authentication() is NotImplemented
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="incorrect scope for this request",
+            )
+        required_scope = self.scope_override
+        if not required_scope:
+            if method == "GET":
+                required_scope = AuthScopeEnum.READ
+            else:
+                required_scope = AuthScopeEnum.WRITE
+
+        if required_scope == AuthScopeEnum.ADMIN:
+            if cur_scope != AuthScopeEnum.ADMIN:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="incorrect scope for this request",
+                )
+        if required_scope == AuthScopeEnum.WRITE:
+            if cur_scope not in [AuthScopeEnum.ADMIN, AuthScopeEnum.WRITE]:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="incorrect scope for this request",
+                )
+
+    # NOTE: if the arguments are anything other than request, it breaks.
+    # ie, don't use *args, **kwargs
+    async def __call__(
+        self,
+        request: Request,
+        # authorization: str = Header(
+        #     ...,
+        #     example="Bearer <api_key>",
+        # ),
+        authorization: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    ) -> None:
+        try:
+            auth: Auth = await self._get_auth(credentials=authorization.credentials)
+            await self._infer_authentication(
+                request=request, user_identifier=None, auth=auth
             )
             self._infer_authorization(request=request, auth=auth)
         except Exception as err:

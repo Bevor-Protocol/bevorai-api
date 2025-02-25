@@ -25,18 +25,17 @@ def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
-        **OPENAPI_SCHEMA,
+        **OPENAPI_SCHEMA["core"],
         routes=app.routes,
     )
-    openapi_schema["info"]["x-logo"] = {
-        "url": "https://app.bevor.ai/logo.png",
-        "backgroundColor": "black",
-    }
-    openapi_schema["x-traitTag"] = {
-        "name": "Pagination",
-        "description": "Pagination description (can use markdown syntax)",
-        "x-traitTag": True,
-    }
+
+    for k, v in OPENAPI_SCHEMA["other"].items():
+        if isinstance(v, dict):
+            openapi_schema.setdefault(k, {}).update(v)
+        elif isinstance(v, list):
+            openapi_schema.setdefault(k, []).extend(v)
+        else:
+            openapi_schema[k] = v
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 

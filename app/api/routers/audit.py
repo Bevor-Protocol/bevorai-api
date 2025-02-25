@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import (
@@ -106,7 +107,8 @@ class AuditRouter:
         try:
             audit = await audit_service.get_audit(auth=request.state.auth, id=id)
             return Response(audit.model_dump_json(), status_code=status.HTTP_200_OK)
-        except Exception:
+        except Exception as err:
+            logging.exception(err)
             return HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="No audit was created under these credentials",
@@ -126,9 +128,9 @@ class AuditRouter:
                 detail="No audit was created under these credentials",
             )
 
-    async def submit_feedback(self, request: Request, data: FeedbackBody):
+    async def submit_feedback(self, request: Request, data: FeedbackBody, id: str):
         audit_service = AuditService()
         response = await audit_service.submit_feedback(
-            data=data, auth=request.state.auth
+            data=data, auth=request.state.auth, id=id
         )
         return JSONResponse({"success": response}, status_code=status.HTTP_201_CREATED)

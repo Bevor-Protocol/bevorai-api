@@ -8,7 +8,6 @@ from app.api.services.blockchain import BlockchainService
 from app.api.services.llm_pipeline import LlmPipeline
 from app.client.web3 import Web3Client
 from app.db.models import Audit, Contract
-from app.schema.response import WebhookResponse, WebhookResponseData
 from app.utils.enums import (
     AppTypeEnum,
     AuditStatusEnum,
@@ -68,25 +67,25 @@ async def handle_eval(audit_id: str):
     return {"audit_id": audit_id, "audit_status": audit.status}
 
 
-async def handle_outgoing_webhook(
-    audit_id: str,
-    audit_status: AuditStatusEnum,
-    webhook_url: str,
-):
-    response = WebhookResponse(
-        success=True,
-    )
+# async def handle_outgoing_webhook(
+#     audit_id: str,
+#     audit_status: AuditStatusEnum,
+#     webhook_url: str,
+# ):
+#     response = WebhookResponse(
+#         success=True,
+#     )
 
-    data = {
-        "id": audit_id,
-        "status": audit_status,
-    }
+#     data = {
+#         "id": audit_id,
+#         "status": audit_status,
+#     }
 
-    response.result = WebhookResponseData(**data)
+#     response.result = WebhookResponseData(**data)
 
-    async with httpx.AsyncClient() as client:
-        body = response.model_dump()
-        await client.post(webhook_url, json=body)
+#     async with httpx.AsyncClient() as client:
+#         body = response.model_dump()
+#         await client.post(webhook_url, json=body)
 
 
 async def get_deployment_contracts(network: NetworkEnum):

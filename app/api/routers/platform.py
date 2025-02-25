@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, Response, status
 
-from app.api.core.dependencies import Authentication
-from app.api.services.audit import AuditService
-from app.schema.response import AnalyticsResponse, GetCostEstimateResponse
+from app.api.core.dependencies import AuthenticationWithoutDelegation
+from app.schema.response import GetCostEstimateResponse
 from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
 from app.utils.pricing import Usage
@@ -19,7 +18,11 @@ class PlatformRouter:
             self.get_credit_estimate,
             methods=["GET"],
             dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.USER
+                    )
+                )
             ],
             **OPENAPI_SPEC["get_cost_estimate"]
         )
@@ -28,10 +31,4 @@ class PlatformRouter:
         usage = Usage()
         estimate = usage.estimate_pricing()
         response = GetCostEstimateResponse(credits=estimate)
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
-
-    async def fetch_stats(self) -> AnalyticsResponse:
-        audit_service = AuditService()
-        response = await audit_service.get_stats()
-
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

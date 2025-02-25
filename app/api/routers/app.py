@@ -3,11 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from app.api.core.dependencies import Authentication
+from app.api.core.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.api.services.app import AppService
 from app.schema.dependencies import AuthState
 from app.schema.request import AppUpsertBody
-from app.utils.enums import AuthRequestScopeEnum, AuthScopeEnum
+from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
 
 
@@ -34,9 +34,26 @@ class AppRouter:
             self.get_app_info,
             methods=["GET"],
             dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.APP))
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.APP
+                    )
+                )
             ],
             **OPENAPI_SPEC["get_app_info"]
+        )
+        self.router.add_api_route(
+            "/stats",
+            self.get_stats,
+            methods=["GET"],
+            dependencies=[
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY
+                    )
+                )
+            ],
+            include_in_schema=False,
         )
 
     async def upsert_app(
@@ -55,13 +72,15 @@ class AppRouter:
 
     async def get_app_info(self, request: Request):
         app_service = AppService()
-
-        app_id = None
         auth: AuthState = request.state.auth
-        # This call is scoped to the APP level, ignore is_delegator and user_id info.
-        if auth.scope != AuthScopeEnum.ADMIN:
-            app_id = auth.app_id
 
-        response = await app_service.get_stats(app_id)
+        response = await app_service.get_info(auth.app_id)
+
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+
+    async def get_stats(self, request: Request):
+        app_service = AppService()
+
+        response = await app_service.get_stats()
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
