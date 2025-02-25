@@ -18,7 +18,7 @@ class BaseRouter:
         self.router.add_api_route("/health", self.health_check, methods=["GET"])
         self.router.add_api_route("/metrics", self.get_metrics, methods=["GET"])
         self.router.add_api_route("/test", self.test, methods=["GET"])
-        self.router.add_api_route("/redoc", self.redoc, methods=["GET"])
+        self.router.add_api_route("/docs", self.redoc, methods=["GET"])
 
     async def read_root(self):
         return {"Hello": "World"}
@@ -43,7 +43,7 @@ class BaseRouter:
     async def redoc(self):
         return get_redoc_html(
             openapi_url="/openapi.json",
-            title="BevorAI API - Redoc",
+            title="BevorAI API - Docs",
             redoc_favicon_url="https://app.bevor.ai/favicon.ico",
         )
 

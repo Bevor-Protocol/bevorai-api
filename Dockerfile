@@ -16,8 +16,6 @@ RUN poetry config virtualenvs.create false
 # Install dependencies
 RUN poetry install --no-dev
 
-RUN npx @redocly/cli build-docs openapi.yaml
-
 # Copy application code
 COPY app ./app
 COPY scripts ./scripts

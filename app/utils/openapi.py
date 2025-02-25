@@ -1,21 +1,25 @@
 # flake8: noqa
 
+from typing import Any
+from uu import Error
+
 from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
 
+from app.schema.contract import ContractWithCodePydantic
 from app.schema.response import (
-    AnalyticsResponse,
-    BooleanResponse,
+    AppInfoResponse,
+    AuditResponse,
+    AuditsResponse,
     CreateEvalResponse,
-    ErrorResponse,
-    GetAuditResponse,
     GetAuditStatusResponse,
-    GetContractResponse,
     GetCostEstimateResponse,
     IdResponse,
+    StaticAnalysisTokenResult,
     UploadContractResponse,
     UserInfoResponse,
 )
+from app.schema.shared import BooleanResponse, ErrorResponse
 
 
 class OpenApiParams(TypedDict, total=False):
@@ -25,6 +29,7 @@ class OpenApiParams(TypedDict, total=False):
     response_description: NotRequired[str] = "Successful Response"
     deprecated: NotRequired[bool]
     include_in_schema: NotRequired[bool]
+    responses: NotRequired[dict[int | str, dict[str, Any]]]
 
 
 class OpenApiSpec(TypedDict):
@@ -40,6 +45,7 @@ class OpenApiSpec(TypedDict):
     get_cost_estimate: OpenApiParams
     get_or_create_user: OpenApiParams
     get_user_info: OpenApiParams
+    analyze_token: OpenApiParams
 
 
 # Define OpenAPI spec as a plain dictionary (no instantiation required)
@@ -47,19 +53,19 @@ OPENAPI_SPEC: OpenApiSpec = {
     "get_app_info": {
         "summary": "Get App Info",
         "description": "Get App-level information",
-        "response_model": UserInfoResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "response_model": AppInfoResponse,
+        "responses": {404: {"model": ErrorResponse}},
     },
     "create_audit": {
         "summary": "Create AI eval",
         "description": """
 Initializes an AI smart contract audit. `contract_id` is the referenced contract obtained
-from [`POST /contract`](/redoc#tag/contract/operation/upload_contract_contract__post).
+from [`POST /contract`](/docs#tag/contract/operation/upload_contract_contract__post).
 `audit_type` is of type `AuditTypeEnum`.\n\n
 Note, that this **consumes credits**.
         """,
         "response_model": CreateEvalResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {404: {"model": ErrorResponse}},
     },
     "get_audits": {
         "summary": "Get audits",
@@ -67,14 +73,17 @@ Note, that this **consumes credits**.
         Get audits according to a filter set. If calling as an `App`, you'll be able to view all audits generated
         through your app. If calling as a `User`, you'll be able to view your own audits (making `user_id` or `user_address` irrelevant).
         """,
-        "response_model": AnalyticsResponse,
+        "response_model": AuditsResponse,
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_audit": {
         "summary": "Get audit",
-        "description": "Retrieve an evaluation by `id`",
-        "response_model": GetAuditResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "description": """
+Retrieve an evaluation by `id`. If uncertain whether the audit is completed, or simply polling responses,
+it is recommended to use [Poll audit status](/docs#tag/audit/operation/get_audit_status_audit__id__status_get)
+""",
+        "response_model": AuditResponse,
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_audit_status": {
         "summary": "Poll audit status",
@@ -84,7 +93,7 @@ Note, that this **consumes credits**.
         while waiting for processing to complete.
         """,
         "response_model": GetAuditStatusResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "submit_feedback": {
         "summary": "Submit feedback",
@@ -96,20 +105,21 @@ Note, that this **consumes credits**.
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_or_create_contract": {
-        "summary": "Contract scan/upload",
+        "summary": "Contract get/create",
         "description": """
-        Get or create a smart contract reference. `address` or `code` are required.
-        If `network` is provided, it will likely speed up the response. Scanning requires
-        that a smart contract is verified, and the source code is available. It is possible that
-        a given address exists on multiple chains, which is why `candidates` is provided.
+Get or create a smart contract reference. `address` or `code` are required.
+If `address` is provided, it will scan for the source code. Providing `network` will likely
+speed up the response. If `code` is provided, it'll simply upload the raw code and create a reference
+to it. Scanning requires that a smart contract is verified, and the source code is available. It is possible that
+a given address exists on multiple chains, which is why `candidates` is provided.
         """,
         "response_model": UploadContractResponse,
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_contract": {
-        "summary": "Get Contract",
+        "summary": "Get contract by id",
         "description": "Retrieve a previously uploaded contract by `id`",
-        "response_model": GetContractResponse,
+        "response_model": ContractWithCodePydantic,
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_cost_estimate": {
@@ -129,6 +139,12 @@ Note, that this **consumes credits**.
         "description": "Get stats related to a user",
         "response_model": UserInfoResponse,
         "responses": {401: {"model": ErrorResponse}},
+    },
+    "analyze_token": {
+        "summary": "Token static analysis",
+        "description": "Upload a token contract to receive a static analysis",
+        "response_model": StaticAnalysisTokenResult,
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
 }
 
@@ -241,25 +257,43 @@ print(findings_json)
 
 
 OPENAPI_SCHEMA = {
-    "title": "BevorAI API docs",
-    "version": "1.0.0",
-    "summary": "**BevorAI smart contract auditor**",
-    "description": _description,
-    "tags": [
-        {"name": "app", "description": "Relevant for `App` callers"},
-        {
-            "name": "audit",
-            "description": "The core of the BevorAI API, used for generating audits",
+    "core": {
+        "title": "BevorAI API docs",
+        "version": "1.0.0",
+        "summary": "**BevorAI smart contract auditor**",
+        "description": _description,
+        "tags": [
+            {"name": "app", "description": "Relevant for `App` callers"},
+            {
+                "name": "audit",
+                "description": "Used for creating audits",
+            },
+            {
+                "name": "contract",
+                "description": "Used for uploading, scanning, and creating smart contract references. Required for creating audits.",
+            },
+            {"name": "static", "description": "static analysis of smart contracts"},
+            {"name": "platform"},
+            {
+                "name": "user",
+                "description": "Creating users as an `App`, or getting user level information",
+            },
+            {"name": "basic implementation", "description": code_example},
+        ],
+    },
+    # openapi extensions
+    "other": {
+        "x-tagGroups": [
+            {"name": "Core Features", "tags": ["contract", "static", "audit"]},
+            {"name": "Management", "tags": ["user", "app"]},
+            {"name": "Misc", "tags": ["platform"]},
+            {"name": "Examples", "tags": ["basic implementation"]},
+        ],
+        "info": {
+            "x-logo": {
+                "url": "https://app.bevor.ai/logo.png",
+                "backgroundColor": "black",
+            }
         },
-        {
-            "name": "contract",
-            "description": "Used for uploading, scanning, and creating smart contract references. Required for creating audits.",
-        },
-        {"name": "platform"},
-        {
-            "name": "user",
-            "description": "Creating users as an `App`, or getting user level information",
-        },
-        {"name": "code example", "description": code_example},
-    ],
+    },
 }

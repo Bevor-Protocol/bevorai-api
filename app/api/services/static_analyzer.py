@@ -1,8 +1,13 @@
-from app.client.explorer import ExplorerClient
+from fastapi import HTTPException, status
+from solidity_parser import parser
+
+from app.api.services.contract import ContractService
+from app.schema.request import ContractScanBody
+from app.schema.response import StaticAnalysisTokenResult
 
 
 class StaticAnalysisService:
-    def analyze_contract(self, ast: dict) -> dict:
+    def analyze_contract(self, ast: dict) -> StaticAnalysisTokenResult:
         """
         Analyzes contract AST for various security and functionality characteristics.
         Returns a dictionary of analysis results.
@@ -35,7 +40,7 @@ class StaticAnalysisService:
             and results["is_mintable"]["public_mint"]
         )
 
-        return results
+        return StaticAnalysisTokenResult(**results)
 
     def _analyze_contract_nodes(self, nodes, results):
         for node in nodes:
@@ -83,11 +88,31 @@ class StaticAnalysisService:
             if any(x in name for x in ["blacklist", "blocklist", "banned"]):
                 results["has_blocklist"] = True
 
-    def process_static_eval_token(self, address: str):
-        explorer_client = ExplorerClient()
-        source = explorer_client.get_source_code(address)
+    def _generate_ast(self, source_code: str):
+        try:
+            ast = parser.parse(source_code)
+            print("AST:", ast)
+            return ast
+        except Exception as e:
+            print("Error parsing source code:", e)
+            raise e
 
-        ast = self._generate_ast(source)
+    async def process_static_eval_token(
+        self, body: ContractScanBody
+    ) -> StaticAnalysisTokenResult:
+        contract_service = ContractService()
+
+        contract_info = await contract_service.fetch_from_source(
+            code=body.code, address=body.address, network=body.network
+        )
+
+        if not contract_info.exists:
+            raise HTTPException(
+                detail="no source code found for this address",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        ast = self._generate_ast(contract_info.contract.code)
         analysis = self.analyze_contract(ast)
 
         return analysis

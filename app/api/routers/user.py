@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from tortoise.exceptions import DoesNotExist
 
 from app.api.core.dependencies import Authentication
 from app.api.services.user import UserService
@@ -52,5 +53,11 @@ class UserRouter:
 
     async def get_user_info(self, request: Request):
         user_service = UserService()
-        user_info = await user_service.get_info(request.state.auth)
-        return Response(user_info.model_dump_json(), status_code=status.HTTP_200_OK)
+        try:
+            user_info = await user_service.get_info(request.state.auth)
+            return Response(user_info.model_dump_json(), status_code=status.HTTP_200_OK)
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="this user does not exist under these credentials",
+            )

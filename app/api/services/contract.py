@@ -1,15 +1,17 @@
 import asyncio
 import hashlib
-from typing import List, Optional
+from typing import Optional
 
 import httpx
 from fastapi import HTTPException
 
 from app.api.services.blockchain import BlockchainService
 from app.db.models import Contract
-from app.schema.response import GetContractResponse, UploadContractResponse
+from app.schema.contract import ContractWithCodePydantic
+from app.schema.response import UploadContractResponse
 from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 from app.utils.mappers import networks_by_type
+from app.utils.model_parser import cast_contract_with_code
 
 
 class ContractService:
@@ -25,7 +27,7 @@ class ContractService:
         code: Optional[str],
         address: Optional[str],
         network: Optional[NetworkEnum],
-    ) -> List[Contract]:
+    ) -> list[Contract]:
         filter_obj = {"is_available": True, "raw_code__isnull": False}
 
         if address:
@@ -47,7 +49,7 @@ class ContractService:
         code: Optional[str],
         address: Optional[str],
         network: Optional[NetworkEnum],
-    ) -> List[Contract]:
+    ) -> list[Contract]:
         """
         A contract's source code can be queried in many ways
         1. The source code alone was used -> via upload
@@ -106,47 +108,34 @@ class ContractService:
 
             results: list[dict] = await asyncio.gather(*tasks)
 
-        to_create: list[dict] = []
+        # only return those with source code.
+        contracts_return: list[Contract] = []
         for result in results:
             if result["found"]:
-                obj = {
-                    "method": ContractMethodEnum.SCAN,
-                    "address": address,
-                    "is_available": result["has_source_code"],
-                    "network": result["network"],
-                }
+                contract = Contract(
+                    method=ContractMethodEnum.SCAN,
+                    address=address,
+                    is_available=result["has_source_code"],
+                    network=result["network"],
+                )
                 if result["has_source_code"]:
-                    obj["raw_code"] = result["source_code"]
-                to_create.append(obj)
+                    contract.raw_code = result["source_code"]
+                    await contract.save()
+                    contracts_return.append(contract)
+                else:
+                    await contract.save()
 
                 # contract.n_retries = contract.n_retries + 1
                 # contract.next_attempt = datetime.datetime.now()
 
-        if to_create:
-            contracts = []
-            # bulk_create doesn't return.
-            for obj in to_create:
-                contract_created = await Contract.create(**obj)
-                if obj["is_available"]:
-                    contracts.append(contract_created)
-            # contracts = await Contract.bulk_create(objects=to_create)
-
-        return contracts
+        return contracts_return
 
     async def fetch_from_source(
         self,
         code: Optional[str] = None,
         address: Optional[str] = None,
         network: Optional[NetworkEnum] = None,
-    ):
-        """
-        This is the entry point for getting / creating Contract instances,
-        coupled with block explorer scans.
-
-        1. Search in cache
-        2. Search in DB
-        3. Attempt Scan -> update / create Contract observation + cache it.
-        """
+    ) -> UploadContractResponse:
 
         if not code and not address:
             raise ValueError("Either contract code or address must be provided")
@@ -160,28 +149,16 @@ class ContractService:
                 status_code=500, detail="unable to get or create contract source code"
             )
 
-        def prettify(contract: Contract):
-            return {
-                "id": contract.id,
-                "source_code": contract.raw_code,
-                "network": contract.network,
-                "is_available": contract.is_available,
-            }
+        first_candidate = next(filter(lambda x: x.is_available, contracts), None)
 
         return UploadContractResponse(
             exact_match=len(contracts) == 1,
             exists=bool(len(contracts)),
-            candidates=list(map(prettify, contracts)),
+            contract=first_candidate,
         )
 
-    async def get(self, id: str) -> GetContractResponse:
+    async def get(self, id: str) -> ContractWithCodePydantic:
 
         contract = await Contract.get(id=id)
 
-        return GetContractResponse(
-            method=contract.method,
-            is_available=contract.is_available,
-            address=contract.address,
-            network=contract.network,
-            code=contract.raw_code,
-        )
+        return cast_contract_with_code(contract)

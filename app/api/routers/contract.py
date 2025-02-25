@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
+from tortoise.exceptions import DoesNotExist
 
-from app.api.core.dependencies import Authentication
+from app.api.core.dependencies import AuthenticationWithoutDelegation
 from app.api.services.contract import ContractService
 from app.schema.request import ContractScanBody
 from app.utils.enums import AuthRequestScopeEnum
@@ -21,7 +22,11 @@ class ContractRouter:
             self.upload_contract,
             methods=["POST"],
             dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.USER
+                    )
+                )
             ],
             **OPENAPI_SPEC["get_or_create_contract"],
         )
@@ -30,7 +35,11 @@ class ContractRouter:
             self.get_contract,
             methods=["GET"],
             dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.USER
+                    )
+                )
             ],
             **OPENAPI_SPEC["get_contract"],
         )
@@ -48,6 +57,11 @@ class ContractRouter:
     async def get_contract(self, id: str):
         contract_service = ContractService()
 
-        response = await contract_service.get(id)
-
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        try:
+            response = await contract_service.get(id)
+            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="this contract does not exist",
+            )

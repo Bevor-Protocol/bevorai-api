@@ -9,7 +9,7 @@ class PermissionService:
         client_type: ClientTypeEnum,
         identifier: str,
         permission: PermissionEnum | list[PermissionEnum],
-    ):
+    ) -> bool:
         obj = {}
         if isinstance(permission, list):
             for p in permission:
@@ -31,7 +31,7 @@ class PermissionService:
         identifier: str,
         permission: PermissionEnum,
         allowed: bool,
-    ):
+    ) -> None:
         obj = {permission: True}
         if client_type == ClientTypeEnum.APP:
             obj["app_id"] = identifier
@@ -47,7 +47,7 @@ class PermissionService:
         client_type: ClientTypeEnum,
         identifier: str,
         permissions: dict[str, bool] = {},
-    ):
+    ) -> None:
         obj = {"client_type": client_type, **permissions}
         if client_type == ClientTypeEnum.APP:
             obj["app_id"] = identifier

@@ -1,18 +1,17 @@
-from uuid import UUID
-
-from fastapi import HTTPException, status
+from tortoise.exceptions import DoesNotExist
 from tortoise.transactions import in_transaction
 
 from app.api.services.permission import PermissionService
 from app.db.models import App, Audit, User
 from app.schema.dependencies import AuthState
 from app.schema.request import AppUpsertBody
-from app.schema.response import StatsResponse, Timeseries
+from app.schema.response import AllStatsResponse, AppInfoResponse
+from app.schema.shared import Timeseries
 from app.utils.enums import AppTypeEnum, AuditTypeEnum, ClientTypeEnum, FindingLevelEnum
 
 
 class AppService:
-    async def create(self, auth: AuthState, body: AppUpsertBody) -> App:
+    async def create(self, auth: AuthState, body: AppUpsertBody) -> bool:
 
         app = await App.filter(owner_id=auth.user_id).first()
         if app:
@@ -31,36 +30,47 @@ class AppService:
 
         return True
 
-    async def update(self, auth: AuthState, body: AppUpsertBody) -> App:
+    async def update(self, auth: AuthState, body: AppUpsertBody) -> bool:
 
         app = await App.filter(owner_id=auth.user_id).first()
         if not app:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="this user does not an app yet",
-            )
+            raise DoesNotExist("this user does not have an app yet")
         app.name = body.name
         await app.save()
 
         return True
 
-    async def get_stats(self, app_id: str | UUID = None) -> StatsResponse:
+    async def get_info(self, app_id: str) -> AppInfoResponse:
+
+        app = await App.get(id=app_id).prefetch_related("users", "audits")
+
+        audits = app.audits
+        users = app.users
+
+        n_users = len(users)
+        n_audits = len(audits)
+        n_contracts = len(set(map(lambda x: x.contract_id, audits)))
+
+        response = AppInfoResponse(
+            id=app.id,
+            created_at=app.created_at,
+            name=app.name,
+            n_users=n_users,
+            n_contracts=n_contracts,
+            n_audits=n_audits,
+        )
+
+        return response
+
+    async def get_stats(self) -> AllStatsResponse:
         """
         pass an app_id if not the FIRST_PARTY app.
         """
 
-        user_filter = {}
-        audit_filter = {}
+        n_apps = await App.all().count()
 
-        if app_id:
-            user_filter["app_owner_id"] = app_id
-            audit_filter["app_id"] = app_id
-            n_apps = 1
-        else:
-            n_apps = await App.all().count()
-
-        audits = await Audit.filter(**audit_filter).prefetch_related("findings")
-        users = await User.filter(**user_filter)
+        audits = await Audit.all().prefetch_related("findings")
+        users = await User.all()
 
         users_by_date = {}
         n_users = 0
@@ -108,7 +118,7 @@ class AppService:
             ],
             key=lambda x: x.date,
         )
-        response = StatsResponse(
+        response = AllStatsResponse(
             n_apps=n_apps,
             n_users=n_users,
             n_contracts=n_contracts,

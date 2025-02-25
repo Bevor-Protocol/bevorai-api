@@ -2,7 +2,7 @@ import json
 import re
 
 from arq import create_pool
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract
@@ -11,7 +11,7 @@ from app.lib.security import versions as sec_versions
 from app.schema.dependencies import AuthState
 from app.schema.request import EvalBody
 from app.schema.response import CreateEvalResponse
-from app.utils.enums import AuditStatusEnum, AuditTypeEnum
+from app.utils.enums import AuditTypeEnum
 
 # from app.worker import process_eval
 
@@ -83,10 +83,10 @@ class AiService:
     ) -> CreateEvalResponse:
         if not await Contract.exists(id=data.contract_id):
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail=(
                     "you must provide a valid internal contract_id, "
-                    "call /blockchain/scan first"
+                    "call POST /contract first"
                 ),
             )
 
@@ -108,4 +108,4 @@ class AiService:
             _job_id=str(audit.id),
         )
 
-        return CreateEvalResponse(id=audit.id, status=AuditStatusEnum.WAITING)
+        return CreateEvalResponse(id=audit.id, status=audit.status)
