@@ -1,18 +1,12 @@
 from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Body,
-    Depends,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from app.api.core.dependencies import Authentication
+from app.api.core.dependencies import Authentication, RequireCredits
 from app.api.services.ai import AiService
-from app.schema.request import TokenAnalysisBody
+from app.api.services.static_analyzer import StaticAnalysisService
+from app.schema.request import ContractScanBody, TokenAnalysisBody
 from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
 
@@ -29,7 +23,7 @@ class StaticRouter:
             methods=["POST"],
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
-                Depends(RequireCredits())
+                Depends(RequireCredits()),
             ],
             **OPENAPI_SPEC["analyze_token"],
         )
@@ -37,7 +31,7 @@ class StaticRouter:
     async def process_token(
         self,
         request: Request,
-        body: Annotated[TokenAnalysisBody, Body()],
+        body: Annotated[ContractScanBody, Body()],
     ):
         sa_service = StaticAnalysisService()
         response = await sa_service.process_static_eval_token(

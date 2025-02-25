@@ -10,7 +10,6 @@ from app.db.models import Contract
 from app.schema.response import GetContractResponse, UploadContractResponse
 from app.utils.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 from app.utils.mappers import networks_by_type
-from solidity_parser import parser
 
 
 class ContractService:
@@ -42,15 +41,6 @@ class ContractService:
             contracts = await Contract.filter(hash_code=hashed_content)
 
         return contracts or []
-
-    def generate_ast(self, source_code: str) -> str:
-        try:
-            ast = parser.parse(source_code)
-            print("AST:", ast)
-            return ast
-        except Exception as e:
-            print("Error parsing source code:", e)
-            raise e
 
     async def __get_or_create_contract(
         self,

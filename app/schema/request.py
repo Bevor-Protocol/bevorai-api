@@ -22,9 +22,6 @@ class EvalBody(BaseModel):
     contract_id: str = Field(description="contract to evaluate")
     audit_type: AuditTypeEnum = Field(default=AuditTypeEnum.GAS)
 
-class TokenAnalysisBody(BaseModel):
-    token_address: str = Field(description="token address to analyze")
-
 
 class FeedbackBody(BaseModel):
     feedback: Optional[str] = Field(default=None)
