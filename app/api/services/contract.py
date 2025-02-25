@@ -1,10 +1,9 @@
 import asyncio
 import hashlib
-import logging
 from typing import Optional
 
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.api.services.blockchain import BlockchainService
 from app.db.models import Contract
@@ -137,14 +136,6 @@ class ContractService:
         address: Optional[str] = None,
         network: Optional[NetworkEnum] = None,
     ) -> UploadContractResponse:
-        """
-        This is the entry point for getting / creating Contract instances,
-        coupled with block explorer scans.
-
-        1. Search in cache
-        2. Search in DB
-        3. Attempt Scan -> update / create Contract observation + cache it.
-        """
 
         if not code and not address:
             raise ValueError("Either contract code or address must be provided")
@@ -155,16 +146,16 @@ class ContractService:
 
         if not contracts:
             raise HTTPException(
-                status_code=500, detail="unable to get or create contract source code"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="unable to get or create contract source code",
             )
 
-        candidates = list(map(cast_contract_with_code, contracts))
-        logging.info(candidates)
+        first_candidate = next(filter(lambda x: x.is_available, contracts), None)
 
         return UploadContractResponse(
             exact_match=len(contracts) == 1,
             exists=bool(len(contracts)),
-            candidates=candidates,
+            contract=first_candidate,
         )
 
     async def get(self, id: str) -> ContractWithCodePydantic:

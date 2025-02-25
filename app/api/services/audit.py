@@ -1,4 +1,3 @@
-import logging
 import math
 
 from fastapi import HTTPException, status
@@ -94,8 +93,6 @@ class AuditService:
         )
 
     async def get_audit(self, auth: AuthState, id: str) -> AuditResponse:
-        logging.info(auth)
-        logging.info(id)
         obj_filter = {"id": id}
         if auth.client_type == ClientTypeEnum.USER:
             obj_filter["user_id"] = auth.user_id
@@ -165,14 +162,14 @@ class AuditService:
         if auth.client_type == ClientTypeEnum.USER:
             if (not user_id) or (user_id != auth.user_id):
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                    status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="user did not create this finding",
                 )
         if auth.client_type == ClientTypeEnum.APP:
             if auth.scope != AuthScopeEnum.ADMIN:
                 if (not app_id) or (app_id != auth.app_id):
                     raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
+                        status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="app did not create this finding",
                     )
 

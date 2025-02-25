@@ -1,4 +1,3 @@
-import logging
 from typing import Annotated
 
 from fastapi import (
@@ -11,13 +10,14 @@ from fastapi import (
     Response,
     status,
 )
-from fastapi.responses import JSONResponse
+from tortoise.exceptions import DoesNotExist
 
 from app.api.core.dependencies import Authentication, RequireCredits
 from app.api.services.ai import AiService
 from app.api.services.audit import AuditService
 from app.schema.request import EvalBody, FeedbackBody, FilterParams
 from app.schema.response import GetAuditStatusResponse
+from app.schema.shared import BooleanResponse
 from app.utils.enums import AuthRequestScopeEnum
 from app.utils.openapi import OPENAPI_SPEC
 
@@ -84,7 +84,6 @@ class AuditRouter:
         response = await ai_service.process_evaluation(
             auth=request.state.auth, data=body
         )
-
         return Response(response.model_dump_json(), status_code=status.HTTP_201_CREATED)
 
     async def list_audits(
@@ -99,7 +98,7 @@ class AuditRouter:
             query=query_params,
         )
 
-        return JSONResponse(response.model_dump(), status_code=status.HTTP_200_OK)
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 
     async def get_audit(self, request: Request, id: str):
         audit_service = AuditService()
@@ -107,11 +106,10 @@ class AuditRouter:
         try:
             audit = await audit_service.get_audit(auth=request.state.auth, id=id)
             return Response(audit.model_dump_json(), status_code=status.HTTP_200_OK)
-        except Exception as err:
-            logging.exception(err)
-            return HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No audit was created under these credentials",
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="this audit does not exist under these credentials",
             )
 
     async def get_audit_status(
@@ -122,10 +120,10 @@ class AuditRouter:
         try:
             response = await audit_service.get_status(auth=request.state.auth, id=id)
             return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
-        except Exception:
-            return HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No audit was created under these credentials",
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="this audit does not exist under these credentials",
             )
 
     async def submit_feedback(self, request: Request, data: FeedbackBody, id: str):
@@ -133,4 +131,7 @@ class AuditRouter:
         response = await audit_service.submit_feedback(
             data=data, auth=request.state.auth, id=id
         )
-        return JSONResponse({"success": response}, status_code=status.HTTP_201_CREATED)
+        return Response(
+            BooleanResponse(success=response).model_dump_json(),
+            status_code=status.HTTP_201_CREATED,
+        )

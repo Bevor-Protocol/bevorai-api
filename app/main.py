@@ -63,4 +63,5 @@ app.include_router(routers.blockchain_router)
 app.include_router(routers.contract_router)
 app.include_router(routers.platform_router)
 app.include_router(routers.user_router)
+app.include_router(routers.static_router)
 # app.include_router(routers.websocket_router) # exclude in favor of polling

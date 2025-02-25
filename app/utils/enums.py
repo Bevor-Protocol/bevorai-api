@@ -6,7 +6,6 @@ from enum import Enum
 class ContractMethodEnum(str, Enum):
     UPLOAD = "upload"
     SCAN = "scan"
-    CRON = "cron"
 
 
 class NetworkEnum(str, Enum):

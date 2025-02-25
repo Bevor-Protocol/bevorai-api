@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from tortoise.exceptions import DoesNotExist
 from tortoise.transactions import in_transaction
 
 from app.api.services.permission import PermissionService
@@ -34,10 +34,7 @@ class AppService:
 
         app = await App.filter(owner_id=auth.user_id).first()
         if not app:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="this user does not an app yet",
-            )
+            raise DoesNotExist("this user does not have an app yet")
         app.name = body.name
         await app.save()
 

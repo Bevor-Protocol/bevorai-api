@@ -1,7 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Request, Response, status
+from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
+from tortoise.exceptions import DoesNotExist
 
 from app.api.core.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.api.services.app import AppService
@@ -66,17 +68,26 @@ class AppRouter:
         if request.method == "PATCH":
             fct = app_service.update
 
-        response = await fct(auth=request.state.auth, body=body)
+        try:
+            response = await fct(auth=request.state.auth, body=body)
 
-        return JSONResponse({"result": response}, status_code=status.HTTP_202_ACCEPTED)
+            return JSONResponse(
+                {"result": response}, status_code=status.HTTP_202_ACCEPTED
+            )
+        except DoesNotExist as err:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err)
 
     async def get_app_info(self, request: Request):
         app_service = AppService()
         auth: AuthState = request.state.auth
 
-        response = await app_service.get_info(auth.app_id)
-
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        try:
+            response = await app_service.get_info(auth.app_id)
+            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="This app does not exist"
+            )
 
     async def get_stats(self, request: Request):
         app_service = AppService()

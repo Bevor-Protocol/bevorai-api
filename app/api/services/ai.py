@@ -2,7 +2,7 @@ import json
 import re
 
 from arq import create_pool
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract
@@ -83,7 +83,7 @@ class AiService:
     ) -> CreateEvalResponse:
         if not await Contract.exists(id=data.contract_id):
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail=(
                     "you must provide a valid internal contract_id, "
                     "call POST /contract first"

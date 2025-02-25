@@ -7,6 +7,7 @@ from .contract import ContractRouter
 from .platform import PlatformRouter
 from .user import UserRouter
 from .websocket import WebsocketRouter
+from .static import StaticRouter
 
 app_router = AppRouter().router
 audit_router = AuditRouter().router
@@ -17,3 +18,4 @@ contract_router = ContractRouter().router
 platform_router = PlatformRouter().router
 user_router = UserRouter().router
 websocket_router = WebsocketRouter().router
+static_router = StaticRouter().router

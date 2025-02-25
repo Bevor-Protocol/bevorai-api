@@ -1,5 +1,8 @@
 # flake8: noqa
 
+from typing import Any
+from uu import Error
+
 from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
 
@@ -12,6 +15,7 @@ from app.schema.response import (
     GetAuditStatusResponse,
     GetCostEstimateResponse,
     IdResponse,
+    StaticAnalysisTokenResult,
     UploadContractResponse,
     UserInfoResponse,
 )
@@ -25,6 +29,7 @@ class OpenApiParams(TypedDict, total=False):
     response_description: NotRequired[str] = "Successful Response"
     deprecated: NotRequired[bool]
     include_in_schema: NotRequired[bool]
+    responses: NotRequired[dict[int | str, dict[str, Any]]]
 
 
 class OpenApiSpec(TypedDict):
@@ -40,6 +45,7 @@ class OpenApiSpec(TypedDict):
     get_cost_estimate: OpenApiParams
     get_or_create_user: OpenApiParams
     get_user_info: OpenApiParams
+    analyze_token: OpenApiParams
 
 
 # Define OpenAPI spec as a plain dictionary (no instantiation required)
@@ -48,7 +54,7 @@ OPENAPI_SPEC: OpenApiSpec = {
         "summary": "Get App Info",
         "description": "Get App-level information",
         "response_model": AppInfoResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "create_audit": {
         "summary": "Create AI eval",
@@ -59,7 +65,7 @@ from [`POST /contract`](/docs#tag/contract/operation/upload_contract_contract__p
 Note, that this **consumes credits**.
         """,
         "response_model": CreateEvalResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_audits": {
         "summary": "Get audits",
@@ -77,7 +83,7 @@ Retrieve an evaluation by `id`. If uncertain whether the audit is completed, or 
 it is recommended to use [Poll audit status](/docs#tag/audit/operation/get_audit_status_audit__id__status_get)
 """,
         "response_model": AuditResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_audit_status": {
         "summary": "Poll audit status",
@@ -87,7 +93,7 @@ it is recommended to use [Poll audit status](/docs#tag/audit/operation/get_audit
         while waiting for processing to complete.
         """,
         "response_model": GetAuditStatusResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "submit_feedback": {
         "summary": "Submit feedback",
@@ -99,21 +105,22 @@ it is recommended to use [Poll audit status](/docs#tag/audit/operation/get_audit
         "responses": {401: {"model": ErrorResponse}},
     },
     "get_or_create_contract": {
-        "summary": "Contract scan/upload",
+        "summary": "Contract get/create",
         "description": """
-        Get or create a smart contract reference. `address` or `code` are required.
-        If `network` is provided, it will likely speed up the response. Scanning requires
-        that a smart contract is verified, and the source code is available. It is possible that
-        a given address exists on multiple chains, which is why `candidates` is provided.
+Get or create a smart contract reference. `address` or `code` are required.
+If `address` is provided, it will scan for the source code. Providing `network` will likely
+speed up the response. If `code` is provided, it'll simply upload the raw code and create a reference
+to it. Scanning requires that a smart contract is verified, and the source code is available. It is possible that
+a given address exists on multiple chains, which is why `candidates` is provided.
         """,
         "response_model": UploadContractResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_contract": {
-        "summary": "Get Contract",
+        "summary": "Get contract by id",
         "description": "Retrieve a previously uploaded contract by `id`",
         "response_model": ContractWithCodePydantic,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
     "get_cost_estimate": {
         "summary": "Get current cost estimate",
@@ -131,7 +138,13 @@ it is recommended to use [Poll audit status](/docs#tag/audit/operation/get_audit
         "summary": "Get User info",
         "description": "Get stats related to a user",
         "response_model": UserInfoResponse,
-        "responses": {401: {"model": ErrorResponse}},
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+    },
+    "analyze_token": {
+        "summary": "Token static analysis",
+        "description": "Upload a token contract to receive a static analysis",
+        "response_model": StaticAnalysisTokenResult,
+        "responses": {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     },
 }
 
@@ -259,6 +272,7 @@ OPENAPI_SCHEMA = {
                 "name": "contract",
                 "description": "Used for uploading, scanning, and creating smart contract references. Required for creating audits.",
             },
+            {"name": "static", "description": "static analysis of smart contracts"},
             {"name": "platform"},
             {
                 "name": "user",
@@ -270,7 +284,7 @@ OPENAPI_SCHEMA = {
     # openapi extensions
     "other": {
         "x-tagGroups": [
-            {"name": "Core Features", "tags": ["contract", "audit"]},
+            {"name": "Core Features", "tags": ["contract", "static", "audit"]},
             {"name": "Management", "tags": ["user", "app"]},
             {"name": "Misc", "tags": ["platform"]},
             {"name": "Examples", "tags": ["basic implementation"]},

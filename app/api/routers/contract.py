@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
+from tortoise.exceptions import DoesNotExist
 
 from app.api.core.dependencies import AuthenticationWithoutDelegation
 from app.api.services.contract import ContractService
@@ -56,6 +57,11 @@ class ContractRouter:
     async def get_contract(self, id: str):
         contract_service = ContractService()
 
-        response = await contract_service.get(id)
-
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        try:
+            response = await contract_service.get(id)
+            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="this contract does not exist",
+            )
