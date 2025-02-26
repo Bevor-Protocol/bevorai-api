@@ -60,6 +60,13 @@ async def handle_eval(audit_id: str):
 
     cost = pipeline.usage.get_cost()
 
+    transaction = Transaction(
+        app_id=audit.app_id,
+        user_id=audit.user_id,
+        type=TransactionTypeEnum.SPEND,
+        amount=cost,
+    )
+
     if caller_auth.consumes_credits:
         if caller_auth.client_type == ClientTypeEnum.APP:
             app = caller_auth.app
@@ -67,45 +74,14 @@ async def handle_eval(audit_id: str):
                 user = caller_auth.app.owner
                 user.used_credits += cost
                 await user.save()
-                await Transaction.save(
-                    app_id=audit.app_id,
-                    user_id=audit.user_id,
-                    type=TransactionTypeEnum.SPEND,
-                    amount=cost,
-                )
+                await transaction.save()
         else:
             user = caller_auth.user
             user.used_credits += cost
             await user.save()
-            await Transaction.save(
-                app_id=audit.app_id,
-                user_id=audit.user_id,
-                type=TransactionTypeEnum.SPEND,
-                amount=cost,
-            )
+            await transaction.save()
 
     return {"audit_id": audit_id, "audit_status": audit.status}
-
-
-# async def handle_outgoing_webhook(
-#     audit_id: str,
-#     audit_status: AuditStatusEnum,
-#     webhook_url: str,
-# ):
-#     response = WebhookResponse(
-#         success=True,
-#     )
-
-#     data = {
-#         "id": audit_id,
-#         "status": audit_status,
-#     }
-
-#     response.result = WebhookResponseData(**data)
-
-#     async with httpx.AsyncClient() as client:
-#         body = response.model_dump()
-#         await client.post(webhook_url, json=body)
 
 
 async def get_deployment_contracts(network: NetworkEnum):
