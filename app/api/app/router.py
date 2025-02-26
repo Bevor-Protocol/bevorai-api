@@ -2,7 +2,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
 from app.api.app.service import AppService
@@ -10,6 +9,7 @@ from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.utils.constants.openapi_tags import APP_TAG
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import AppUpsertBody
+from app.utils.schema.shared import BooleanResponse
 from app.utils.types.enums import AuthRequestScopeEnum
 
 from .openapi import GET_APP_INFO
@@ -72,9 +72,9 @@ class AppRouter:
 
         try:
             response = await fct(auth=request.state.auth, body=body)
-
-            return JSONResponse(
-                {"result": response}, status_code=status.HTTP_202_ACCEPTED
+            return Response(
+                BooleanResponse(success=response).model_dump_json(),
+                status_code=status.HTTP_202_ACCEPTED,
             )
         except DoesNotExist as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err)
@@ -91,7 +91,7 @@ class AppRouter:
                 status_code=status.HTTP_404_NOT_FOUND, detail="This app does not exist"
             )
 
-    async def get_stats(self, request: Request):
+    async def get_stats(self):
         app_service = AppService()
 
         response = await app_service.get_stats()
