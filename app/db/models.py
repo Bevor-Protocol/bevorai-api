@@ -39,8 +39,8 @@ class User(AbstractModel):
         null=True,  # need to set this to null so i can backfill.
     )
     address = fields.CharField(max_length=255)
-    total_credits = fields.IntField(default=0)
-    used_credits = fields.IntField(default=0)
+    total_credits = fields.FloatField(default=0)
+    used_credits = fields.FloatField(default=0)
 
     app: fields.ReverseRelation["App"]
     audits: fields.ReverseRelation["Audit"]
@@ -89,6 +89,7 @@ class Auth(AbstractModel):
     hashed_key = fields.CharField(max_length=255)
     revoked_at = fields.DatetimeField(null=True, default=None)
     scope = fields.CharEnumField(enum_type=AuthScopeEnum, default=AuthScopeEnum.WRITE)
+    consumes_credits = fields.BooleanField(default=True)
 
     class Meta:
         table = "auth"

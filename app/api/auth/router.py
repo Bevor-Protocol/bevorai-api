@@ -1,17 +1,14 @@
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.auth.service import AuthService
 from app.api.blockchain.service import BlockchainService
 from app.api.dependencies import Authentication
-from app.api.user.service import UserService
 from app.db.models import User
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import UserUpsertBody
-from app.utils.types.enums import AuthRequestScopeEnum, ClientTypeEnum
+from app.utils.types.enums import ClientTypeEnum, RoleEnum
 
 
 class AuthRouter:
@@ -26,9 +23,7 @@ class AuthRouter:
             self.generate_api_key,
             methods=["POST"],
             dependencies=[
-                Depends(
-                    Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
-                )
+                Depends(Authentication(required_role=RoleEnum.APP_FIRST_PARTY))
             ],
             include_in_schema=False,
         )
@@ -36,24 +31,8 @@ class AuthRouter:
             "/sync/credits",
             self.sync_credits,
             methods=["POST"],
-            dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
-            ],
+            dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
             include_in_schema=False,
-        )
-
-    async def get_or_create_user(
-        self, request: Request, body: Annotated[UserUpsertBody, Body()]
-    ):
-
-        # Users are created through apps. A user is denoted by their address,
-        # but might have different app owners that they were created through.
-        user_service = UserService()
-
-        response = await user_service.get_or_create(request.state.auth, body.address)
-
-        return JSONResponse(
-            {"user_id": str(response.id)}, status_code=status.HTTP_202_ACCEPTED
         )
 
     async def generate_api_key(self, request: Request, client_type: ClientTypeEnum):

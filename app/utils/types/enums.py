@@ -97,7 +97,7 @@ class AuthScopeEnum(str, Enum):
     ADMIN = "admin"
 
 
-class AuthRequestScopeEnum(str, Enum):
+class RoleEnum(str, Enum):
     APP_FIRST_PARTY = "app-first-party"
     APP = "app"
     USER = "user"
