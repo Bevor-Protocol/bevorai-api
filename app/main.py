@@ -7,8 +7,8 @@ from tortoise.contrib.fastapi import register_tortoise
 
 import app.api.urls as routers
 from app.api.middlewares import PrometheusMiddleware
-from app.api.openapi import OPENAPI_SCHEMA
 from app.config import TORTOISE_ORM
+from app.openapi import OPENAPI_SCHEMA
 
 # from app.api.middlewares.auth import AuthenticationMiddleware
 # from app.api.middlewares.rate_limit import RateLimitMiddleware
