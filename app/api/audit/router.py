@@ -12,15 +12,21 @@ from fastapi import (
 )
 from tortoise.exceptions import DoesNotExist
 
-from app.api.core.dependencies import Authentication, RequireCredits
-from app.api.services.ai import AiService
-from app.api.services.audit import AuditService
+from app.api.audit.service import AuditService
+from app.api.dependencies import Authentication, RequireCredits
 from app.utils.constants.openapi_tags import AUDIT_TAG
-from app.utils.openapi import OPENAPI_SPEC
 from app.utils.schema.request import EvalBody, FeedbackBody, FilterParams
 from app.utils.schema.response import GetAuditStatusResponse
 from app.utils.schema.shared import BooleanResponse
 from app.utils.types.enums import AuthRequestScopeEnum
+
+from .openapi import (
+    CREATE_AUDIT,
+    GET_AUDIT,
+    GET_AUDIT_STATUS,
+    GET_AUDITS,
+    SUBMIT_FEEDBACK,
+)
 
 
 class AuditRouter:
@@ -37,7 +43,7 @@ class AuditRouter:
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
                 Depends(RequireCredits()),
             ],
-            **OPENAPI_SPEC["create_audit"],
+            **CREATE_AUDIT,
         )
         self.router.add_api_route(
             "/list",
@@ -46,7 +52,7 @@ class AuditRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
-            **OPENAPI_SPEC["get_audits"],
+            **GET_AUDITS,
         )
         self.router.add_api_route(
             "/{id}",
@@ -55,7 +61,7 @@ class AuditRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
-            **OPENAPI_SPEC["get_audit"],
+            **GET_AUDIT,
         )
         self.router.add_api_route(
             "/{id}/status",
@@ -64,7 +70,7 @@ class AuditRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
-            **OPENAPI_SPEC["get_audit_status"],
+            **GET_AUDIT_STATUS,
         )
         self.router.add_api_route(
             "/{id}/feedback",
@@ -73,7 +79,7 @@ class AuditRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
-            **OPENAPI_SPEC["submit_feedback"],
+            **SUBMIT_FEEDBACK,
         )
 
     async def create_audit(
@@ -81,8 +87,8 @@ class AuditRouter:
         request: Request,
         body: Annotated[EvalBody, Body()],
     ):
-        ai_service = AiService()
-        response = await ai_service.process_evaluation(
+        audit_service = AuditService()
+        response = await audit_service.process_evaluation(
             auth=request.state.auth, data=body
         )
         return Response(response.model_dump_json(), status_code=status.HTTP_201_CREATED)

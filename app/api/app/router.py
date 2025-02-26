@@ -5,13 +5,14 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
-from app.api.core.dependencies import Authentication, AuthenticationWithoutDelegation
-from app.api.services.app import AppService
+from app.api.app.service import AppService
+from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.utils.constants.openapi_tags import APP_TAG
-from app.utils.openapi import OPENAPI_SPEC
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import AppUpsertBody
 from app.utils.types.enums import AuthRequestScopeEnum
+
+from .openapi import GET_APP_INFO
 
 
 class AppRouter:
@@ -43,7 +44,7 @@ class AppRouter:
                     )
                 )
             ],
-            **OPENAPI_SPEC["get_app_info"]
+            **GET_APP_INFO
         )
         self.router.add_api_route(
             "/stats",

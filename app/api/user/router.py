@@ -3,13 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from tortoise.exceptions import DoesNotExist
 
-from app.api.core.dependencies import Authentication
-from app.api.services.user import UserService
+from app.api.dependencies import Authentication
+from app.api.user.service import UserService
 from app.utils.constants.openapi_tags import USER_TAG
-from app.utils.openapi import OPENAPI_SPEC
 from app.utils.schema.request import UserUpsertBody
 from app.utils.schema.response import IdResponse
 from app.utils.types.enums import AuthRequestScopeEnum
+
+from .openapi import GET_OR_CREATE_USER, GET_USER_INFO
 
 
 class UserRouter:
@@ -25,7 +26,7 @@ class UserRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.APP))
             ],
-            **OPENAPI_SPEC["get_or_create_user"]
+            **GET_OR_CREATE_USER
         )
         self.router.add_api_route(
             "/info",
@@ -34,7 +35,7 @@ class UserRouter:
             dependencies=[
                 Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
             ],
-            **OPENAPI_SPEC["get_user_info"]
+            **GET_USER_INFO
         )
 
     async def get_or_create_user(

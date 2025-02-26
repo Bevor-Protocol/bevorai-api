@@ -4,10 +4,10 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Request, status
 from fastapi.responses import JSONResponse
 
-from app.api.core.dependencies import Authentication
-from app.api.services.auth import AuthService
-from app.api.services.blockchain import BlockchainService
-from app.api.services.user import UserService
+from app.api.auth.service import AuthService
+from app.api.blockchain.service import BlockchainService
+from app.api.dependencies import Authentication
+from app.api.user.service import UserService
 from app.db.models import User
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import UserUpsertBody

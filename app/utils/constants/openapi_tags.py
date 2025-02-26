@@ -1,5 +1,4 @@
 CONTRACT_TAG = "contract"
-STATIC_TAG = "static"
 AUDIT_TAG = "audit"
 USER_TAG = "user"
 APP_TAG = "app"

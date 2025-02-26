@@ -6,14 +6,14 @@ from datetime import datetime
 
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
-from app.client.llm import llm_client
+from app.api.pricing.service import Usage
 from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse
 from app.lib.gas import CURRENT_VERSION as gas_version
 from app.lib.gas import structure as gas_structure
 from app.lib.security import CURRENT_VERSION as sec_version
 from app.lib.security import structure as sec_structure
-from app.utils.pricing import Usage
+from app.utils.clients.llm import llm_client
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
 

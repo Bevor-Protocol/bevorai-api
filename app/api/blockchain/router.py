@@ -2,9 +2,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Response, status
 
-from app.api.core.dependencies import Authentication
-from app.api.services.blockchain import BlockchainService
-from app.api.services.contract import ContractService
+from app.api.blockchain.service import BlockchainService
+from app.api.contract.service import ContractService
+from app.api.dependencies import Authentication
 from app.utils.schema.request import ContractScanBody
 from app.utils.types.enums import AuthRequestScopeEnum
 

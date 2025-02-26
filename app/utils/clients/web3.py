@@ -25,7 +25,7 @@ class Web3Client:
         if env == "production":
             url = self.__get_base_url(NetworkEnum.BASE)
         elif env == "staging":
-            url = self.__get_base_url(NetworkEnum.BASE_SEPOLIA)
+            url = self.__get_base_url(NetworkEnum.ETH_SEPOLIA)
         else:
             # url = "http://127.0.0.1:8545"
             url = "https://accurate-joey-master.ngrok-free.app"

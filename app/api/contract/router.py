@@ -1,14 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from tortoise.exceptions import DoesNotExist
 
-from app.api.core.dependencies import AuthenticationWithoutDelegation
-from app.api.services.contract import ContractService
+from app.api.contract.service import ContractService
+from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
 from app.utils.constants.openapi_tags import CONTRACT_TAG
-from app.utils.openapi import OPENAPI_SPEC
 from app.utils.schema.request import ContractScanBody
 from app.utils.types.enums import AuthRequestScopeEnum
+
+from .openapi import ANALYZE_TOKEN, GET_CONTRACT, GET_OR_CREATE_CONTRACT
 
 
 class ContractRouter:
@@ -29,7 +30,7 @@ class ContractRouter:
                     )
                 )
             ],
-            **OPENAPI_SPEC["get_or_create_contract"],
+            **GET_OR_CREATE_CONTRACT,
         )
         self.router.add_api_route(
             "/{id}",
@@ -42,7 +43,21 @@ class ContractRouter:
                     )
                 )
             ],
-            **OPENAPI_SPEC["get_contract"],
+            **GET_CONTRACT,
+        )
+        self.router.add_api_route(
+            "/token/static",
+            self.process_token,
+            methods=["POST"],
+            dependencies=[
+                Depends(
+                    AuthenticationWithoutDelegation(
+                        request_scope=AuthRequestScopeEnum.USER
+                    )
+                ),
+                Depends(RequireCredits()),
+            ],
+            **ANALYZE_TOKEN,
         )
 
     async def upload_contract(self, body: Annotated[ContractScanBody, Body()]):
@@ -66,3 +81,13 @@ class ContractRouter:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="this contract does not exist",
             )
+
+    async def process_token(
+        self,
+        request: Request,
+        body: Annotated[ContractScanBody, Body()],
+    ):
+        contract_service = ContractService()
+        response = await contract_service.process_static_eval_token(body)
+
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
