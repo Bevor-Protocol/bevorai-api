@@ -6,7 +6,7 @@ import httpx
 
 from app.api.blockchain.service import BlockchainService
 from app.api.pipeline.audit_generation import LlmPipeline
-from app.db.models import Audit, Auth, Contract
+from app.db.models import Audit, Auth, Contract, Transaction
 from app.utils.clients.web3 import Web3Client
 from app.utils.types.enums import (
     AppTypeEnum,
@@ -14,6 +14,7 @@ from app.utils.types.enums import (
     ClientTypeEnum,
     ContractMethodEnum,
     NetworkEnum,
+    TransactionTypeEnum,
 )
 
 
@@ -66,10 +67,22 @@ async def handle_eval(audit_id: str):
                 user = caller_auth.app.owner
                 user.used_credits += cost
                 await user.save()
+                await Transaction.save(
+                    app_id=audit.app_id,
+                    user_id=audit.user_id,
+                    type=TransactionTypeEnum.SPEND,
+                    amount=cost,
+                )
         else:
             user = caller_auth.user
             user.used_credits += cost
             await user.save()
+            await Transaction.save(
+                app_id=audit.app_id,
+                user_id=audit.user_id,
+                type=TransactionTypeEnum.SPEND,
+                amount=cost,
+            )
 
     return {"audit_id": audit_id, "audit_status": audit.status}
 

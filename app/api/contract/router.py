@@ -6,11 +6,11 @@ from tortoise.exceptions import DoesNotExist
 from app.api.contract.service import ContractService
 from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
 from app.api.pricing.service import StaticAnalysis
-from app.db.models import User
+from app.db.models import Transaction, User
 from app.utils.constants.openapi_tags import CONTRACT_TAG
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import ContractScanBody
-from app.utils.types.enums import RoleEnum
+from app.utils.types.enums import RoleEnum, TransactionTypeEnum
 
 from .openapi import ANALYZE_TOKEN, GET_CONTRACT, GET_OR_CREATE_CONTRACT
 
@@ -89,5 +89,11 @@ class ContractRouter:
             price = static_pricing.get_cost()
             user.used_credits += price
             await user.save()
+            await Transaction.save(
+                app_id=auth.app_id,
+                user_id=auth.user_id,
+                type=TransactionTypeEnum.SPEND,
+                amount=price,
+            )
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

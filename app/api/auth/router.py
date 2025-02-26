@@ -6,9 +6,9 @@ from fastapi.responses import JSONResponse
 from app.api.auth.service import AuthService
 from app.api.blockchain.service import BlockchainService
 from app.api.dependencies import Authentication
-from app.db.models import User
+from app.db.models import Transaction, User
 from app.utils.schema.dependencies import AuthState
-from app.utils.types.enums import ClientTypeEnum, RoleEnum
+from app.utils.types.enums import ClientTypeEnum, RoleEnum, TransactionTypeEnum
 
 
 class AuthRouter:
@@ -59,16 +59,24 @@ class AuthRouter:
             )
 
         prev_credits = user.total_credits
+        diff = credits - prev_credits
         user.total_credits = credits
         await user.save()
+        if abs(diff) > 0:
+            transaction = Transaction(
+                app_id=auth.app_id, user_id=auth.user_id, amount=abs(diff)
+            )
+            if diff > 0:
+                transaction.type = TransactionTypeEnum.PURCHASE
+            else:
+                transaction.type = TransactionTypeEnum.REFUND
+            await transaction.save()
 
         return JSONResponse(
             {
                 "total_credits": credits,
-                "credits_added": max(0, credits - prev_credits),
-                "credits_removed": max(
-                    0, prev_credits - credits
-                ),  # only applicable during refund.
+                "credits_added": max(0, diff),
+                "credits_removed": abs(min(0, diff)),  # only applicable during refund.
             },
             status_code=status.HTTP_200_OK,
         )

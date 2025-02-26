@@ -60,7 +60,7 @@ class CreditTierEnum(str, Enum):
 
 class TransactionTypeEnum(str, Enum):
     PURCHASE = "purchase"
-    USE = "spend"
+    SPEND = "spend"
     REFUND = "refund"
 
 
