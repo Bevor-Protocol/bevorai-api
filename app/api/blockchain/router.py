@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.blockchain.service import BlockchainService
 from app.api.dependencies import Authentication
-from app.utils.types.enums import AuthRequestScopeEnum
+from app.utils.types.enums import RoleEnum
 
 
 class BlockchainRouter:
@@ -16,9 +16,7 @@ class BlockchainRouter:
             "/gas",
             self.get_gas,
             methods=["GET"],
-            dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
-            ],
+            dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
         )
 
     async def get_gas(self):

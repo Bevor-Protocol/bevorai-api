@@ -18,7 +18,7 @@ from app.utils.constants.openapi_tags import AUDIT_TAG
 from app.utils.schema.request import EvalBody, FeedbackBody, FilterParams
 from app.utils.schema.response import GetAuditStatusResponse
 from app.utils.schema.shared import BooleanResponse
-from app.utils.types.enums import AuthRequestScopeEnum
+from app.utils.types.enums import RoleEnum
 
 from .openapi import (
     CREATE_AUDIT,
@@ -40,7 +40,7 @@ class AuditRouter:
             self.create_audit,
             methods=["POST"],
             dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER)),
+                Depends(Authentication(required_role=RoleEnum.USER)),
                 Depends(RequireCredits()),
             ],
             **CREATE_AUDIT,
@@ -49,36 +49,28 @@ class AuditRouter:
             "/list",
             self.list_audits,
             methods=["GET"],
-            dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
-            ],
+            dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
             **GET_AUDITS,
         )
         self.router.add_api_route(
             "/{id}",
             self.get_audit,
             methods=["GET"],
-            dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
-            ],
+            dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
             **GET_AUDIT,
         )
         self.router.add_api_route(
             "/{id}/status",
             self.get_audit_status,
             methods=["GET"],
-            dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
-            ],
+            dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
             **GET_AUDIT_STATUS,
         )
         self.router.add_api_route(
             "/{id}/feedback",
             self.submit_feedback,
             methods=["POST"],
-            dependencies=[
-                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
-            ],
+            dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
             **SUBMIT_FEEDBACK,
         )
 

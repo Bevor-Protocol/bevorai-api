@@ -5,7 +5,7 @@ from app.api.dependencies import AuthState
 from app.api.permission.service import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
 from app.utils.schema.response import AuthInfo, UserAppInfo, UserInfoResponse
-from app.utils.types.enums import AuditStatusEnum, ClientTypeEnum
+from app.utils.types.enums import AuditStatusEnum, ClientTypeEnum, RoleEnum
 
 
 class UserService:
@@ -32,12 +32,18 @@ class UserService:
         audit_pf = Prefetch("audits", queryset=audit_queryset)
         app_pf = Prefetch("app", queryset=app_queryset)
 
-        cur_user = await User.get(id=auth.user_id).prefetch_related(
+        user_filter = {"id": auth.user_id}
+        if auth.is_delegated:
+            if auth.role != RoleEnum.APP_FIRST_PARTY:
+                user_filter["app_owner_id"] = auth.app_id
+
+        cur_user = await User.get(**user_filter).prefetch_related(
             audit_pf, "auth", "permissions", app_pf
         )
 
         user_audits = cur_user.audits
         user_auth = cur_user.auth
+
         # this is a nullable FK relation, grab the first.
         user_app: App | None = cur_user.app[0] if cur_user.app else None
         # currently only 1 auth is support per user, but it's not a OneToOne relation
@@ -49,10 +55,10 @@ class UserService:
         )
 
         if user_app:
-            auth: Auth | None = user_app.auth
+            user_app_auth: Auth | None = user_app.auth
             permissions: Permission | None = user_app.permissions
             app_info.name = user_app.name
-            app_info.exists_auth = auth is not None
+            app_info.exists_auth = user_app_auth is not None
             if permissions:
                 app_info.can_create_auth = permissions.can_create_api_key
 

@@ -4,7 +4,7 @@ from app.api.dependencies import AuthenticationWithoutDelegation
 from app.api.pricing.service import Usage
 from app.utils.constants.openapi_tags import PLATFORM_TAG
 from app.utils.schema.response import GetCostEstimateResponse
-from app.utils.types.enums import AuthRequestScopeEnum
+from app.utils.types.enums import RoleEnum
 
 from .openapi import GET_COST_ESTIMATE
 
@@ -20,11 +20,7 @@ class PlatformRouter:
             self.get_credit_estimate,
             methods=["GET"],
             dependencies=[
-                Depends(
-                    AuthenticationWithoutDelegation(
-                        request_scope=AuthRequestScopeEnum.USER
-                    )
-                )
+                Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER))
             ],
             **GET_COST_ESTIMATE
         )

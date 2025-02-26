@@ -6,11 +6,11 @@ from tortoise.exceptions import DoesNotExist
 from app.api.contract.service import ContractService
 from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
 from app.api.pricing.service import StaticAnalysis
-from app.db.models import User
+from app.db.models import Transaction, User
 from app.utils.constants.openapi_tags import CONTRACT_TAG
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import ContractScanBody
-from app.utils.types.enums import AuthRequestScopeEnum, AuthScopeEnum
+from app.utils.types.enums import RoleEnum, TransactionTypeEnum
 
 from .openapi import ANALYZE_TOKEN, GET_CONTRACT, GET_OR_CREATE_CONTRACT
 
@@ -27,11 +27,7 @@ class ContractRouter:
             self.upload_contract,
             methods=["POST"],
             dependencies=[
-                Depends(
-                    AuthenticationWithoutDelegation(
-                        request_scope=AuthRequestScopeEnum.USER
-                    )
-                )
+                Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER))
             ],
             **GET_OR_CREATE_CONTRACT,
         )
@@ -40,11 +36,7 @@ class ContractRouter:
             self.get_contract,
             methods=["GET"],
             dependencies=[
-                Depends(
-                    AuthenticationWithoutDelegation(
-                        request_scope=AuthRequestScopeEnum.USER
-                    )
-                )
+                Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER))
             ],
             **GET_CONTRACT,
         )
@@ -53,11 +45,7 @@ class ContractRouter:
             self.process_token,
             methods=["POST"],
             dependencies=[
-                Depends(
-                    AuthenticationWithoutDelegation(
-                        request_scope=AuthRequestScopeEnum.USER
-                    )
-                ),
+                Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER)),
                 Depends(RequireCredits()),
             ],
             **ANALYZE_TOKEN,
@@ -93,14 +81,19 @@ class ContractRouter:
         contract_service = ContractService()
         static_pricing = StaticAnalysis()
         auth: AuthState = request.state.auth
-        consume_credits = (not auth.app_id) or (auth.scope != AuthScopeEnum.ADMIN)
 
         response = await contract_service.process_static_eval_token(body)
 
-        if consume_credits:
-            user = await User.get(id=auth.credit_consumer_id)
+        if auth.consumes_credits:
+            user = await User.get(id=auth.credit_consumer_user_id)
             price = static_pricing.get_cost()
             user.used_credits += price
             await user.save()
+            await Transaction.save(
+                app_id=auth.app_id,
+                user_id=auth.user_id,
+                type=TransactionTypeEnum.SPEND,
+                amount=price,
+            )
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

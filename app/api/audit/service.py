@@ -26,7 +26,7 @@ from app.utils.schema.response import (
     CreateEvalResponse,
     GetAuditStatusResponse,
 )
-from app.utils.types.enums import AuditTypeEnum, AuthScopeEnum, ClientTypeEnum
+from app.utils.types.enums import AuditTypeEnum, RoleEnum
 
 
 class AuditService:
@@ -55,10 +55,9 @@ class AuditService:
         # FIRST_PARTY apps can view all. THIRD_PARTY apps can only view those created
         # through their app. Users can only view their own audits. If accessed via our
         # frontend all are viewable.
-        if auth.client_type == ClientTypeEnum.APP:
-            if auth.scope != AuthScopeEnum.ADMIN:
-                filter["app_id"] = auth.app_id
-        else:
+        if auth.role == RoleEnum.APP:
+            filter["app_id"] = auth.app_id
+        if auth.role == RoleEnum.USER:
             filter["user_id"] = auth.user_id
 
         audit_query = Audit.filter(**filter)
@@ -100,11 +99,11 @@ class AuditService:
 
     async def get_audit(self, auth: AuthState, id: str) -> AuditResponse:
         obj_filter = {"id": id}
-        if auth.client_type == ClientTypeEnum.USER:
+
+        if auth.role == RoleEnum.APP:
+            obj_filter["app_id"] = auth.app_id
+        if auth.role == RoleEnum.USER:
             obj_filter["user_id"] = auth.user_id
-        else:
-            if auth.scope != AuthScopeEnum.ADMIN:
-                obj_filter["app_id"] = auth.app_id
 
         audit = (
             await Audit.get(**obj_filter)
@@ -135,11 +134,10 @@ class AuditService:
 
     async def get_status(self, auth: AuthState, id: str) -> GetAuditStatusResponse:
         obj_filter = {"id": id}
-        if auth.client_type == ClientTypeEnum.USER:
+        if auth.role == RoleEnum.APP:
+            obj_filter["app_id"] = auth.app_id
+        if auth.role == RoleEnum.USER:
             obj_filter["user_id"] = auth.user_id
-        else:
-            if auth.scope != AuthScopeEnum.ADMIN:
-                obj_filter["app_id"] = auth.app_id
 
         audit = await Audit.get(**obj_filter).prefetch_related("intermediate_responses")
 
@@ -164,19 +162,18 @@ class AuditService:
         user_id = finding.audit.user_id
         app_id = finding.audit.app_id
 
-        if auth.client_type == ClientTypeEnum.USER:
+        if auth.role == RoleEnum.USER:
             if (not user_id) or (user_id != auth.user_id):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="user did not create this finding",
                 )
-        if auth.client_type == ClientTypeEnum.APP:
-            if auth.scope != AuthScopeEnum.ADMIN:
-                if (not app_id) or (app_id != auth.app_id):
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="app did not create this finding",
-                    )
+        if auth.role == RoleEnum.APP:
+            if (not app_id) or (app_id != auth.app_id):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="app did not create this finding",
+                )
 
         finding.is_attested = True
         finding.is_verified = data.verified

@@ -2,16 +2,16 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_serializer
 
-from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
+from app.utils.types.enums import RoleEnum
 
 
 class AuthState(BaseModel):
     user_id: str | UUID | None = None
     app_id: str | UUID | None = None
-    credit_consumer_id: str | UUID | None = None
-    is_delegator: bool = False
-    scope: AuthScopeEnum
-    client_type: ClientTypeEnum
+    consumes_credits: bool
+    credit_consumer_user_id: str | UUID | None = None
+    is_delegated: bool = False
+    role: RoleEnum
 
     @field_serializer("user_id", "app_id")
     def convert_uuid_to_string(self, id):

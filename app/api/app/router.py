@@ -10,7 +10,7 @@ from app.utils.constants.openapi_tags import APP_TAG
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import AppUpsertBody
 from app.utils.schema.shared import BooleanResponse
-from app.utils.types.enums import AuthRequestScopeEnum
+from app.utils.types.enums import RoleEnum
 
 from .openapi import GET_APP_INFO
 
@@ -26,9 +26,7 @@ class AppRouter:
             self.upsert_app,
             methods=["POST", "PATCH"],
             dependencies=[
-                Depends(
-                    Authentication(request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY)
-                )
+                Depends(Authentication(required_role=RoleEnum.APP_FIRST_PARTY))
             ],
             operation_id="upsert_app",
             include_in_schema=False,
@@ -38,11 +36,7 @@ class AppRouter:
             self.get_app_info,
             methods=["GET"],
             dependencies=[
-                Depends(
-                    AuthenticationWithoutDelegation(
-                        request_scope=AuthRequestScopeEnum.APP
-                    )
-                )
+                Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.APP))
             ],
             **GET_APP_INFO
         )
@@ -53,7 +47,7 @@ class AppRouter:
             dependencies=[
                 Depends(
                     AuthenticationWithoutDelegation(
-                        request_scope=AuthRequestScopeEnum.APP_FIRST_PARTY
+                        required_role=RoleEnum.APP_FIRST_PARTY
                     )
                 )
             ],
@@ -77,7 +71,7 @@ class AppRouter:
                 status_code=status.HTTP_202_ACCEPTED,
             )
         except DoesNotExist as err:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
 
     async def get_app_info(self, request: Request):
         app_service = AppService()

@@ -60,7 +60,7 @@ class CreditTierEnum(str, Enum):
 
 class TransactionTypeEnum(str, Enum):
     PURCHASE = "purchase"
-    USE = "spend"
+    SPEND = "spend"
     REFUND = "refund"
 
 
@@ -97,7 +97,7 @@ class AuthScopeEnum(str, Enum):
     ADMIN = "admin"
 
 
-class AuthRequestScopeEnum(str, Enum):
+class RoleEnum(str, Enum):
     APP_FIRST_PARTY = "app-first-party"
     APP = "app"
     USER = "user"
