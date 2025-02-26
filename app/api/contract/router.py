@@ -5,9 +5,12 @@ from tortoise.exceptions import DoesNotExist
 
 from app.api.contract.service import ContractService
 from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
+from app.api.pricing.service import StaticAnalysis
+from app.db.models import User
 from app.utils.constants.openapi_tags import CONTRACT_TAG
+from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import ContractScanBody
-from app.utils.types.enums import AuthRequestScopeEnum
+from app.utils.types.enums import AuthRequestScopeEnum, AuthScopeEnum
 
 from .openapi import ANALYZE_TOKEN, GET_CONTRACT, GET_OR_CREATE_CONTRACT
 
@@ -88,6 +91,16 @@ class ContractRouter:
         body: Annotated[ContractScanBody, Body()],
     ):
         contract_service = ContractService()
+        static_pricing = StaticAnalysis()
+        auth: AuthState = request.state.auth
+        consume_credits = (not auth.app_id) or (auth.scope != AuthScopeEnum.ADMIN)
+
         response = await contract_service.process_static_eval_token(body)
+
+        if consume_credits:
+            user = await User.get(id=auth.credit_consumer_id)
+            price = static_pricing.get_cost()
+            user.used_credits += price
+            await user.save()
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
