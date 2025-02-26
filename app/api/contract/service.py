@@ -146,17 +146,13 @@ class ContractService:
             code=code, address=address, network=network
         )
 
-        if not contracts:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="unable to get or create contract source code",
-            )
-
         first_candidate = next(filter(lambda x: x.is_available, contracts), None)
+        if first_candidate:
+            first_candidate = cast_contract_with_code(first_candidate)
 
         return UploadContractResponse(
             exact_match=len(contracts) == 1,
-            exists=bool(len(contracts)),
+            exists=first_candidate is not None,
             contract=first_candidate,
         )
 
