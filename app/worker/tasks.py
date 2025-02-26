@@ -4,11 +4,11 @@ from datetime import datetime
 
 import httpx
 
-from app.api.services.blockchain import BlockchainService
-from app.api.services.llm_pipeline import LlmPipeline
-from app.client.web3 import Web3Client
+from app.api.blockchain.service import BlockchainService
+from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Contract
-from app.utils.enums import (
+from app.utils.clients.web3 import Web3Client
+from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
     ContractMethodEnum,

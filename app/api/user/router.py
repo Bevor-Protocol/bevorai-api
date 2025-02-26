@@ -1,0 +1,65 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from tortoise.exceptions import DoesNotExist
+
+from app.api.dependencies import Authentication
+from app.api.user.service import UserService
+from app.utils.constants.openapi_tags import USER_TAG
+from app.utils.schema.request import UserUpsertBody
+from app.utils.schema.response import IdResponse
+from app.utils.types.enums import AuthRequestScopeEnum
+
+from .openapi import GET_OR_CREATE_USER, GET_USER_INFO
+
+
+class UserRouter:
+    def __init__(self):
+        self.router = APIRouter(prefix="/user", tags=[USER_TAG])
+        self.register_routes()
+
+    def register_routes(self):
+        self.router.add_api_route(
+            "",
+            self.get_or_create_user,
+            methods=["POST"],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.APP))
+            ],
+            **GET_OR_CREATE_USER
+        )
+        self.router.add_api_route(
+            "/info",
+            self.get_user_info,
+            methods=["GET"],
+            dependencies=[
+                Depends(Authentication(request_scope=AuthRequestScopeEnum.USER))
+            ],
+            **GET_USER_INFO
+        )
+
+    async def get_or_create_user(
+        self, request: Request, body: Annotated[UserUpsertBody, Body()]
+    ):
+
+        # Users are created through apps. A user is denoted by their address,
+        # but might have different app owners that they were created through.
+        user_service = UserService()
+
+        result = await user_service.get_or_create(request.state.auth, body.address)
+        response = IdResponse(id=result.id)
+
+        return Response(
+            response.model_dump_json(), status_code=status.HTTP_202_ACCEPTED
+        )
+
+    async def get_user_info(self, request: Request):
+        user_service = UserService()
+        try:
+            user_info = await user_service.get_info(request.state.auth)
+            return Response(user_info.model_dump_json(), status_code=status.HTTP_200_OK)
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="this user does not exist under these credentials",
+            )

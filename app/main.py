@@ -5,13 +5,13 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from tortoise.contrib.fastapi import register_tortoise
 
-import app.api.routers as routers
-from app.api.core.middlewares import PrometheusMiddleware
+import app.api.urls as routers
+from app.api.middlewares import PrometheusMiddleware
 from app.config import TORTOISE_ORM
-from app.utils.openapi import OPENAPI_SCHEMA
+from app.openapi import OPENAPI_SCHEMA
 
-# from app.api.core.middlewares.auth import AuthenticationMiddleware
-# from app.api.core.middlewares.rate_limit import RateLimitMiddleware
+# from app.api.middlewares.auth import AuthenticationMiddleware
+# from app.api.middlewares.rate_limit import RateLimitMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
@@ -63,5 +63,4 @@ app.include_router(routers.blockchain_router)
 app.include_router(routers.contract_router)
 app.include_router(routers.platform_router)
 app.include_router(routers.user_router)
-app.include_router(routers.static_router)
 # app.include_router(routers.websocket_router) # exclude in favor of polling

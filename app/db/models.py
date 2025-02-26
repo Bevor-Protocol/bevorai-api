@@ -4,7 +4,7 @@ import secrets
 from tortoise import fields
 from tortoise.models import Model
 
-from app.utils.enums import (
+from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
     AuditTypeEnum,
