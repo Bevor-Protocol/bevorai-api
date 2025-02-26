@@ -127,9 +127,7 @@ class Transaction(AbstractModel):
     user: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
         "models.User", on_delete=fields.SET_NULL, null=True, related_name="transactions"
     )
-    type = fields.CharEnumField(
-        enum_type=TransactionTypeEnum, default=TransactionTypeEnum.SPEND
-    )
+    type = fields.CharEnumField(enum_type=TransactionTypeEnum)
     amount = fields.FloatField()
 
     class Meta:
