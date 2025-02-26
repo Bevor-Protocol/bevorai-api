@@ -6,11 +6,12 @@ import httpx
 
 from app.api.blockchain.service import BlockchainService
 from app.api.pipeline.audit_generation import LlmPipeline
-from app.db.models import Audit, Contract
+from app.db.models import Audit, Auth, Contract
 from app.utils.clients.web3 import Web3Client
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
+    ClientTypeEnum,
     ContractMethodEnum,
     NetworkEnum,
 )
@@ -18,11 +19,14 @@ from app.utils.types.enums import (
 
 async def handle_eval(audit_id: str):
     now = datetime.now()
-    audit = await Audit.get(id=audit_id).select_related(
-        "app__owner", "contract", "user"
-    )
+    audit = await Audit.get(id=audit_id).select_related("contract")
 
-    consume_credits = (not audit.app) or (audit.app.type != AppTypeEnum.FIRST_PARTY)
+    if audit.app_id:
+        # was called via an App, whether 1st or 3rd party
+        caller_auth = await Auth.get(app_id=audit.app_id).select_related("app__owner")
+    else:
+        # was called directly by a user via api.
+        caller_auth = await Auth.get(user_id=audit.user_id).select_related("user")
 
     pipeline = LlmPipeline(
         input=audit.contract.raw_code,
@@ -52,15 +56,18 @@ async def handle_eval(audit_id: str):
         raise err
 
     # NOTE: could remove this if condition in the future. Free via the app.
-    if consume_credits:
-        cost = pipeline.usage.get_cost()
-        # implied that it's not a FIRST_PARTY app
-        if audit.app:
-            user = audit.app.owner
-            user.used_credits += cost
-            await user.save()
+
+    cost = pipeline.usage.get_cost()
+
+    if caller_auth.consumes_credits:
+        if caller_auth.client_type == ClientTypeEnum.APP:
+            app = caller_auth.app
+            if app.type == AppTypeEnum.THIRD_PARTY:
+                user = caller_auth.app.owner
+                user.used_credits += cost
+                await user.save()
         else:
-            user = audit.user
+            user = caller_auth.user
             user.used_credits += cost
             await user.save()
 

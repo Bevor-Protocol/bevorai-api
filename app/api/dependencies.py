@@ -71,7 +71,6 @@ class Authentication:
                 role = RoleEnum.APP_FIRST_PARTY
             else:
                 role = RoleEnum.APP
-
         else:
             credit_consumer_user_id = user.id
             role = RoleEnum.USER
@@ -248,9 +247,7 @@ class RequireCredits:
 
         auth: AuthState = request.state.auth
 
-        if auth.scope == AuthScopeEnum.ADMIN:
-            # NOTE: will likely change this in the future
-            # denotes the FIRST_PARTY_APP was the caller
+        if not auth.consumes_credits:
             return
 
         if auth.credit_consumer_user_id:
