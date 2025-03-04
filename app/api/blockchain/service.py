@@ -24,7 +24,7 @@ class BlockchainService:
             data = response.json()
             return data
 
-    def __parse_source_code(scan_results: list[dict]):
+    def __parse_source_code(self, scan_results: list[dict]):
         """
         Etherscan response object can be a plaintext response,
         or a object of dependencies.
@@ -35,19 +35,16 @@ class BlockchainService:
             return
 
         scan_result = scan_results[0]
-        source_code = scan_result["SourceCode"]
+        source_code = scan_result.get("SourceCode")
 
-        if not source_code.startswith("{"):
+        if not source_code:
             # Will handle empty, or plaintext responses.
             return source_code
 
         contract_name = scan_result["ContractName"] + ".sol"
 
         source_code = json.loads(
-            source_code.strip(" '")
-            .replace("\\r\\n", "")
-            .replace("{{", "{")
-            .replace("}}", "}")
+            source_code.strip(" '").replace("{{", "{").replace("}}", "}")
         )
 
         for k, v in source_code["sources"].items():
