@@ -1,5 +1,3 @@
-import logging
-
 from tortoise.query_utils import Prefetch
 from tortoise.transactions import in_transaction
 
@@ -66,8 +64,6 @@ class UserService:
 
         n_audits = len(user_audits)
         n_contracts = len(set(map(lambda x: x.contract_id, user_audits)))
-
-        logging.info(f"{cur_user.total_credits}, {cur_user.used_credits}")
 
         return UserInfoResponse(
             id=cur_user.id,
