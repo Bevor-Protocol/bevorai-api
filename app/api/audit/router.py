@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import (
@@ -90,6 +91,8 @@ class AuditRouter:
         request: Request,
         query_params: Annotated[FilterParams, Query()],
     ):
+        logging.info("MADE IT HERE")
+        logging.info(query_params)
         # rate_limit(request=request, user=user)
         audit_service = AuditService()
         response = await audit_service.get_audits(
