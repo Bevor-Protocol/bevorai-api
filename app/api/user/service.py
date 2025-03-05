@@ -5,18 +5,18 @@ from app.api.dependencies import AuthState
 from app.api.permission.service import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
 from app.utils.schema.response import AuthInfo, UserAppInfo, UserInfoResponse
-from app.utils.types.enums import AuditStatusEnum, ClientTypeEnum, RoleEnum
+from app.utils.types.enums import AuditStatusEnum, ClientTypeEnum
 
 
 class UserService:
-    async def get_or_create(self, auth: AuthState, address: str) -> User:
-        user = await User.filter(app_owner_id=auth.app_id, address=address).first()
+    async def get_or_create(self, address: str) -> User:
+        user = await User.filter(address=address).first()
         if user:
             return user
 
         permission_service = PermissionService()
         async with in_transaction():
-            user = await User.create(app_owner_id=auth.app_id, address=address)
+            user = await User.create(address=address)
             await permission_service.create(
                 client_type=ClientTypeEnum.USER, identifier=user.id
             )
@@ -30,22 +30,17 @@ class UserService:
         app_queryset = App.all().prefetch_related("permissions", "auth")
 
         audit_pf = Prefetch("audits", queryset=audit_queryset)
-        app_pf = Prefetch("app", queryset=app_queryset)
+        apps_pf = Prefetch("apps", queryset=app_queryset)
 
-        user_filter = {"id": auth.user_id}
-        if auth.is_delegated:
-            if auth.role != RoleEnum.APP_FIRST_PARTY:
-                user_filter["app_owner_id"] = auth.app_id
-
-        cur_user = await User.get(**user_filter).prefetch_related(
-            audit_pf, "auth", "permissions", app_pf
+        cur_user = await User.get(id=auth.user_id).prefetch_related(
+            audit_pf, "auth", "permissions", apps_pf
         )
 
         user_audits = cur_user.audits
         user_auth = cur_user.auth
 
         # this is a nullable FK relation, grab the first.
-        user_app: App | None = cur_user.app[0] if cur_user.app else None
+        user_app: App | None = cur_user.apps[0] if cur_user.apps else None
         # currently only 1 auth is support per user, but it's not a OneToOne relation
         user_permissions: Permission = cur_user.permissions
 

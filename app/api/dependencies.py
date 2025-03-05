@@ -74,6 +74,7 @@ class Authentication:
                 user_id = app.owner.id if not is_delegated else user_identifier
         else:
             credit_consumer_user_id = user.id
+            is_delegated = False
             role = RoleEnum.USER
             user_id = user.id
 

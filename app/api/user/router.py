@@ -34,15 +34,13 @@ class UserRouter:
             **GET_USER_INFO
         )
 
-    async def get_or_create_user(
-        self, request: Request, body: Annotated[UserUpsertBody, Body()]
-    ):
+    async def get_or_create_user(self, body: Annotated[UserUpsertBody, Body()]):
 
         # Users are created through apps. A user is denoted by their address,
         # but might have different app owners that they were created through.
         user_service = UserService()
 
-        result = await user_service.get_or_create(request.state.auth, body.address)
+        result = await user_service.get_or_create(body.address)
         response = IdResponse(id=result.id)
 
         return Response(

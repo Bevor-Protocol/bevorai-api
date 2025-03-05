@@ -32,24 +32,19 @@ class AbstractModel(Model):
 
 
 class User(AbstractModel):
-    app_owner: fields.ForeignKeyNullableRelation["App"] = fields.ForeignKeyField(
-        "models.App",
-        on_delete=fields.CASCADE,
-        description="app that the user was created through",
-        null=True,  # need to set this to null so i can backfill.
-    )
     address = fields.CharField(max_length=255)
     total_credits = fields.FloatField(default=0)
     used_credits = fields.FloatField(default=0)
 
-    app: fields.ReverseRelation["App"]
+    # users can own 0 to many apps
+    apps: fields.ReverseRelation["App"]
     audits: fields.ReverseRelation["Audit"]
     auth: fields.ReverseRelation["Auth"]
     permissions: fields.ReverseRelation["Permission"]
 
     class Meta:
         table = "user"
-        indexes = (("address",), ("app_owner_id",), ("app_owner_id", "address"))
+        indexes = ("address",)
 
     def __str__(self):
         return f"{str(self.id)} | {self.address}"
@@ -58,13 +53,12 @@ class User(AbstractModel):
 class App(AbstractModel):
     # Every app will have an owner, unless it's a first party app.
     owner: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
-        "models.User", on_delete=fields.SET_NULL, null=True, related_name="app"
+        "models.User", on_delete=fields.SET_NULL, null=True, related_name="apps"
     )
     name = fields.CharField(max_length=255)
     type = fields.CharEnumField(enum_type=AppTypeEnum, default=AppTypeEnum.THIRD_PARTY)
 
     auth: fields.ReverseRelation["Auth"]
-    users: fields.ReverseRelation["User"]
     audits: fields.ReverseRelation["Audit"]
     permissions: fields.ReverseRelation["Permission"]
 
