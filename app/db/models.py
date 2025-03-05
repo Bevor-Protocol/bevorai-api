@@ -32,7 +32,7 @@ class AbstractModel(Model):
 
 
 class User(AbstractModel):
-    app_owner = fields.ForeignKeyField(
+    app_owner: fields.ForeignKeyNullableRelation["App"] = fields.ForeignKeyField(
         "models.App",
         on_delete=fields.CASCADE,
         description="app that the user was created through",

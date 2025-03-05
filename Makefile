@@ -9,3 +9,6 @@ init-db:
 
 init-config:
 	poetry run aerich init -t app.config.TORTOISE_ORM --location app/db/migrations
+
+test:
+	poetry run pytest tests/
