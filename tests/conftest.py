@@ -2,10 +2,26 @@ import asyncio
 import logging
 import os
 import sys
-import uuid
-from typing import Dict, Optional
+from typing import AsyncGenerator
 
 import pytest_asyncio
+
+from app.api.app.service import AppService
+from app.api.auth.service import AuthService
+from app.api.user.service import UserService
+from app.utils.schema.request import AppUpsertBody
+from tests.constants import (
+    FIRST_PARTY_APP_API_KEY,
+    FIRST_PARTY_APP_NAME,
+    STANDARD_USER_ADDRESS,
+    THIRD_PARTY_APP_API_KEY,
+    THIRD_PARTY_APP_NAME,
+    THIRD_PARTY_APP_OWNER_ADDRESS,
+    USER_API_KEY,
+    USER_WITH_APP_API_KEY,
+    USER_WITH_AUTH_ADDRESS,
+    USER_WITH_PERMISSION_ADDRESS,
+)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -13,16 +29,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 # tests/conftest.py
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from tortoise import Tortoise
-from tortoise.contrib.test import _init_db, finalizer, getDBConfig, initializer
 
-from app.db.models import User  # Replace with your actual model
-from app.db.models import App, Auth
-from app.main import app as main_app
+from app.db.models import App, Auth, Permission  # Replace with your actual model
+from app.main import app
 from app.utils.schema.dependencies import AuthState
-from app.utils.types.enums import AppTypeEnum, ClientTypeEnum, RoleEnum
+from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
 
 logger = logging.getLogger(__name__)
 
@@ -37,15 +50,6 @@ TEST_TORTOISE_ORM = {
         },
     },
 }
-
-
-# @pytest.fixture(scope="session", autouse=True)
-# async def initialize_test_db():
-#     await Tortoise.init(config=TEST_TORTOISE_ORM)
-#     await Tortoise.generate_schemas()
-#     logger.info("INITIALIZED")
-#     yield
-#     await Tortoise.close_connections()
 
 
 @pytest.fixture(scope="session")
@@ -72,55 +76,170 @@ def in_memory_db(request, event_loop):
     request.addfinalizer(finalizer)
 
 
-@pytest_asyncio.fixture(scope="session")
-async def user_factory():
-    """Factory to create users with different attributes"""
+@pytest.fixture(scope="module")
+async def async_client() -> AsyncGenerator:
 
-    async def _create_user(address: str, total_credits: float = 100.0) -> User:
-
-        user = await User.create(
-            address=address, total_credits=total_credits, used_credits=0.0
-        )
-        return user
-
-    return _create_user
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        yield client
 
 
-@pytest_asyncio.fixture(scope="session")
-async def app_factory():
-    """Factory to create apps with different attributes"""
+"""
+Creating core fixtures to be used throughout. I'll never manipulate these.
 
-    async def _create_app(
-        name: str = "Test App",
-        app_type: AppTypeEnum = AppTypeEnum.THIRD_PARTY,
-        owner: User | None = None,
-    ) -> App:
-        if app_type == AppTypeEnum.THIRD_PARTY:
-            if not owner:
-                raise Exception("owner_address is required")
-
-        app = await App.create(name=name, type=app_type, owner=owner)
-        return app
-
-    return _create_app
+If I do need to manipulate them, they'll be scoped within a module.
+"""
 
 
 @pytest_asyncio.fixture(scope="session")
 async def first_party_app():
-    return await App.create(type=AppTypeEnum.FIRST_PARTY, name="test")
-
-
-@pytest_asyncio.fixture(scope="session")
-async def standard_user(user_factory):
-    """Create a standard user"""
-    return await user_factory(address="0xuser")
-
-
-@pytest_asyncio.fixture(scope="session")
-async def third_party_app(app_factory, standard_user):
-    """Create a third-party app with a user owner"""
-    return await app_factory(
-        name="Third Party Test App",
-        app_type=AppTypeEnum.THIRD_PARTY,
-        owner=standard_user,
+    """does not require a user (app owner)"""
+    app = await App.create(name=FIRST_PARTY_APP_NAME, type=AppTypeEnum.FIRST_PARTY)
+    hashed_key = Auth.hash_key(FIRST_PARTY_APP_API_KEY)
+    await Auth.create(
+        app=app,
+        client_type=ClientTypeEnum.APP,
+        hashed_key=hashed_key,
+        consumes_credits=False,
+        scope=AuthScopeEnum.ADMIN,
     )
+    return app
+
+
+@pytest_asyncio.fixture(scope="session")
+async def standard_user():
+    """Create a standard user"""
+    user_service = UserService()
+
+    user = await user_service.get_or_create(STANDARD_USER_ADDRESS)
+    permissions = await Permission.get(user_id=user.id)
+
+    assert not permissions.can_create_api_key
+    assert not permissions.can_create_app
+
+    return user
+
+
+@pytest_asyncio.fixture(scope="session")
+async def user_with_permission():
+    """Create a user where permissions were whitelisted"""
+    user_service = UserService()
+
+    user = await user_service.get_or_create(USER_WITH_PERMISSION_ADDRESS)
+    permissions = await Permission.get(user_id=user.id)
+
+    # currently done manually.
+    permissions.can_create_api_key = True
+    permissions.can_create_app = True
+
+    await permissions.save()
+
+    return user
+
+
+@pytest_asyncio.fixture(scope="session")
+async def user_with_auth():
+    """Create a user who requested an API key"""
+    user_service = UserService()
+    auth_service = AuthService()
+
+    user = await user_service.get_or_create(USER_WITH_AUTH_ADDRESS)
+    permissions = await Permission.get(user_id=user.id)
+
+    # currently done manually.
+    permissions.can_create_api_key = True
+    permissions.can_create_app = True
+
+    await permissions.save()
+
+    mock_auth_state = AuthState(
+        user_id=user.id,
+        consumes_credits=True,
+        credit_consumer_user_id=user.id,
+        role=RoleEnum.USER,
+    )
+
+    intermediate_key = await auth_service.generate(
+        auth_obj=mock_auth_state, client_type=ClientTypeEnum.USER
+    )
+
+    assert len(intermediate_key)
+
+    # can't pass key to service. explicitly update it to known value.
+    hashed_key = Auth.hash_key(USER_API_KEY)
+    auth = await Auth.get(user_id=user.id)
+    auth.hashed_key = hashed_key
+    await auth.save()
+
+    return user
+
+
+@pytest_asyncio.fixture(scope="session")
+async def user_with_app():
+    """Create a user who created an App"""
+    user_service = UserService()
+    auth_service = AuthService()
+
+    user = await user_service.get_or_create(THIRD_PARTY_APP_OWNER_ADDRESS)
+    permissions = await Permission.get(user_id=user.id)
+
+    # currently done manually.
+    permissions.can_create_api_key = True
+    permissions.can_create_app = True
+
+    await permissions.save()
+
+    mock_auth_state = AuthState(
+        user_id=user.id,
+        consumes_credits=True,
+        credit_consumer_user_id=user.id,
+        role=RoleEnum.USER,
+    )
+
+    intermediate_key = await auth_service.generate(
+        auth_obj=mock_auth_state, client_type=ClientTypeEnum.USER
+    )
+
+    assert len(intermediate_key)
+
+    # can't pass key to service. explicitly update it to known value.
+    hashed_key = Auth.hash_key(USER_WITH_APP_API_KEY)
+    auth = await Auth.get(user_id=user.id)
+    auth.hashed_key = hashed_key
+    await auth.save()
+
+    return user
+
+
+@pytest_asyncio.fixture(scope="session")
+async def third_party_app(user_with_app):
+    app_service = AppService()
+    auth_service = AuthService()
+
+    mock_auth_state = AuthState(
+        user_id=user_with_app.id,
+        consumes_credits=True,
+        credit_consumer_user_id=user_with_app.id,
+        role=RoleEnum.USER,
+    )
+
+    await app_service.create(
+        auth=mock_auth_state, body=AppUpsertBody(name=THIRD_PARTY_APP_NAME)
+    )
+
+    app = await App.get(owner_id=user_with_app.id)
+
+    intermediate_key = await auth_service.generate(
+        auth_obj=mock_auth_state, client_type=ClientTypeEnum.APP
+    )
+
+    assert len(intermediate_key)
+
+    # can't pass key to service. explicitly update it to known value.
+    hashed_key = Auth.hash_key(THIRD_PARTY_APP_API_KEY)
+    auth = await Auth.get(app_id=app.id)
+    auth.hashed_key = hashed_key
+    await auth.save()
+
+    return app

@@ -2,8 +2,9 @@ import logging
 
 import pytest
 
-from app.db.models import App, User
+from app.db.models import App, Auth, User
 from app.utils.types.enums import AppTypeEnum
+from tests.constants import FIRST_PARTY_API_KEY
 
 # @pytest.mark.asyncio
 # async def test_database_initialization():
@@ -55,9 +56,12 @@ async def test_session_apps_exist(first_party_app, third_party_app):
     # duplicative, but include either way. Removing the params would call this to fail.
 
     first_party = await App.get(name="test").select_related("owner")
+    first_party_auth = await Auth.get(app_id=first_party.id)
     third_party = await App.get(name="Third Party Test App").select_related("owner")
 
     assert first_party.owner is None
     assert first_party.type == AppTypeEnum.FIRST_PARTY
+    assert not first_party_auth.consumes_credits
+    assert first_party_auth.hashed_key == Auth.hash_key(FIRST_PARTY_API_KEY)
     assert third_party.owner is not None
     assert third_party.type == AppTypeEnum.THIRD_PARTY

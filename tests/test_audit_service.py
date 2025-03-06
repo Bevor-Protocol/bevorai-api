@@ -17,7 +17,7 @@ from app.utils.types.enums import (
 
 
 @pytest.fixture
-async def setup_audit_data(test_db):
+async def setup_audit_data():
     user = await User.create(address="0xAUDITOR")
 
     contract = await Contract.create(
