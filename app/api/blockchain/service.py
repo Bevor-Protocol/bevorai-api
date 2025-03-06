@@ -35,10 +35,13 @@ class BlockchainService:
             return
 
         scan_result = scan_results[0]
-        source_code = scan_result.get("SourceCode")
+        source_code: str = scan_result.get("SourceCode")
 
         if not source_code:
             # Will handle empty, or plaintext responses.
+            return source_code
+
+        if not source_code.startswith("{{"):
             return source_code
 
         contract_name = scan_result["ContractName"] + ".sol"
