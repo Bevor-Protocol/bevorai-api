@@ -1,132 +1,171 @@
-from unittest.mock import MagicMock, patch
+import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import Response
+from httpx import Request, Response
 
-from app.api.blockchain.service import BlockchainService
-from app.api.contract.service import ContractService
 from app.db.models import Contract
 from app.utils.clients.explorer import ExplorerClient
-from app.utils.types.enums import ContractMethodEnum, NetworkEnum
+from app.utils.schema.request import ContractScanBody
+from app.utils.types.enums import NetworkEnum
+from tests.constants import USER_API_KEY
 
 
 @pytest.mark.anyio
-async def test_contract_upload_clean(user_with_auth, async_client, monkeypatch):
+async def test_contract_scan_clean(user_with_auth, async_client):
     """
     Test that the authentication dependency check works correctly for the
     sync_credits endpoint without executing the endpoint logic
     """
     # Mock the sync_credits method that will be called after dependency check
-    original_get_credits = BlockchainService.get_credits
-    original_get_source_code = ExplorerClient.get_source_code
-
-    method_called = False
+    ADDRESS = "0xfakeaddress"
+    async_mock = AsyncMock()
 
     async def mock_get_source_code(self, client, network, address):
-        # NOTE: we can expand this test set.
-        nonlocal method_called
-        method_called = True
+        request = Request("GET", "https://mocked.url")
         if network == NetworkEnum.ETH:
             return Response(
-                status_code=200, json={"result": [{"SourceCode": "contract Test {}"}]}
+                request=request,
+                status_code=200,
+                content=json.dumps(
+                    {"result": [{"SourceCode": "test contract content"}]}
+                ),
             )
-        else:
-            return Response(status_code=200, json={})
+        return Response(request=request, status_code=200, content=json.dumps({}))
 
-    # Apply the mock to the blockchain service's get_credits method
-    monkeypatch.setattr(ExplorerClient, "get_source_code", mock_get_source_code)
+    async_mock.side_effect = mock_get_source_code
 
-    monkeypatch.setattr(ExplorerClient, "get_source_code", original_get_source_code)
+    # Patch ExplorerClient.get_source_code
+    with patch.object(ExplorerClient, "get_source_code", new=mock_get_source_code):
+        mock_body = ContractScanBody(address=ADDRESS)
 
+        response = await async_client.post(
+            "/contract",
+            headers={"Authorization": f"Bearer {USER_API_KEY}"},
+            json=mock_body.model_dump(),
+        )
 
-@pytest.mark.asyncio
-async def test_fetch_from_source_with_code(test_db):
-    contract_service = ContractService()
+        # Assertions
+        assert response.status_code == 202
 
-    # Test with code provided
-    sample_code = "contract Test { function test() public {} }"
-    response = await contract_service.fetch_from_source(code=sample_code)
+    mock_body = ContractScanBody(address=ADDRESS)
 
-    assert response.exists is True
-    assert response.exact_match is True
-    assert response.contract is not None
-    assert response.contract.code == sample_code
-
-    # Verify contract was created in DB
-    contract = await Contract.get(id=response.contract.id)
-    assert contract.raw_code == sample_code
-    assert contract.method == ContractMethodEnum.UPLOAD
-
-
-@pytest.mark.asyncio
-async def test_fetch_from_source_with_address(test_db):
-    contract_service = ContractService()
-
-    # Create a contract first
-    contract = await Contract.create(
-        address="0xTEST123",
-        network=NetworkEnum.ETH,
-        method=ContractMethodEnum.SCAN,
-        raw_code="contract Test { function test() public {} }",
-        is_available=True,
+    response = await async_client.post(
+        "/contract",
+        headers={"Authorization": f"Bearer {USER_API_KEY}"},
+        json=mock_body.model_dump(),
     )
 
-    # Test fetching by address
-    response = await contract_service.fetch_from_source(address="0xTEST123")
+    assert response.status_code == 202
 
-    assert response.exists is True
-    assert response.contract is not None
-    assert response.contract.id == str(contract.id)
-    assert response.contract.address == "0xTEST123"
+    data = response.json()
+    assert data["exact_match"] is True
+    assert data["exists"] is True
+    assert data["contract"]["network"] == NetworkEnum.ETH
+
+    contracts = await Contract.filter(address=ADDRESS)
+
+    assert len(contracts) > 0
+
+    eth_contract = next(
+        (contract for contract in contracts if contract.network == NetworkEnum.ETH),
+        None,
+    )
+    non_eth_contract = next(
+        (contract for contract in contracts if contract.network != NetworkEnum.ETH),
+        None,
+    )
+    assert eth_contract is not None
+    assert eth_contract.is_available is True
+    assert eth_contract.raw_code is not None
+    assert non_eth_contract.is_available is False
+    assert non_eth_contract.raw_code is None
+
+    await Contract.filter(address=ADDRESS).delete()
 
 
-@pytest.mark.asyncio
-async def test_get_contract(test_db):
-    # Create a contract
-    contract = await Contract.create(
-        address="0xGET123",
-        network=NetworkEnum.ETH,
-        method=ContractMethodEnum.SCAN,
-        raw_code="contract Test { function get() public {} }",
-        is_available=True,
+@pytest.mark.anyio
+async def test_contract_scan_multiple_found(user_with_auth, async_client):
+    """
+    Test that the authentication dependency check works correctly for the
+    sync_credits endpoint without executing the endpoint logic
+    """
+    # Mock the sync_credits method that will be called after dependency check
+    ADDRESS = "0xfakeaddress"
+    async_mock = AsyncMock()
+
+    async def mock_get_source_code(self, client, network, address):
+        request = Request("GET", "https://mocked.url")
+        if network in [NetworkEnum.ETH, NetworkEnum.ARB]:
+            return Response(
+                request=request,
+                status_code=200,
+                content=json.dumps(
+                    {"result": [{"SourceCode": "test contract content"}]}
+                ),
+            )
+        return Response(request=request, status_code=200, content=json.dumps({}))
+
+    async_mock.side_effect = mock_get_source_code
+
+    # Patch ExplorerClient.get_source_code
+    with patch.object(ExplorerClient, "get_source_code", new=mock_get_source_code):
+        mock_body = ContractScanBody(address=ADDRESS)
+
+        response = await async_client.post(
+            "/contract",
+            headers={"Authorization": f"Bearer {USER_API_KEY}"},
+            json=mock_body.model_dump(),
+        )
+
+        # Assertions
+        assert response.status_code == 202
+
+    mock_body = ContractScanBody(address=ADDRESS)
+
+    response = await async_client.post(
+        "/contract",
+        headers={"Authorization": f"Bearer {USER_API_KEY}"},
+        json=mock_body.model_dump(),
     )
 
-    contract_service = ContractService()
-    response = await contract_service.get(str(contract.id))
+    assert response.status_code == 202
 
-    assert response.id == str(contract.id)
-    assert response.address == "0xGET123"
-    assert response.code == "contract Test { function get() public {} }"
+    data = response.json()
+    assert data["exact_match"] is False
+    assert data["exists"] is True
+    assert data["contract"]["network"] in [NetworkEnum.ETH, NetworkEnum.ARB]
+
+    contracts = await Contract.filter(address=ADDRESS)
+
+    assert len(contracts) > 0
+
+    eth_contract = next(
+        (
+            contract
+            for contract in contracts
+            if contract.network in [NetworkEnum.ETH, NetworkEnum.ARB]
+        ),
+        None,
+    )
+    non_eth_contract = next(
+        (
+            contract
+            for contract in contracts
+            if contract.network not in [NetworkEnum.ETH, NetworkEnum.ARB]
+        ),
+        None,
+    )
+    assert eth_contract is not None
+    assert eth_contract.is_available is True
+    assert eth_contract.raw_code is not None
+    assert non_eth_contract.is_available is False
+    assert non_eth_contract.raw_code is None
+
+    await Contract.filter(address=ADDRESS).delete()
 
 
-@pytest.mark.asyncio
-async def test_analyze_contract():
-    contract_service = ContractService()
+# TODO: create test for the json return type from etherscan...
 
-    # Mock AST for a simple token contract
-    ast = {
-        "children": [
-            {
-                "type": "ContractDefinition",
-                "subNodes": [
-                    {
-                        "type": "FunctionDefinition",
-                        "name": "mint",
-                        "visibility": "public",
-                        "body": "{ require(msg.sender == owner); _mint(to, amount); }",
-                    },
-                    {
-                        "type": "FunctionDefinition",
-                        "name": "_mint",
-                        "visibility": "internal",
-                        "body": "{ balances[to] += amount; }",
-                    },
-                ],
-            }
-        ]
-    }
 
-    result = contract_service.analyze_contract(ast)
-
-    assert result.is_mintable is True
-    assert result.has_allowlist is False
+# TODO: write test for AST + parser

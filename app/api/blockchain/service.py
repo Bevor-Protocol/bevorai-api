@@ -38,7 +38,6 @@ class BlockchainService:
         source_code: str = scan_result.get("SourceCode")
 
         if not source_code:
-            # Will handle empty, or plaintext responses.
             return source_code
 
         if not source_code.startswith("{{"):
@@ -88,7 +87,8 @@ class BlockchainService:
             raise NoSourceCodeError()
         except NoSourceCodeError:
             obj["found"] = True
-        except Exception:
+        except Exception as err:
+            logging.exception(err)
             pass
         finally:
             return obj
