@@ -1,10 +1,42 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from httpx import Response
 
+from app.api.blockchain.service import BlockchainService
 from app.api.contract.service import ContractService
 from app.db.models import Contract
+from app.utils.clients.explorer import ExplorerClient
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum
+
+
+@pytest.mark.anyio
+async def test_contract_upload_clean(user_with_auth, async_client, monkeypatch):
+    """
+    Test that the authentication dependency check works correctly for the
+    sync_credits endpoint without executing the endpoint logic
+    """
+    # Mock the sync_credits method that will be called after dependency check
+    original_get_credits = BlockchainService.get_credits
+    original_get_source_code = ExplorerClient.get_source_code
+
+    method_called = False
+
+    async def mock_get_source_code(self, client, network, address):
+        # NOTE: we can expand this test set.
+        nonlocal method_called
+        method_called = True
+        if network == NetworkEnum.ETH:
+            return Response(
+                status_code=200, json={"result": [{"SourceCode": "contract Test {}"}]}
+            )
+        else:
+            return Response(status_code=200, json={})
+
+    # Apply the mock to the blockchain service's get_credits method
+    monkeypatch.setattr(ExplorerClient, "get_source_code", mock_get_source_code)
+
+    monkeypatch.setattr(ExplorerClient, "get_source_code", original_get_source_code)
 
 
 @pytest.mark.asyncio

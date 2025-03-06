@@ -90,7 +90,6 @@ class ContractService:
             networks_scan = [network]
         else:
             networks_scan = networks_by_type[NetworkTypeEnum.MAINNET]
-            networks_scan = [NetworkEnum.ETH]
             if self.allow_testnet:
                 networks_scan += networks_by_type[NetworkTypeEnum.TESTNET]
 
