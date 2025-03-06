@@ -2,7 +2,6 @@ import logging
 
 import pytest
 
-from app.api.user.service import UserService
 from app.db.models import User
 from app.utils.schema.request import UserUpsertBody
 from tests.constants import (
@@ -12,8 +11,6 @@ from tests.constants import (
 )
 
 logger = logging.getLogger(__name__)
-
-user_service = UserService()
 
 
 @pytest.mark.anyio
