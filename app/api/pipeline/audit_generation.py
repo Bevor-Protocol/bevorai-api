@@ -143,8 +143,8 @@ class LlmPipeline:
 
         # allows for some fault tolerance.
         now = datetime.now()
-        await self.__checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
         try:
+            await self.__checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
             response = await llm_client.chat.completions.create(
                 model="gpt-4o-mini",
                 max_completion_tokens=2000,
@@ -203,7 +203,7 @@ class LlmPipeline:
 
     async def generate_report(self):
         if not self.candidate_prompt:
-            raise NotImplementedError("must run generate_judgement() first")
+            raise NotImplementedError("must run generate_candidates() first")
 
         await self.__publish_event(name="report", status="start")
 

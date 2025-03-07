@@ -184,6 +184,8 @@ async def user_with_app():
     user = await user_service.get_or_create(THIRD_PARTY_APP_OWNER_ADDRESS)
     permissions = await Permission.get(user_id=user.id)
 
+    logging.info(f"within user {user.id}")
+
     # currently done manually.
     permissions.can_create_api_key = True
     permissions.can_create_app = True
@@ -216,6 +218,8 @@ async def user_with_app():
 async def third_party_app(user_with_app):
     app_service = AppService()
     auth_service = AuthService()
+
+    logging.info(f"within app {user_with_app.id}")
 
     mock_auth_state = AuthState(
         user_id=user_with_app.id,

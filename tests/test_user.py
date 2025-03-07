@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from app.db.models import User
@@ -9,8 +7,6 @@ from tests.constants import (
     THIRD_PARTY_APP_API_KEY,
     USER_API_KEY,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @pytest.mark.anyio

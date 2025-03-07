@@ -220,7 +220,9 @@ async def test_auth_dependency_user(user_with_auth):
 
 
 @pytest.mark.anyio
-async def test_auth_with_delegation(first_party_app, third_party_app, user_with_auth):
+async def test_auth_with_delegation(
+    first_party_app, third_party_app, user_with_auth, standard_user
+):
     """Confirm first party can delegate to user"""
     mock_request = Request(
         scope={
@@ -297,7 +299,7 @@ async def test_auth_with_delegation(first_party_app, third_party_app, user_with_
     await auth_dependency(
         request=mock_request,
         authorization=credentials,
-        x_user_identifier=str(user_with_auth.id),
+        x_user_identifier=str(standard_user.id),
     )
 
     # Verify the auth state was set correctly

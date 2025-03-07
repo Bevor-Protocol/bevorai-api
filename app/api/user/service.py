@@ -1,4 +1,3 @@
-from tortoise.query_utils import Prefetch
 from tortoise.transactions import in_transaction
 
 from app.api.dependencies import AuthState
@@ -25,24 +24,44 @@ class UserService:
 
     async def get_info(self, auth: AuthState) -> UserInfoResponse:
 
-        audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS)
+        # audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS)
 
-        app_queryset = App.all().prefetch_related("permissions", "auth")
+        # app_queryset = App.all().prefetch_related("permissions", "auth")
 
-        audit_pf = Prefetch("audits", queryset=audit_queryset)
-        apps_pf = Prefetch("apps", queryset=app_queryset)
+        # audit_pf = Prefetch("audits", queryset=audit_queryset)
+        # apps_pf = Prefetch("apps", queryset=app_queryset)
 
-        cur_user = await User.get(id=auth.user_id).prefetch_related(
-            audit_pf, "auth", "permissions", apps_pf
+        # cur_user = await User.get(id=auth.user_id).prefetch_related(
+        #     audit_pf,
+        #     Prefetch("auth", queryset=Auth.all()),
+        #     Prefetch("permissions", queryset=Permission.all()),
+        #     apps_pf,
+        # )
+
+        # prefetching caused asyncio.lock errors when running all tests
+        # despite each testing module working in isolation. Ill just call
+        # each query individually.
+        cur_user = await User.get(id=auth.user_id)
+        user_audits = await Audit.filter(
+            user_id=auth.user_id, status=AuditStatusEnum.SUCCESS
         )
+        user_auth = await Auth.filter(user_id=auth.user_id).first()
+        user_app = (
+            await App.filter(owner_id=auth.user_id)
+            .select_related("permissions", "auth")
+            .first()
+        )
+        user_permissions = await Permission.get(user_id=auth.user_id)
 
-        user_audits = cur_user.audits
-        user_auth = cur_user.auth
+        # user_audits = cur_user.audits
+        # user_auth = cur_user.auth
+        # user_permissions: Permission = cur_user.permissions
+        # # this is a nullable FK relation, grab the first.
+        # user_app: App | None = cur_user.apps[0] if cur_user.apps else None
 
-        # this is a nullable FK relation, grab the first.
-        user_app: App | None = cur_user.apps[0] if cur_user.apps else None
-        # currently only 1 auth is support per user, but it's not a OneToOne relation
-        user_permissions: Permission = cur_user.permissions
+        # # this is a nullable FK relation, grab the first.
+        # user_app: App | None = cur_user.apps[0] if cur_user.apps else None
+        # # currently only 1 auth is support per user, but it's not a OneToOne relation
 
         app_info = UserAppInfo(
             exists=user_app is not None,

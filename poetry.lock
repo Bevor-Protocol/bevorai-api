@@ -1117,6 +1117,28 @@ docs = ["sphinx (>=6.0.0)", "sphinx-autobuild (>=2021.3.14)", "sphinx-rtd-theme 
 test = ["hypothesis (>=4.43.0)", "mypy (==1.10.0)", "pytest (>=7.0.0)", "pytest-xdist (>=2.4.0)"]
 
 [[package]]
+name = "fakeredis"
+version = "2.27.0"
+description = "Python implementation of redis API, can be used for testing purposes."
+optional = false
+python-versions = "<4.0,>=3.7"
+files = [
+    {file = "fakeredis-2.27.0-py3-none-any.whl", hash = "sha256:f4b6e0fa4193acbf00d81dac71ff5cc34fe7d7c12f1560b036f98578a103d5c3"},
+    {file = "fakeredis-2.27.0.tar.gz", hash = "sha256:7b7584ec104392592297f46864a82cb7339a23e254ee885bf5ae07cfc64fbce7"},
+]
+
+[package.dependencies]
+redis = {version = ">=4.3", markers = "python_full_version > \"3.8.0\""}
+sortedcontainers = ">=2,<3"
+
+[package.extras]
+bf = ["pyprobables (>=0.6,<0.7)"]
+cf = ["pyprobables (>=0.6,<0.7)"]
+json = ["jsonpath-ng (>=1.6,<2.0)"]
+lua = ["lupa (>=2.1,<3.0)"]
+probabilistic = ["pyprobables (>=0.6,<0.7)"]
+
+[[package]]
 name = "fastapi"
 version = "0.115.11"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
@@ -2852,6 +2874,17 @@ files = [
 antlr4-python3-runtime = "4.9.3"
 
 [[package]]
+name = "sortedcontainers"
+version = "2.4.0"
+description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
+optional = false
+python-versions = "*"
+files = [
+    {file = "sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"},
+    {file = "sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88"},
+]
+
+[[package]]
 name = "starlette"
 version = "0.46.0"
 description = "The little ASGI library that shines."
@@ -3449,4 +3482,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "4359513d35fdac4ff25b5dc66de4edcc21c42bbaf5c41c5cda319a28a4aff4d7"
+content-hash = "4950e1399b69406207390861335f43b56ed4c60d623d986044dfb80ef2339e35"
