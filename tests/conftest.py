@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import sys
 from typing import AsyncGenerator
@@ -36,8 +35,6 @@ from app.db.models import App, Auth, Permission  # Replace with your actual mode
 from app.main import app
 from app.utils.schema.dependencies import AuthState
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
-
-logger = logging.getLogger(__name__)
 
 TEST_DB_URL = "sqlite://:memory:"
 
@@ -184,8 +181,6 @@ async def user_with_app():
     user = await user_service.get_or_create(THIRD_PARTY_APP_OWNER_ADDRESS)
     permissions = await Permission.get(user_id=user.id)
 
-    logging.info(f"within user {user.id}")
-
     # currently done manually.
     permissions.can_create_api_key = True
     permissions.can_create_app = True
@@ -218,8 +213,6 @@ async def user_with_app():
 async def third_party_app(user_with_app):
     app_service = AppService()
     auth_service = AuthService()
-
-    logging.info(f"within app {user_with_app.id}")
 
     mock_auth_state = AuthState(
         user_id=user_with_app.id,

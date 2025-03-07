@@ -89,7 +89,6 @@ class AppInfoResponse(IdResponse, CreatedAtResponse):
     name: str
     n_audits: int
     n_contracts: int
-    n_users: int
 
 
 class AllStatsResponse(BaseModel):

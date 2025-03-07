@@ -53,5 +53,5 @@ jobs:
         PGSCHEME: postgres
         OPENAI_API_KEY: fake-key
       run: |
-        poetry run pytest -v
+        poetry run pytest tests/ --cov=app --cov-fail-under=70
 

@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from tortoise.exceptions import DoesNotExist
 from tortoise.transactions import in_transaction
 
@@ -12,6 +13,7 @@ from app.utils.types.enums import (
     AuditTypeEnum,
     ClientTypeEnum,
     FindingLevelEnum,
+    PermissionEnum,
 )
 
 
@@ -23,6 +25,18 @@ class AppService:
             return True
 
         permission_service = PermissionService()
+
+        has_permission = await permission_service.has_permission(
+            client_type=ClientTypeEnum.USER,
+            identifier=auth.user_id,
+            permission=[PermissionEnum.CREATE_APP],
+        )
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="wrong permissions to create an app",
+            )
+
         async with in_transaction():
             app = await App.create(
                 owner_id=auth.user_id, name=body.name, type=AppTypeEnum.THIRD_PARTY
@@ -47,12 +61,10 @@ class AppService:
 
     async def get_info(self, app_id: str) -> AppInfoResponse:
 
-        app = await App.get(id=app_id).prefetch_related("users", "audits")
+        app = await App.get(id=app_id).prefetch_related("audits")
 
         audits = app.audits
-        users = app.users
 
-        n_users = len(users)
         n_audits = len(audits)
         n_contracts = len(set(map(lambda x: x.contract_id, audits)))
 
@@ -60,7 +72,6 @@ class AppService:
             id=app.id,
             created_at=app.created_at,
             name=app.name,
-            n_users=n_users,
             n_contracts=n_contracts,
             n_audits=n_audits,
         )
