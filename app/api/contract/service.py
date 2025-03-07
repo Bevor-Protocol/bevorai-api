@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 from typing import Optional
 
 import httpx
@@ -246,10 +247,9 @@ class ContractService:
     def _generate_ast(self, source_code: str):
         try:
             ast = parser.parse(source_code)
-            print("AST:", ast)
             return ast
         except Exception as e:
-            print("Error parsing source code:", e)
+            logging.error(f"Error parsing source code: {e}")
             raise e
 
     async def process_static_eval_token(

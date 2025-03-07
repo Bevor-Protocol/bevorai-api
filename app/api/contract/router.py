@@ -89,11 +89,13 @@ class ContractRouter:
             price = static_pricing.get_cost()
             user.used_credits += price
             await user.save()
-            await Transaction.save(
+            await Transaction.create(
                 app_id=auth.app_id,
                 user_id=auth.user_id,
                 type=TransactionTypeEnum.SPEND,
                 amount=price,
             )
 
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        return Response(
+            response.model_dump_json(), status_code=status.HTTP_202_ACCEPTED
+        )
