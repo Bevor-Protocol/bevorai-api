@@ -12,7 +12,7 @@ from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import ContractScanBody
 from app.utils.types.enums import RoleEnum, TransactionTypeEnum
 
-from .openapi import ANALYZE_TOKEN, GET_CONTRACT, GET_OR_CREATE_CONTRACT
+from .openapi import GET_CONTRACT, GET_OR_CREATE_CONTRACT
 
 
 class ContractRouter:
@@ -48,7 +48,8 @@ class ContractRouter:
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER)),
                 Depends(RequireCredits()),
             ],
-            **ANALYZE_TOKEN,
+            # **ANALYZE_TOKEN,
+            include_in_schema=False,
         )
 
     async def upload_contract(self, body: Annotated[ContractScanBody, Body()]):

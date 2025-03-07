@@ -43,14 +43,15 @@ class BlockchainService:
         if not source_code.startswith("{{"):
             return source_code
 
-        contract_name = scan_result["ContractName"] + ".sol"
+        contract_name = scan_result["ContractName"]
+        file_name = contract_name + ".sol"
 
         source_code = json.loads(
             source_code.strip(" '").replace("{{", "{").replace("}}", "}")
         )
 
         for k, v in source_code["sources"].items():
-            if contract_name in k:
+            if file_name in k:
                 return v["content"]
 
         raise NoSourceCodeError("Unable to parse source code")
