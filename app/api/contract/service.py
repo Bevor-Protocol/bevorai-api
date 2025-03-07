@@ -5,7 +5,7 @@ from typing import Optional
 
 import httpx
 from fastapi import HTTPException, status
-from solidity_parser import parser
+from solidity_parser import parser as solidity_parser
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
@@ -244,14 +244,6 @@ class ContractService:
             if any(x in name for x in ["blacklist", "blocklist", "banned"]):
                 results["has_blocklist"] = True
 
-    def _generate_ast(self, source_code: str):
-        try:
-            ast = parser.parse(source_code)
-            return ast
-        except Exception as e:
-            logging.error(f"Error parsing source code: {e}")
-            raise e
-
     async def process_static_eval_token(
         self, body: ContractScanBody
     ) -> StaticAnalysisTokenResult:
@@ -266,8 +258,7 @@ class ContractService:
                 detail="no source code found for this address",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
-
-        ast = self._generate_ast(contract_info.contract.code)
+        ast = solidity_parser.parse(contract_info.contract.code)
         analysis = self.analyze_contract(ast)
 
         return analysis

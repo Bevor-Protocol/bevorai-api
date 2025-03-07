@@ -18,6 +18,21 @@ from tests.constants import USER_API_KEY
 USER_WITH_CREDITS_ADDRESS = "0xuserwithcredits"
 USER_WITH_CREDITS_API_KEY = "user-with-credits-api-key"
 
+# Contract addresses for testing
+PROXY_TXT_ADDRESS_CLEAN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+PROXY_JSON_ADDRESS = "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"
+STANDARD_JSON_ADDRESS = "0x7167cc66bE2a68553E59Af10F368056F0f6f0C69"
+STANDARD_JSON_2_ADDRESS = "0xF9aABBB7593f073Ed01ede2D13BA98f16Ee29dCA"
+LARGE_JSON_ADDRESS = "0xEa19F0293453ab73214A93Fd69773684b5Eeb98f"
+
+TEST_ADDRESSES = [
+    PROXY_TXT_ADDRESS_CLEAN,
+    PROXY_JSON_ADDRESS,
+    STANDARD_JSON_ADDRESS,  # TODO: this is failing
+    STANDARD_JSON_2_ADDRESS,  # TODO: this is failing
+    LARGE_JSON_ADDRESS,
+]
+
 
 @pytest_asyncio.fixture(scope="module")
 async def user_with_auth_and_credits():
@@ -56,6 +71,20 @@ async def user_with_auth_and_credits():
     await auth.save()
 
     return user
+
+
+@pytest_asyncio.fixture(scope="module", autouse=True)
+async def setup_teardown_contracts():
+    """Setup and teardown for contract tests to avoid race conditions"""
+    # Setup - ensure contracts don't exist before tests
+    for address in TEST_ADDRESSES:
+        await Contract.filter(address=address).delete()
+
+    yield
+
+    # Teardown - clean up contracts after all tests
+    for address in TEST_ADDRESSES:
+        await Contract.filter(address=address).delete()
 
 
 @pytest.mark.anyio
@@ -214,14 +243,7 @@ async def test_contract_scan_multiple_found(user_with_auth, async_client):
 
 @pytest.mark.anyio
 async def test_contract_scan_real(user_with_auth, async_client):
-    # clean source code from etherscan
-    CLEAN_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-    # ugly object from etherscan
-    UGLY_ADDRESS = "0x7167cc66bE2a68553E59Af10F368056F0f6f0C69"
-
-    for address in [CLEAN_ADDRESS, UGLY_ADDRESS]:
-
-        assert not await Contract.exists(address=address)
+    for address in TEST_ADDRESSES:
 
         mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
 
@@ -234,8 +256,8 @@ async def test_contract_scan_real(user_with_auth, async_client):
         assert response.status_code == 202
 
         data = response.json()
-        assert data["exact_match"] is True
         assert data["exists"] is True
+        assert data["exact_match"] is True
         assert data["contract"]["network"] == NetworkEnum.ETH
 
         contracts = await Contract.filter(address=address)
@@ -249,21 +271,10 @@ async def test_contract_scan_real(user_with_auth, async_client):
         assert eth_contract.is_available is True
         assert eth_contract.raw_code is not None
 
-        await Contract.filter(address=address).delete()
 
-
-# TODO: write test for AST + parser
 @pytest.mark.anyio
 async def test_contract_ast_real(user_with_auth_and_credits, async_client):
-    # clean source code from etherscan
-    CLEAN_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-    # ugly object from etherscan
-    # TODO fix for this in _generate_ast()
-    # UGLY_ADDRESS = "0x7167cc66bE2a68553E59Af10F368056F0f6f0C69"
-
-    for address in [CLEAN_ADDRESS]:
-
-        assert not await Contract.exists(address=address, network=NetworkEnum.ETH)
+    for address in TEST_ADDRESSES:
 
         mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
 
@@ -279,4 +290,3 @@ async def test_contract_ast_real(user_with_auth_and_credits, async_client):
         assert StaticAnalysisTokenResult(
             **data
         )  # ensure it's of the expected response type.
-        await Contract.filter(address=address).delete()
