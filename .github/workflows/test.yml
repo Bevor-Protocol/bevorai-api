@@ -55,13 +55,3 @@ jobs:
       run: |
         poetry run pytest -v
 
-    # Optional: Add test coverage reporting
-    - name: Run tests with coverage
-      env:
-        POSTGRES_USER: testuser
-        POSTGRES_PASSWORD: testpassword
-        POSTGRES_DB: testdb
-        PGHOST: localhost:5432
-        PGSCHEME: postgres
-      run: |
-        poetry run pytest -v

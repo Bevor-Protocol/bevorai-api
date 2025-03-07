@@ -331,7 +331,7 @@ async def test_audit_processing_with_intermediate_states(
                 usage=AsyncMock(prompt_tokens=500, completion_tokens=500),
             )
 
-        # Mock the LLM client methods
+        # # Mock the LLM client methods
         with patch("app.api.pipeline.audit_generation.llm_client") as mock_llm_client:
             # Configure the mock methods
             mock_llm_client.chat.completions.create = mock_chat_completions_create
