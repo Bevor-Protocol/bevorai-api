@@ -1,5 +1,4 @@
 import json
-import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -215,8 +214,6 @@ async def test_audit_processing_with_intermediate_states(
 ):
     """This is intentionally a very large e2e test with the worker"""
     assert user_with_auth_and_credits.total_credits > 0
-
-    logging.info(f"Running audit test for user {user_with_auth_and_credits.id}")
 
     # Create a contract for testing
     contract = await Contract.create(

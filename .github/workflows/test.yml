@@ -51,6 +51,7 @@ jobs:
         POSTGRES_DB: testdb
         PGHOST: localhost:5432
         PGSCHEME: postgres
+        OPENAI_API_KEY: fake-key
       run: |
         poetry run pytest -v
 
