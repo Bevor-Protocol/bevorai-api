@@ -50,6 +50,7 @@ pytest = "^7.3.1"
 pytest-asyncio = "^0.21.0"
 fakeredis = "^2.27.0"
 pytest-cov = "^6.0.0"
+notebook = "^7.3.2"
 
 [tool.aerich]
 tortoise_orm = "app.config.TORTOISE_ORM"

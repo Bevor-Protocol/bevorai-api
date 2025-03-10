@@ -5,16 +5,17 @@ from typing import Optional
 
 import httpx
 from fastapi import HTTPException, status
-from solidity_parser import parser as solidity_parser
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
+from app.utils.helpers.code_parser import SourceCodeParser
 from app.utils.helpers.mappers import networks_by_type
 from app.utils.helpers.model_parser import cast_contract_with_code
 from app.utils.schema.contract import ContractWithCodePydantic
 from app.utils.schema.request import ContractScanBody
 from app.utils.schema.response import StaticAnalysisTokenResult, UploadContractResponse
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
+from app.utils.types.errors import NoSourceCodeError
 
 
 class ContractService:
@@ -45,7 +46,7 @@ class ContractService:
                 filter_obj["network"] = network
             contracts = await Contract.filter(hash_code=hashed_content)
 
-        return contracts or []
+        return contracts
 
     async def __get_or_create_contract(
         self,
@@ -103,7 +104,7 @@ class ContractService:
             for network in networks_scan:
                 tasks.append(
                     asyncio.create_task(
-                        blockchain_service.fetch_contract_source_code_from_explorer(
+                        blockchain_service.get_source_code(
                             client=client, address=address, network=network
                         )
                     )
@@ -118,11 +119,22 @@ class ContractService:
                 contract = Contract(
                     method=ContractMethodEnum.SCAN,
                     address=address,
-                    is_available=result["has_source_code"],
+                    is_available=result["source"] is not None,
                     network=result["network"],
                 )
-                if result["has_source_code"]:
-                    contract.raw_code = result["source_code"]
+                if result["source"]:
+                    parser = SourceCodeParser(result["source"])
+                    contract.is_proxy = parser.is_proxy
+                    contract.contract_name = parser.contract_name
+                    try:
+                        parser.extract_raw_code()
+                        contract.raw_code = parser.source
+                        parser.generate_ast()
+                        contract.is_parsable = True
+                        logging.info(f"{address} {parser.is_proxy} {parser.is_object}")
+                    except NoSourceCodeError:
+                        contract.is_available = False
+                        contract.is_parsable = False
                     await contract.save()
                     contracts_return.append(contract)
                 else:
@@ -163,102 +175,29 @@ class ContractService:
 
         return cast_contract_with_code(contract)
 
-    def analyze_contract(self, ast: dict) -> StaticAnalysisTokenResult:
-        """
-        Analyzes contract AST for various security and functionality characteristics.
-        Returns a dictionary of analysis results.
-        """
-        results = {
-            "is_mintable": {"internal_mint": False, "public_mint": False},
-            "is_honeypot": False,
-            "can_steal_fees": False,
-            "can_self_destruct": False,
-            "has_proxy_functions": False,
-            "has_allowlist": False,
-            "has_blocklist": False,
-            "can_terminate_transactions": False,
-        }
-
-        def traverse_nodes(nodes):
-            for node in nodes:
-                if node.get("type") == "ContractDefinition":
-                    self._analyze_contract_nodes(node.get("subNodes", []), results)
-                elif isinstance(node, dict):
-                    for value in node.values():
-                        if isinstance(value, list):
-                            traverse_nodes(value)
-
-        traverse_nodes(ast.get("children", []))
-
-        # Final mintable check combining internal and public results
-        results["is_mintable"] = (
-            results["is_mintable"]["internal_mint"]
-            and results["is_mintable"]["public_mint"]
-        )
-
-        return StaticAnalysisTokenResult(**results)
-
-    def _analyze_contract_nodes(self, nodes, results):
-        for node in nodes:
-            if node.get("type") == "FunctionDefinition":
-                name = node.get("name", "").lower()
-                visibility = node.get("visibility", "")
-                body = str(node.get("body", {}))
-
-                # Mintable checks
-                if name == "mint" and visibility in ["public", "external"]:
-                    results["is_mintable"]["public_mint"] = True
-                elif name == "_mint":
-                    results["is_mintable"]["internal_mint"] = True
-                elif visibility in ["public", "external"] and "_mint" in body:
-                    results["is_mintable"]["public_mint"] = True
-
-                # Honeypot checks
-                if ("require" in body and "transfer" in body) or (
-                    "revert" in body and "transfer" in body
-                ):
-                    results["is_honeypot"] = True
-
-                # Fee stealing checks
-                if any(
-                    x in name for x in ["withdraw", "claim", "collect"]
-                ) and visibility in ["public", "external"]:
-                    results["can_steal_fees"] = True
-
-                # Self-destruct checks
-                if "selfdestruct" in body or "suicide" in body:
-                    results["can_self_destruct"] = True
-
-                # Proxy function checks
-                if "delegatecall" in body or "callcode" in body:
-                    results["has_proxy_functions"] = True
-
-                # Transaction termination checks
-                if "assert" in body or "revert" in body:
-                    results["can_terminate_transactions"] = True
-
-            # Check variable names for allow/blocklists
-            name = str(node.get("name", "")).lower()
-            if any(x in name for x in ["whitelist", "allowlist", "allowed"]):
-                results["has_allowlist"] = True
-            if any(x in name for x in ["blacklist", "blocklist", "banned"]):
-                results["has_blocklist"] = True
-
     async def process_static_eval_token(
         self, body: ContractScanBody
     ) -> StaticAnalysisTokenResult:
-        contract_service = ContractService()
 
-        contract_info = await contract_service.fetch_from_source(
+        contracts = await self.__get_or_create_contract(
             code=body.code, address=body.address, network=body.network
         )
 
-        if not contract_info.exists:
+        first_candidate = next(filter(lambda x: x.is_available, contracts), None)
+        if not first_candidate:
             raise HTTPException(
                 detail="no source code found for this address",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
-        ast = solidity_parser.parse(contract_info.contract.code)
-        analysis = self.analyze_contract(ast)
+
+        if not first_candidate.is_parsable:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="unable to parse smart contract code",
+            )
+
+        parser = SourceCodeParser.from_contract_instance(first_candidate)
+        parser.generate_ast()
+        analysis = parser.analyze_contract()
 
         return analysis

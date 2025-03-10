@@ -116,7 +116,7 @@ async def get_deployment_contracts(network: NetworkEnum):
         for address in deployment_addresses:
             tasks.append(
                 asyncio.create_task(
-                    blockchain_service.fetch_contract_source_code_from_explorer(
+                    blockchain_service.get_source_code(
                         client, address=address, network=network
                     )
                 )

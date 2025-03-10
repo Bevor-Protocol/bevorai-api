@@ -134,19 +134,15 @@ class Transaction(AbstractModel):
 class Contract(AbstractModel):
     method = fields.CharEnumField(enum_type=ContractMethodEnum)
     is_available = fields.BooleanField(
-        default=True, description="if via cron, whether source code is available"
-    )
-    n_retries = fields.IntField(
-        default=0, description="current # of retries to get source code"
-    )
-    next_attempt_at = fields.DatetimeField(
-        auto_now=True,
-        description="if source code unavailable, next timestamp to allow scan",
+        default=True, description="whether source code is available"
     )
     address = fields.CharField(max_length=255, null=True, default=None)
     network = fields.CharEnumField(enum_type=NetworkEnum, null=True, default=None)
+    contract_name = fields.TextField(null=True, default=None)
     raw_code = fields.TextField(null=True, default=None)
     hash_code = fields.CharField(max_length=255, null=True, default=None)
+    is_parsable = fields.BooleanField(default=True)
+    is_proxy = fields.BooleanField(default=False)
 
     class Meta:
         table = "contract"

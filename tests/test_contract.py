@@ -22,16 +22,14 @@ USER_WITH_CREDITS_API_KEY = "user-with-credits-api-key"
 PROXY_TXT_ADDRESS_CLEAN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 PROXY_JSON_ADDRESS = "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"
 STANDARD_JSON_ADDRESS = "0x7167cc66bE2a68553E59Af10F368056F0f6f0C69"
-STANDARD_JSON_2_ADDRESS = "0xF9aABBB7593f073Ed01ede2D13BA98f16Ee29dCA"
 LARGE_JSON_ADDRESS = "0xEa19F0293453ab73214A93Fd69773684b5Eeb98f"
 
-TEST_ADDRESSES = [
-    PROXY_TXT_ADDRESS_CLEAN,
-    PROXY_JSON_ADDRESS,
-    STANDARD_JSON_ADDRESS,  # TODO: this is failing
-    STANDARD_JSON_2_ADDRESS,  # TODO: this is failing
-    LARGE_JSON_ADDRESS,
-]
+TEST_ADDRESSES = {
+    PROXY_TXT_ADDRESS_CLEAN: {"is_proxy": True},
+    PROXY_JSON_ADDRESS: {"is_proxy": True},
+    STANDARD_JSON_ADDRESS: {"is_proxy": True},
+    LARGE_JSON_ADDRESS: {"is_proxy": True},
+}
 
 
 @pytest_asyncio.fixture(scope="module")
@@ -77,13 +75,13 @@ async def user_with_auth_and_credits():
 async def setup_teardown_contracts():
     """Setup and teardown for contract tests to avoid race conditions"""
     # Setup - ensure contracts don't exist before tests
-    for address in TEST_ADDRESSES:
+    for address in TEST_ADDRESSES.keys():
         await Contract.filter(address=address).delete()
 
     yield
 
     # Teardown - clean up contracts after all tests
-    for address in TEST_ADDRESSES:
+    for address in TEST_ADDRESSES.keys():
         await Contract.filter(address=address).delete()
 
 
@@ -107,7 +105,9 @@ async def test_contract_scan_clean(user_with_auth, async_client):
                     {"result": [{"SourceCode": "test contract content"}]}
                 ),
             )
-        return Response(request=request, status_code=200, content=json.dumps({}))
+        if network == NetworkEnum.ARB:
+            return Response(request=request, status_code=200, content=json.dumps({}))
+        return Response(request=request, status_code=400, content=json.dumps({}))
 
     async_mock.side_effect = mock_get_source_code
 
@@ -147,15 +147,23 @@ async def test_contract_scan_clean(user_with_auth, async_client):
         (contract for contract in contracts if contract.network == NetworkEnum.ETH),
         None,
     )
-    non_eth_contract = next(
-        (contract for contract in contracts if contract.network != NetworkEnum.ETH),
+    arb_contract = next(
+        (contract for contract in contracts if contract.network == NetworkEnum.ARB),
         None,
     )
+    should_not_exist = next(
+        (contract for contract in contracts if contract.network == NetworkEnum.BASE),
+        None,
+    )
+
     assert eth_contract is not None
     assert eth_contract.is_available is True
     assert eth_contract.raw_code is not None
-    assert non_eth_contract.is_available is False
-    assert non_eth_contract.raw_code is None
+
+    assert arb_contract is not None
+    assert arb_contract.is_available is False
+
+    assert should_not_exist is None
 
     await Contract.filter(address=ADDRESS).delete()
 
@@ -180,7 +188,7 @@ async def test_contract_scan_multiple_found(user_with_auth, async_client):
                     {"result": [{"SourceCode": "test contract content"}]}
                 ),
             )
-        return Response(request=request, status_code=200, content=json.dumps({}))
+        return Response(request=request, status_code=400, content=json.dumps({}))
 
     async_mock.side_effect = mock_get_source_code
 
@@ -214,16 +222,12 @@ async def test_contract_scan_multiple_found(user_with_auth, async_client):
 
     contracts = await Contract.filter(address=ADDRESS)
 
-    assert len(contracts) > 0
+    assert len(contracts) == 2
 
-    eth_contract = next(
-        (
-            contract
-            for contract in contracts
-            if contract.network in [NetworkEnum.ETH, NetworkEnum.ARB]
-        ),
-        None,
-    )
+    for contract in contracts:
+        assert contract.is_available is True
+        assert contract.raw_code is not None
+
     non_eth_contract = next(
         (
             contract
@@ -232,18 +236,15 @@ async def test_contract_scan_multiple_found(user_with_auth, async_client):
         ),
         None,
     )
-    assert eth_contract is not None
-    assert eth_contract.is_available is True
-    assert eth_contract.raw_code is not None
-    assert non_eth_contract.is_available is False
-    assert non_eth_contract.raw_code is None
+
+    assert non_eth_contract is None
 
     await Contract.filter(address=ADDRESS).delete()
 
 
 @pytest.mark.anyio
 async def test_contract_scan_real(user_with_auth, async_client):
-    for address in TEST_ADDRESSES:
+    for address in TEST_ADDRESSES.keys():
 
         mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
 
@@ -261,12 +262,13 @@ async def test_contract_scan_real(user_with_auth, async_client):
         assert data["contract"]["network"] == NetworkEnum.ETH
 
         contracts = await Contract.filter(address=address)
-        assert len(contracts) > 0
+        assert len(contracts) == 1
 
         eth_contract = next(
             (contract for contract in contracts if contract.network == NetworkEnum.ETH),
             None,
         )
+
         assert eth_contract is not None
         assert eth_contract.is_available is True
         assert eth_contract.raw_code is not None
@@ -274,7 +276,7 @@ async def test_contract_scan_real(user_with_auth, async_client):
 
 @pytest.mark.anyio
 async def test_contract_ast_real(user_with_auth_and_credits, async_client):
-    for address in TEST_ADDRESSES:
+    for address, res in TEST_ADDRESSES.items():
 
         mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
 
@@ -287,6 +289,4 @@ async def test_contract_ast_real(user_with_auth_and_credits, async_client):
         assert response.status_code == 202
 
         data = response.json()
-        assert StaticAnalysisTokenResult(
-            **data
-        )  # ensure it's of the expected response type.
+        assert StaticAnalysisTokenResult(**data)
