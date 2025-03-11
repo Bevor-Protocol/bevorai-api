@@ -11,7 +11,6 @@ from app.db.models import Auth, Contract, Permission
 from app.utils.clients.explorer import ExplorerClient
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import ContractScanBody
-from app.utils.schema.response import StaticAnalysisTokenResult
 from app.utils.types.enums import ClientTypeEnum, NetworkEnum, RoleEnum
 from tests.constants import USER_API_KEY
 
@@ -106,7 +105,13 @@ async def test_contract_scan_clean(user_with_auth, async_client):
                 ),
             )
         if network == NetworkEnum.ARB:
-            return Response(request=request, status_code=200, content=json.dumps({}))
+            return Response(
+                request=request,
+                status_code=200,
+                content=json.dumps(
+                    {"result": [{"SourceCode": {"sources": {"test.sol": "some code"}}}]}
+                ),
+            )
         return Response(request=request, status_code=400, content=json.dumps({}))
 
     async_mock.side_effect = mock_get_source_code
@@ -141,7 +146,7 @@ async def test_contract_scan_clean(user_with_auth, async_client):
 
     contracts = await Contract.filter(address=ADDRESS)
 
-    assert len(contracts) > 0
+    assert len(contracts) == 2
 
     eth_contract = next(
         (contract for contract in contracts if contract.network == NetworkEnum.ETH),
@@ -246,6 +251,9 @@ async def test_contract_scan_multiple_found(user_with_auth, async_client):
 async def test_contract_scan_real(user_with_auth, async_client):
     for address in TEST_ADDRESSES.keys():
 
+        contracts = await Contract.filter(address=address)
+        assert len(contracts) == 0
+
         mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
 
         response = await async_client.post(
@@ -273,20 +281,24 @@ async def test_contract_scan_real(user_with_auth, async_client):
         assert eth_contract.is_available is True
         assert eth_contract.raw_code is not None
 
+        await Contract.filter(address=address).delete()
 
-@pytest.mark.anyio
-async def test_contract_ast_real(user_with_auth_and_credits, async_client):
-    for address, res in TEST_ADDRESSES.items():
 
-        mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
+# @pytest.mark.anyio
+# async def test_contract_ast_real(user_with_auth_and_credits, async_client):
+#     for address, res in TEST_ADDRESSES.items():
 
-        response = await async_client.post(
-            "/contract/token/static",
-            headers={"Authorization": f"Bearer {USER_WITH_CREDITS_API_KEY}"},
-            json=mock_body.model_dump(),
-        )
+#         mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
 
-        assert response.status_code == 202
+#         response = await async_client.post(
+#             "/contract/token/static",
+#             headers={"Authorization": f"Bearer {USER_WITH_CREDITS_API_KEY}"},
+#             json=mock_body.model_dump(),
+#         )
 
-        data = response.json()
-        assert StaticAnalysisTokenResult(**data)
+#         assert response.status_code == 202
+
+#         data = response.json()
+#         assert StaticAnalysisTokenResult(**data)
+#         result = StaticAnalysisTokenResult(**data)
+#         assert result.has_proxy_functions == res["is_proxy"]

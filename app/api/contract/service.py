@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import logging
 from typing import Optional
 
 import httpx
@@ -15,7 +14,6 @@ from app.utils.schema.contract import ContractWithCodePydantic
 from app.utils.schema.request import ContractScanBody
 from app.utils.schema.response import StaticAnalysisTokenResult, UploadContractResponse
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
-from app.utils.types.errors import NoSourceCodeError
 
 
 class ContractService:
@@ -26,28 +24,6 @@ class ContractService:
     ):
         self.allow_testnet = allow_testnet
 
-    async def __get_contract_candidates(
-        self,
-        code: Optional[str],
-        address: Optional[str],
-        network: Optional[NetworkEnum],
-    ) -> list[Contract]:
-        filter_obj = {"is_available": True, "raw_code__isnull": False}
-
-        if address:
-            filter_obj["address"] = address
-            if network:
-                filter_obj["network"] = network
-            contracts = await Contract.filter(**filter_obj)
-        else:
-            hashed_content = hashlib.sha256(code.encode()).hexdigest()
-            filter_obj["hash_code"] = hashed_content
-            if network:
-                filter_obj["network"] = network
-            contracts = await Contract.filter(hash_code=hashed_content)
-
-        return contracts
-
     async def __get_or_create_contract(
         self,
         code: Optional[str],
@@ -55,28 +31,22 @@ class ContractService:
         network: Optional[NetworkEnum],
     ) -> list[Contract]:
         """
-        A contract's source code can be queried in many ways
-        1. The source code alone was used -> via upload
-        2. Only the address was provided -> via scan
-        3. The address and network were provided -> via scan
-
-        If method of SCAN was used, it's possible that the contract is not verified,
-        and we aren't able to fetch the source code.
-
-        Steps:
-        - code Contract record, if available
-        - if we had previously managed to fetch the source code, use it and return
-        - if the network was provided, search it. Otherwise search all networks
-        - if source code was found, create a new Contract record, unless we already had
-            a scan for this address + network and weren't able to fetch source code,
-            then update it.
+        If contract was previously uploaded / fetched, return it.
+        Otherwise get from source
         """
 
-        contracts = await self.__get_contract_candidates(
-            code=code, address=address, network=network
-        )
+        filter_obj = {"is_available": True, "raw_code__isnull": False}
 
-        # More granular logic below to still scan, but not update instead of create.
+        if address:
+            filter_obj["address"] = address
+        if network:
+            filter_obj["network"] = network
+        if code:
+            hashed_content = hashlib.sha256(code.encode()).hexdigest()
+            filter_obj["hash_code"] = hashed_content
+
+        contracts = await Contract.filter(**filter_obj)
+
         if contracts:
             return contracts
 
@@ -115,33 +85,17 @@ class ContractService:
         # only return those with source code.
         contracts_return: list[Contract] = []
         for result in results:
-            if result["found"]:
-                contract = Contract(
+            if result["exists"]:
+                contract = await Contract.create(
                     method=ContractMethodEnum.SCAN,
                     address=address,
-                    is_available=result["source"] is not None,
+                    is_available=result["is_available"],
                     network=result["network"],
+                    is_proxy=result["is_proxy"],
+                    contract_name=result["contract_name"],
+                    raw_code=result["code"],
                 )
-                if result["source"]:
-                    parser = SourceCodeParser(result["source"])
-                    contract.is_proxy = parser.is_proxy
-                    contract.contract_name = parser.contract_name
-                    try:
-                        parser.extract_raw_code()
-                        contract.raw_code = parser.source
-                        parser.generate_ast()
-                        contract.is_parsable = True
-                        logging.info(f"{address} {parser.is_proxy} {parser.is_object}")
-                    except NoSourceCodeError:
-                        contract.is_available = False
-                        contract.is_parsable = False
-                    await contract.save()
-                    contracts_return.append(contract)
-                else:
-                    await contract.save()
-
-                # contract.n_retries = contract.n_retries + 1
-                # contract.next_attempt = datetime.datetime.now()
+                contracts_return.append(contract)
 
         return contracts_return
 

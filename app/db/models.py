@@ -139,16 +139,15 @@ class Contract(AbstractModel):
     address = fields.CharField(max_length=255, null=True, default=None)
     network = fields.CharEnumField(enum_type=NetworkEnum, null=True, default=None)
     contract_name = fields.TextField(null=True, default=None)
+    is_proxy = fields.BooleanField(default=False)
     raw_code = fields.TextField(null=True, default=None)
     hash_code = fields.CharField(max_length=255, null=True, default=None)
-    is_parsable = fields.BooleanField(default=True)
-    is_proxy = fields.BooleanField(default=False)
 
     class Meta:
         table = "contract"
 
     def __str__(self):
-        return f"{str(self.id)} | {self.job_id}"
+        return f"{str(self.id)} | {self.address}"
 
     @classmethod
     async def create(self, *args, **kwargs):

@@ -5,8 +5,8 @@ import httpx
 
 from app.utils.clients.explorer import ExplorerClient
 from app.utils.clients.web3 import Web3Client
+from app.utils.helpers.code_parser import SourceCodeParser
 from app.utils.types.enums import NetworkEnum
-from app.utils.types.errors import NoSourceCodeError
 
 
 class BlockchainService:
@@ -33,8 +33,11 @@ class BlockchainService:
         obj = {
             "network": network,
             "address": address,
-            "found": False,
-            "source": None,
+            "exists": False,
+            "is_available": False,
+            "code": None,
+            "is_proxy": False,
+            "contract_name": None,
         }
 
         try:
@@ -46,14 +49,15 @@ class BlockchainService:
 
             result = data.get("result")
             if result and isinstance(result, list) and len(result) > 0:
-                obj["found"] = True
-                obj["source"] = result[0]
-            raise NoSourceCodeError()
-        except NoSourceCodeError:
-            obj["found"] = True
+                obj["exists"] = True
+                parser = SourceCodeParser(result[0])
+                parser.extract_raw_code()
+                obj["is_available"] = parser.source != ""
+                obj["code"] = parser.source if parser.source != "" else None
+                obj["contract_name"] = parser.contract_name
+                obj["is_proxy"] = parser.is_proxy
         except Exception as err:
             logging.exception(err)
-            pass
         finally:
             return obj
 

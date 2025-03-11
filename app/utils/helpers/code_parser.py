@@ -6,7 +6,6 @@ from solidity_parser import parser as solidity_parser
 
 from app.db.models import Contract
 from app.utils.schema.response import StaticAnalysisTokenResult
-from app.utils.types.errors import NoSourceCodeError
 
 
 class SourceCodeParser:
@@ -57,14 +56,16 @@ class SourceCodeParser:
             self.source = self.raw_content
             return self.source
 
-        file_name = self.contract_name + ".sol"
+        agg_contract = ""
         for k, v in self.raw_content["sources"].items():
-            if file_name in k:
-                self.source = v["content"]
-                return self.source
+            agg_contract += f"// File: {k}\n\n"
+            agg_contract += v["content"]
+            agg_contract += "\n\n"
 
-        raise NoSourceCodeError("Unable to extract contract code")
+        agg_contract = agg_contract.strip()
+        self.source = agg_contract
 
+    # DEPRECATED
     def generate_ast(self):
         if not self.source:
             raise NotImplementedError("must call extract raw code")
@@ -84,6 +85,17 @@ class SourceCodeParser:
             code,
         )
 
+        code = re.sub(r"assembly\s*{[^}]*}", "", code, flags=re.DOTALL)
+
+        # Replace storage pointers with direct access
+        code = re.sub(r"\b(\w+)\s+storage\s+\$\s*=\s*\w+\(\);", "", code)
+        code = re.sub(r"\$\.(\w+)", r"\1", code)
+
+        # Replace custom errors with require statements
+        code = re.sub(
+            r"revert\s+(\w+)\(([^)]*)\);", r'require(false, "\1 error");', code
+        )
+
         code = code.replace("___SINGLE_QUOTE___", "'")
         code = code.replace("___DOUBLE_QUOTE___", '"')
         if code.startswith("\ufeff"):
@@ -96,6 +108,7 @@ class SourceCodeParser:
             logging.exception(err)
             self.ast = None
 
+    # DEPRECATED
     def analyze_contract(self) -> StaticAnalysisTokenResult:
         """
         Analyzes contract AST for various security and functionality characteristics.
@@ -118,7 +131,8 @@ class SourceCodeParser:
         def traverse_nodes(nodes):
             for node in nodes:
                 if node.get("type") == "ContractDefinition":
-                    for node in nodes:
+                    subnodes = node.get("subNodes", [])
+                    for node in subnodes:
                         if node.get("type") == "FunctionDefinition":
                             name = node.get("name", "").lower()
                             visibility = node.get("visibility", "")
