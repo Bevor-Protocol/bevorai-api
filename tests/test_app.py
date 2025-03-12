@@ -50,7 +50,7 @@ async def test_create_app_user_no_permission(
         "/app",
         headers={
             "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(standard_user.id),
+            "Bevor-User-Identifier": str(standard_user.id),
         },
         json=body.model_dump(),
     )
@@ -64,7 +64,7 @@ async def test_create_app(first_party_app, user_with_permission, async_client):
         "/app",
         headers={
             "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(user_with_permission.id),
+            "Bevor-User-Identifier": str(user_with_permission.id),
         },
         json=body.model_dump(),
     )
@@ -87,7 +87,7 @@ async def test_return_when_app_exists(first_party_app, user_with_app, async_clie
         "/app",
         headers={
             "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(user_with_app.id),
+            "Bevor-User-Identifier": str(user_with_app.id),
         },
         json=body.model_dump(),
     )
@@ -108,7 +108,7 @@ async def test_update_app(first_party_app, user_with_permission, async_client):
         "/app",
         headers={
             "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(user_with_permission.id),
+            "Bevor-User-Identifier": str(user_with_permission.id),
         },
         json=body.model_dump(),
     )
@@ -120,7 +120,7 @@ async def test_update_app(first_party_app, user_with_permission, async_client):
         "/app",
         headers={
             "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(user_with_permission.id),
+            "Bevor-User-Identifier": str(user_with_permission.id),
         },
         json=update_body.model_dump(),
     )

@@ -162,7 +162,7 @@ async def test_api_get_user_info_as_app_for_user(
         "/user/info",
         headers={
             "Authorization": f"Bearer {THIRD_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(standard_user.id),
+            "Bevor-User-Identifier": str(standard_user.id),
         },
     )
     assert response.status_code == 200

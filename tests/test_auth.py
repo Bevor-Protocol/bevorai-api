@@ -39,7 +39,7 @@ async def test_auth_dependency_first_party(first_party_app):
 
     # Call the dependency directly
     await auth_dependency(
-        request=mock_request, authorization=credentials, x_user_identifier=None
+        request=mock_request, authorization=credentials, bevor_user_identifier=None
     )
 
     # Verify the auth state was set correctly
@@ -61,7 +61,7 @@ async def test_auth_dependency_first_party(first_party_app):
     auth_dependency = Authentication(required_role=RoleEnum.APP)
 
     await auth_dependency(
-        request=mock_request, authorization=credentials, x_user_identifier=None
+        request=mock_request, authorization=credentials, bevor_user_identifier=None
     )
 
     # Verify the auth state was set correctly
@@ -83,7 +83,7 @@ async def test_auth_dependency_first_party(first_party_app):
     auth_dependency = Authentication(required_role=RoleEnum.USER)
 
     await auth_dependency(
-        request=mock_request, authorization=credentials, x_user_identifier=None
+        request=mock_request, authorization=credentials, bevor_user_identifier=None
     )
 
     # Verify the auth state was set correctly
@@ -121,14 +121,14 @@ async def test_auth_dependency_third_party(third_party_app):
     # This should fail with a 401 since third_party_app can't use APP_FIRST_PARTY role
     with pytest.raises(HTTPException) as excinfo:
         await auth_dependency(
-            request=mock_request, authorization=credentials, x_user_identifier=None
+            request=mock_request, authorization=credentials, bevor_user_identifier=None
         )
     assert excinfo.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     """confirm it can call APP scope"""
     auth_dependency = Authentication(required_role=RoleEnum.APP)
     await auth_dependency(
-        request=mock_request, authorization=credentials, x_user_identifier=None
+        request=mock_request, authorization=credentials, bevor_user_identifier=None
     )
 
     # Verify the auth state was set correctly
@@ -150,7 +150,7 @@ async def test_auth_dependency_third_party(third_party_app):
     auth_dependency = Authentication(required_role=RoleEnum.USER)
 
     await auth_dependency(
-        request=mock_request, authorization=credentials, x_user_identifier=None
+        request=mock_request, authorization=credentials, bevor_user_identifier=None
     )
 
     # Verify the auth state was set correctly
@@ -185,14 +185,14 @@ async def test_auth_dependency_user(user_with_auth):
     )
     with pytest.raises(HTTPException) as excinfo:
         await auth_dependency(
-            request=mock_request, authorization=credentials, x_user_identifier=None
+            request=mock_request, authorization=credentials, bevor_user_identifier=None
         )
     assert excinfo.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     auth_dependency = Authentication(required_role=RoleEnum.APP)
     with pytest.raises(HTTPException) as excinfo:
         await auth_dependency(
-            request=mock_request, authorization=credentials, x_user_identifier=None
+            request=mock_request, authorization=credentials, bevor_user_identifier=None
         )
     assert excinfo.value.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -209,7 +209,7 @@ async def test_auth_dependency_user(user_with_auth):
     auth_dependency = Authentication(required_role=RoleEnum.USER)
 
     await auth_dependency(
-        request=mock_request, authorization=credentials, x_user_identifier=None
+        request=mock_request, authorization=credentials, bevor_user_identifier=None
     )
 
     # Verify the auth state was set correctly
@@ -241,7 +241,7 @@ async def test_auth_with_delegation(
     await auth_dependency(
         request=mock_request,
         authorization=credentials,
-        x_user_identifier=str(user_with_auth.id),
+        bevor_user_identifier=str(user_with_auth.id),
     )
 
     # Verify the auth state was set correctly
@@ -270,7 +270,7 @@ async def test_auth_with_delegation(
     await auth_dependency(
         request=mock_request,
         authorization=credentials,
-        x_user_identifier=str(user_with_auth.id),
+        bevor_user_identifier=str(user_with_auth.id),
     )
 
     # Verify the auth state was set correctly
@@ -299,7 +299,7 @@ async def test_auth_with_delegation(
     await auth_dependency(
         request=mock_request,
         authorization=credentials,
-        x_user_identifier=str(standard_user.id),
+        bevor_user_identifier=str(standard_user.id),
     )
 
     # Verify the auth state was set correctly
@@ -323,7 +323,7 @@ async def test_auth_generate_api_key(
         f"/auth/{ClientTypeEnum.USER.value}",
         headers={
             "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(user_with_permission.id),
+            "Bevor-User-Identifier": str(user_with_permission.id),
         },
     )
 
@@ -354,7 +354,7 @@ async def test_auth_generate_api_key_unauthorized(
         f"/auth/{ClientTypeEnum.USER.value}",
         headers={
             "Authorization": f"Bearer {USER_API_KEY}",
-            "X-User-Identifier": str(user_with_permission.id),
+            "Bevor-User-Identifier": str(user_with_permission.id),
         },
     )
 
@@ -374,7 +374,7 @@ async def test_auth_generate_api_key_wrong_permissions(
         f"/auth/{ClientTypeEnum.USER.value}",
         headers={
             "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
-            "X-User-Identifier": str(standard_user.id),
+            "Bevor-User-Identifier": str(standard_user.id),
         },
     )
 
