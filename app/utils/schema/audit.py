@@ -30,7 +30,6 @@ class FindingPydantic(IdResponse):
 
 class AuditPydantic(IdResponse, CreatedAtResponse):
     status: AuditStatusEnum = Field(description="enumerated status of the audit")
-    version: str = Field(description="internal version used to create the audit")
     audit_type: AuditTypeEnum = Field(description="enumerated type of audit")
     processing_time_seconds: Optional[int] = Field(
         default=None, description="total processing time, if applicable"

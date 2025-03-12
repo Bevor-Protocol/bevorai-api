@@ -35,7 +35,6 @@ async def handle_eval(audit_id: str):
         should_publish=False,
     )
 
-    audit.version = pipeline.version
     audit.status = AuditStatusEnum.PROCESSING
     await audit.save()
 

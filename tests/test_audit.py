@@ -14,6 +14,7 @@ from app.db.models import (
     Finding,
     IntermediateResponse,
     Permission,
+    Prompt,
     User,
 )
 from app.lib.gas.v1.response import FindingsStructure, FindingType, OutputStructure
@@ -72,6 +73,40 @@ async def user_with_auth_and_credits():
     await auth.save()
 
     return user
+
+
+@pytest_asyncio.fixture(scope="module")
+async def mock_prompts():
+    await Prompt.create(
+        audit_type=AuditTypeEnum.GAS, tag="test-1", version="0.1", content="fake prompt"
+    )
+    await Prompt.create(
+        audit_type=AuditTypeEnum.GAS, tag="test-2", version="0.1", content="fake prompt"
+    )
+    await Prompt.create(
+        audit_type=AuditTypeEnum.GAS,
+        tag="reviewer",
+        version="0.1",
+        content="fake prompt",
+    )
+    await Prompt.create(
+        audit_type=AuditTypeEnum.SECURITY,
+        tag="test-1",
+        version="0.1",
+        content="fake prompt",
+    )
+    await Prompt.create(
+        audit_type=AuditTypeEnum.SECURITY,
+        tag="test-2",
+        version="0.1",
+        content="fake prompt",
+    )
+    await Prompt.create(
+        audit_type=AuditTypeEnum.SECURITY,
+        tag="reviewer",
+        version="0.1",
+        content="fake prompt",
+    )
 
 
 @pytest.mark.anyio
@@ -210,7 +245,7 @@ class MockQueue:
 
 @pytest.mark.anyio
 async def test_audit_processing_with_intermediate_states(
-    user_with_auth_and_credits, async_client
+    user_with_auth_and_credits, async_client, mock_prompts
 ):
     """This is intentionally a very large e2e test with the worker"""
     assert user_with_auth_and_credits.total_credits > 0
@@ -347,7 +382,6 @@ async def test_audit_processing_with_intermediate_states(
     assert updated_audit.status == AuditStatusEnum.SUCCESS
     assert updated_audit.raw_output is not None
     assert updated_audit.processing_time_seconds is not None
-    assert updated_audit.version is not None
 
     inter_responses_db = await IntermediateResponse.filter(audit_id=audit_id)
     assert (
