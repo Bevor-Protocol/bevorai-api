@@ -1,7 +1,8 @@
-from app.db.models import App, Contract, Finding, IntermediateResponse, User
+from app.db.models import App, Contract, Finding, IntermediateResponse, Permission, User
 from app.utils.schema.app import AppPydantic
 from app.utils.schema.audit import AuditStepPydantic, FindingPydantic
 from app.utils.schema.contract import ContractPydantic, ContractWithCodePydantic
+from app.utils.schema.permission import PermissionPydantic
 from app.utils.schema.user import UserPydantic
 
 """
@@ -58,4 +59,14 @@ def cast_step(step: IntermediateResponse) -> AuditStepPydantic:
         step=step.step,
         status=step.status,
         processing_time_seconds=step.processing_time_seconds,
+    )
+
+
+def cast_permission(permission: Permission) -> PermissionPydantic:
+    return PermissionPydantic(
+        app_id=permission.app_id,
+        user_id=permission.user_id,
+        client_type=permission.client_type,
+        can_create_app=permission.can_create_app,
+        can_create_api_key=permission.can_create_api_key,
     )

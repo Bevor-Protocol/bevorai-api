@@ -2,12 +2,15 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
-from fastapi.responses import JSONResponse
 
 from app.api.admin.service import AdminService
 from app.api.dependencies import Authentication
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import AdminQuerySearch, UpdatePermissionsBody
+from app.utils.schema.response import (
+    AdminAppPermissionSearch,
+    AdminUserPermissionSearch,
+)
 from app.utils.schema.shared import BooleanResponse
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
 
@@ -33,7 +36,12 @@ class AdminRouter:
             self.search_apps,
             methods=["GET"],
             dependencies=[
-                Depends(Authentication(required_role=RoleEnum.APP_FIRST_PARTY))
+                Depends(
+                    Authentication(
+                        required_role=RoleEnum.APP_FIRST_PARTY,
+                        delegated_scope=AuthScopeEnum.ADMIN,
+                    )
+                )
             ],
             include_in_schema=False,
         )
@@ -42,7 +50,12 @@ class AdminRouter:
             self.search_users,
             methods=["GET"],
             dependencies=[
-                Depends(Authentication(required_role=RoleEnum.APP_FIRST_PARTY))
+                Depends(
+                    Authentication(
+                        required_role=RoleEnum.APP_FIRST_PARTY,
+                        delegated_scope=AuthScopeEnum.ADMIN,
+                    )
+                )
             ],
             include_in_schema=False,
         )
@@ -83,7 +96,10 @@ class AdminRouter:
 
         results = await admin_service.search_users(identifier=query_params.identifier)
 
-        return JSONResponse({"results": results}, status_code=status.HTTP_200_OK)
+        return Response(
+            AdminUserPermissionSearch(results=results).model_dump_json(),
+            status_code=status.HTTP_200_OK,
+        )
 
     async def search_apps(
         self,
@@ -93,7 +109,10 @@ class AdminRouter:
 
         results = await admin_service.search_apps(identifier=query_params.identifier)
 
-        return JSONResponse({"results": results}, status_code=status.HTTP_200_OK)
+        return Response(
+            AdminAppPermissionSearch(results=results).model_dump_json(),
+            status_code=status.HTTP_200_OK,
+        )
 
     async def update_permissions(
         self,
@@ -104,7 +123,7 @@ class AdminRouter:
         admin_service = AdminService()
 
         await admin_service.update_permissions(
-            id=id, client_type=client_type, data=body
+            id=id, client_type=client_type, body=body
         )
 
         return Response(
