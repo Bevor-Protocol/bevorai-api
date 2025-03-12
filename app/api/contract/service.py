@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 from typing import Optional
 
 import httpx
@@ -48,6 +49,7 @@ class ContractService:
         contracts = await Contract.filter(**filter_obj)
 
         if contracts:
+            logging.info(f"early exiting for {address}")
             return contracts
 
         if code:
@@ -95,7 +97,8 @@ class ContractService:
                     contract_name=result["contract_name"],
                     raw_code=result["code"],
                 )
-                contracts_return.append(contract)
+                if contract.is_available:
+                    contracts_return.append(contract)
 
         return contracts_return
 

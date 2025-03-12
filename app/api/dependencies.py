@@ -112,7 +112,7 @@ class Authentication:
         self,
         request: Request,
         authorization: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-        x_user_identifier: Optional[str] = Header(
+        bevor_user_identifier: Optional[str] = Header(
             None,
             description="Unique user identifier (optional). Only relevant for `App` role",  # noqa
         ),
@@ -121,7 +121,7 @@ class Authentication:
             auth = await self.check_authentication(
                 request=request,
                 credentials=authorization.credentials,
-                user_identifier=x_user_identifier,
+                user_identifier=bevor_user_identifier,
             )
             await self.check_authorization(request=request, auth=auth)
         except Exception as err:

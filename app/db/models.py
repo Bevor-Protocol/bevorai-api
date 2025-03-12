@@ -15,7 +15,6 @@ from app.utils.types.enums import (
     FindingLevelEnum,
     NetworkEnum,
     TransactionTypeEnum,
-    WebhookEventEnum,
 )
 
 
@@ -173,7 +172,6 @@ class Audit(AbstractModel):
     contract: fields.ForeignKeyRelation[Contract] = fields.ForeignKeyField(
         "models.Contract", on_delete=fields.CASCADE, related_name="audits"
     )
-    version = fields.CharField(max_length=20, null=True, default="v1")
     audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
     processing_time_seconds = fields.IntField(null=True, default=None)
     status = fields.CharEnumField(
@@ -207,6 +205,12 @@ class IntermediateResponse(AbstractModel):
     )
     processing_time_seconds = fields.IntField(null=True, default=None)
     result = fields.TextField(null=True, default=None)
+    prompt: fields.ForeignKeyNullableRelation["Prompt"] = fields.ForeignKeyField(
+        "models.Prompt",
+        on_delete=fields.SET_NULL,
+        null=True,
+        related_name="intermediate_responses",
+    )
 
     class Meta:
         table = "intermediate_response"
@@ -238,26 +242,22 @@ class Finding(AbstractModel):
         return f"{str(self.id)} | {self.audit_id}"
 
 
-class Webhook(AbstractModel):
-    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
-        "models.App", on_delete=fields.CASCADE, null=True, related_name="webhooks"
-    )
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", on_delete=fields.CASCADE, null=True, related_name="webhooks"
-    )
-    url = fields.CharField(max_length=255)
-    event = fields.CharEnumField(enum_type=WebhookEventEnum)
-    is_enabled = fields.BooleanField(default=True)
-    failure_count = fields.IntField(default=0)
-    last_failure = fields.DatetimeField(null=True)
-    last_success = fields.DatetimeField(null=True)
-    next_retry = fields.DatetimeField(null=True)
+class Prompt(AbstractModel):
+    audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
+    tag = fields.CharField(max_length=50)  # "step" or component prompt of audit
+    version = fields.CharField(max_length=20)
+    content = fields.TextField()
+    is_active = fields.BooleanField(default=True)
 
     class Meta:
-        table = "webhook"
+        table = "prompt"
+        indexes = (
+            ("audit_type",),
+            ("audit_type", "tag"),
+        )
 
     def __str__(self):
-        return f"{str(self.id)} | {self.url}"
+        return f"{self.audit_type} | {self.tag} | v{self.version}"
 
 
 class Permission(AbstractModel):

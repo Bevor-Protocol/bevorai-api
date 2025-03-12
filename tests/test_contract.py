@@ -18,16 +18,113 @@ USER_WITH_CREDITS_ADDRESS = "0xuserwithcredits"
 USER_WITH_CREDITS_API_KEY = "user-with-credits-api-key"
 
 # Contract addresses for testing
+# don't actually use these, mock the response.
 PROXY_TXT_ADDRESS_CLEAN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 PROXY_JSON_ADDRESS = "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"
 STANDARD_JSON_ADDRESS = "0x7167cc66bE2a68553E59Af10F368056F0f6f0C69"
 LARGE_JSON_ADDRESS = "0xEa19F0293453ab73214A93Fd69773684b5Eeb98f"
 
-TEST_ADDRESSES = {
-    PROXY_TXT_ADDRESS_CLEAN: {"is_proxy": True},
-    PROXY_JSON_ADDRESS: {"is_proxy": True},
-    STANDARD_JSON_ADDRESS: {"is_proxy": True},
-    LARGE_JSON_ADDRESS: {"is_proxy": True},
+MOCKED = {
+    "0xnosourcecode": {
+        "result": [
+            {
+                "SourceCode": "",
+                "ABI": "Contract source code not verified",
+                "ContractName": "",
+                "CompilerVersion": "",
+                "OptimizationUsed": "",
+                "Runs": "",
+                "ConstructorArguments": "",
+                "EVMVersion": "Default",
+                "Library": "",
+                "LicenseType": "Unknown",
+                "SwarmSource": "",
+                "SimilarMatch": "",
+                "Proxy": "0",
+                "Implementation": "",
+            }
+        ]
+    },
+    PROXY_TXT_ADDRESS_CLEAN: {
+        "result": [
+            {
+                "SourceCode": "I exist",
+                "ABI": "",
+                "ContractName": "im-a-test",
+                "CompilerVersion": "",
+                "OptimizationUsed": "",
+                "Runs": "",
+                "ConstructorArguments": "",
+                "EVMVersion": "Default",
+                "Library": "",
+                "LicenseType": "Unknown",
+                "SwarmSource": "",
+                "SimilarMatch": "",
+                "Proxy": "1",
+                "Implementation": "I-am-a-proxy",
+            }
+        ]
+    },
+    PROXY_JSON_ADDRESS: {
+        "result": [
+            {
+                "SourceCode": '{{\r\n  "language": "Solidity",\r\n  "sources": {\r\n    "contracts/MOCK.sol": {\r\n      "content": "I exist" }}}}}',  # noqa
+                "ABI": "",
+                "ContractName": "im-a-test",
+                "CompilerVersion": "",
+                "OptimizationUsed": "",
+                "Runs": "",
+                "ConstructorArguments": "",
+                "EVMVersion": "Default",
+                "Library": "",
+                "LicenseType": "Unknown",
+                "SwarmSource": "",
+                "SimilarMatch": "",
+                "Proxy": "1",
+                "Implementation": "I-am-a-proxy",
+            }
+        ]
+    },
+    STANDARD_JSON_ADDRESS: {
+        "result": [
+            {
+                "SourceCode": '{{\r\n  "language": "Solidity",\r\n  "sources": {\r\n    "contracts/MOCK.sol": {\r\n      "content": "I exist" }}}}}',  # noqa
+                "ABI": "",
+                "ContractName": "im-a-test",
+                "CompilerVersion": "",
+                "OptimizationUsed": "",
+                "Runs": "",
+                "ConstructorArguments": "",
+                "EVMVersion": "Default",
+                "Library": "",
+                "LicenseType": "Unknown",
+                "SwarmSource": "",
+                "SimilarMatch": "",
+                "Proxy": "0",
+                "Implementation": "",
+            }
+        ]
+    },
+    LARGE_JSON_ADDRESS: {
+        "result": [
+            {
+                "SourceCode": '{{\r\n  "language": "Solidity",\r\n  "sources": {\r\n    "contracts/MOCK.sol": {\r\n      "content": "I exist" }, "contracts/MOCK2.sol": {\r\n      "content": "I exist too" }}}}}',  # noqa
+                "ABI": "",
+                "ContractName": "im-a-test",
+                "CompilerVersion": "",
+                "OptimizationUsed": "",
+                "Runs": "",
+                "ConstructorArguments": "",
+                "EVMVersion": "Default",
+                "Library": "",
+                "LicenseType": "Unknown",
+                "SwarmSource": "",
+                "SimilarMatch": "",
+                "Proxy": "0",
+                "Implementation": "",
+            }
+        ]
+    },
 }
 
 
@@ -68,20 +165,6 @@ async def user_with_auth_and_credits():
     await auth.save()
 
     return user
-
-
-@pytest_asyncio.fixture(scope="module", autouse=True)
-async def setup_teardown_contracts():
-    """Setup and teardown for contract tests to avoid race conditions"""
-    # Setup - ensure contracts don't exist before tests
-    for address in TEST_ADDRESSES.keys():
-        await Contract.filter(address=address).delete()
-
-    yield
-
-    # Teardown - clean up contracts after all tests
-    for address in TEST_ADDRESSES.keys():
-        await Contract.filter(address=address).delete()
 
 
 @pytest.mark.anyio
@@ -248,57 +331,65 @@ async def test_contract_scan_multiple_found(user_with_auth, async_client):
 
 
 @pytest.mark.anyio
-async def test_contract_scan_real(user_with_auth, async_client):
-    for address in TEST_ADDRESSES.keys():
+async def test_contract_scan_different_responses(user_with_auth, async_client):
+    """
+    Mock the different etherscan response structures.
+    """
+    # Mock the sync_credits method that will be called after dependency check
+    async_mock = AsyncMock()
 
-        contracts = await Contract.filter(address=address)
-        assert len(contracts) == 0
+    async def mock_get_source_code(self, client, network, address):
+        request = Request("GET", "https://mocked.url")
+        if network in [NetworkEnum.ETH, NetworkEnum.ARB]:
+            return Response(
+                request=request,
+                status_code=200,
+                content=json.dumps(MOCKED[address]),
+            )
+        return Response(request=request, status_code=400, content=json.dumps({}))
 
-        mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
+    async_mock.side_effect = mock_get_source_code
 
-        response = await async_client.post(
-            "/contract",
-            headers={"Authorization": f"Bearer {USER_API_KEY}"},
-            json=mock_body.model_dump(),
-        )
+    for address, body in MOCKED.items():
+        with patch.object(ExplorerClient, "get_source_code", new=mock_get_source_code):
+            mock_body = ContractScanBody(address=address)
 
-        assert response.status_code == 202
+            response = await async_client.post(
+                "/contract",
+                headers={"Authorization": f"Bearer {USER_API_KEY}"},
+                json=mock_body.model_dump(),
+            )
 
-        data = response.json()
-        assert data["exists"] is True
-        assert data["exact_match"] is True
-        assert data["contract"]["network"] == NetworkEnum.ETH
+            # Assertions
+            assert response.status_code == 202
 
-        contracts = await Contract.filter(address=address)
-        assert len(contracts) == 1
+            data = response.json()
+            if address == "0xnosourcecode":
+                assert data["exact_match"] is False
+                assert data["exists"] is False
+                continue
+            else:
+                assert data["exact_match"] is False
+                assert data["exists"] is True
+                assert data["contract"]["network"] in [NetworkEnum.ETH, NetworkEnum.ARB]
 
-        eth_contract = next(
-            (contract for contract in contracts if contract.network == NetworkEnum.ETH),
-            None,
-        )
+            contracts = await Contract.filter(address=address)
 
-        assert eth_contract is not None
-        assert eth_contract.is_available is True
-        assert eth_contract.raw_code is not None
+            assert len(contracts) == 2
 
-        await Contract.filter(address=address).delete()
+            for contract in contracts:
+                assert contract.is_available is True
+                assert contract.raw_code is not None
 
+            non_eth_contract = next(
+                (
+                    contract
+                    for contract in contracts
+                    if contract.network not in [NetworkEnum.ETH, NetworkEnum.ARB]
+                ),
+                None,
+            )
 
-# @pytest.mark.anyio
-# async def test_contract_ast_real(user_with_auth_and_credits, async_client):
-#     for address, res in TEST_ADDRESSES.items():
+            assert non_eth_contract is None
 
-#         mock_body = ContractScanBody(address=address, network=NetworkEnum.ETH)
-
-#         response = await async_client.post(
-#             "/contract/token/static",
-#             headers={"Authorization": f"Bearer {USER_WITH_CREDITS_API_KEY}"},
-#             json=mock_body.model_dump(),
-#         )
-
-#         assert response.status_code == 202
-
-#         data = response.json()
-#         assert StaticAnalysisTokenResult(**data)
-#         result = StaticAnalysisTokenResult(**data)
-#         assert result.has_proxy_functions == res["is_proxy"]
+    await Contract.all().delete()
