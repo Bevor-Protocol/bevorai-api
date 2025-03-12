@@ -1,4 +1,5 @@
-from app.db.models import Contract, Finding, IntermediateResponse, User
+from app.db.models import App, Contract, Finding, IntermediateResponse, User
+from app.utils.schema.app import AppPydantic
 from app.utils.schema.audit import AuditStepPydantic, FindingPydantic
 from app.utils.schema.contract import ContractPydantic, ContractWithCodePydantic
 from app.utils.schema.user import UserPydantic
@@ -46,6 +47,10 @@ def cast_contract_with_code(contract: Contract) -> ContractWithCodePydantic:
 
 def cast_user(user: User) -> UserPydantic:
     return UserPydantic(id=user.id, address=user.address)
+
+
+def cast_app(app: App) -> AppPydantic:
+    return AppPydantic(id=app.id, owner_id=app.owner_id, name=app.name, type=app.type)
 
 
 def cast_step(step: IntermediateResponse) -> AuditStepPydantic:

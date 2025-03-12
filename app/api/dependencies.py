@@ -24,9 +24,11 @@ class Authentication:
         self,
         required_role: RoleEnum,
         scope_override: Optional[AuthScopeEnum] = None,
+        delegated_scope: Optional[AuthScopeEnum] = None,
     ):
         self.required_role = required_role
         self.scope_override = scope_override
+        self.delegated_scope = delegated_scope
 
     async def check_authentication(
         self, request: Request, credentials: str, user_identifier: Optional[str] = None
@@ -108,6 +110,26 @@ class Authentication:
             if cur_scope not in [AuthScopeEnum.ADMIN, AuthScopeEnum.WRITE]:
                 raise Exception("invalid scope for this request")
 
+    async def check_delegated_scope(self, user_identifier: str) -> None:
+        if not self.delegated_scope:
+            return
+        if not user_identifier:
+            raise Exception("delegation required via header")
+
+        scope_tiers = {
+            AuthScopeEnum.ADMIN: 2,
+            AuthScopeEnum.WRITE: 1,
+            AuthScopeEnum.READ: 0,
+        }
+
+        delegated_auth = await Auth.get(user_id=user_identifier)
+
+        required_scope_tier = scope_tiers[self.delegated_scope]
+        delegated_scope_tier = scope_tiers[delegated_auth.scope]
+
+        if required_scope_tier > delegated_scope_tier:
+            raise Exception("invalid scope for this request")
+
     async def __call__(
         self,
         request: Request,
@@ -124,6 +146,7 @@ class Authentication:
                 user_identifier=bevor_user_identifier,
             )
             await self.check_authorization(request=request, auth=auth)
+            await self.check_delegated_scope(user_identifier=bevor_user_identifier)
         except Exception as err:
             logging.exception(err)
             raise HTTPException(

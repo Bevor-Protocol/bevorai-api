@@ -125,10 +125,12 @@ class AuditRouter:
                 detail="this audit does not exist under these credentials",
             )
 
-    async def submit_feedback(self, request: Request, data: FeedbackBody, id: str):
+    async def submit_feedback(
+        self, request: Request, body: Annotated[FeedbackBody, Body()], id: str
+    ):
         audit_service = AuditService()
         response = await audit_service.submit_feedback(
-            data=data, auth=request.state.auth, id=id
+            data=body, auth=request.state.auth, id=id
         )
         return Response(
             BooleanResponse(success=response).model_dump_json(),

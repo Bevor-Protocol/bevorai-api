@@ -1,6 +1,5 @@
 from typing import Optional
 from uuid import UUID
-from xmlrpc.client import boolean
 
 from pydantic import (
     BaseModel,
@@ -25,7 +24,7 @@ class EvalBody(BaseModel):
 
 class FeedbackBody(BaseModel):
     feedback: Optional[str] = Field(default=None)
-    verified: boolean
+    verified: bool
 
 
 class UserUpsertBody(BaseModel):
@@ -112,3 +111,12 @@ class ContractScanBody(BaseModel):
 
 class AppUpsertBody(BaseModel):
     name: str
+
+
+class UpdatePermissionsBody(BaseModel):
+    can_create_app: bool
+    can_create_api_key: bool
+
+
+class AdminQuerySearch(BaseModel):
+    identifier: str
