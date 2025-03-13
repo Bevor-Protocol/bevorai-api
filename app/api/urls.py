@@ -1,3 +1,4 @@
+from .admin.router import AdminRouter
 from .app.router import AppRouter
 from .audit.router import AuditRouter
 from .auth.router import AuthRouter
@@ -8,6 +9,7 @@ from .platform.router import PlatformRouter
 from .user.router import UserRouter
 from .websocket.router import WebsocketRouter
 
+admin_router = AdminRouter().router
 app_router = AppRouter().router
 audit_router = AuditRouter().router
 auth_router = AuthRouter().router

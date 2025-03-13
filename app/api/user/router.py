@@ -24,25 +24,22 @@ class UserRouter:
             self.get_or_create_user,
             methods=["POST"],
             dependencies=[Depends(Authentication(required_role=RoleEnum.APP))],
-            **GET_OR_CREATE_USER
+            **GET_OR_CREATE_USER,
         )
         self.router.add_api_route(
             "/info",
             self.get_user_info,
             methods=["GET"],
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
-            **GET_USER_INFO
+            **GET_USER_INFO,
         )
 
-    async def get_or_create_user(
-        self, request: Request, body: Annotated[UserUpsertBody, Body()]
-    ):
-
+    async def get_or_create_user(self, body: Annotated[UserUpsertBody, Body()]):
         # Users are created through apps. A user is denoted by their address,
         # but might have different app owners that they were created through.
         user_service = UserService()
 
-        result = await user_service.get_or_create(request.state.auth, body.address)
+        result = await user_service.get_or_create(body.address)
         response = IdResponse(id=result.id)
 
         return Response(

@@ -8,12 +8,9 @@ from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
 from app.api.pricing.service import Usage
 from app.config import redis_client
-from app.db.models import Audit, Finding, IntermediateResponse
-from app.lib.gas import CURRENT_VERSION as gas_version
-from app.lib.gas import structure as gas_structure
-from app.lib.security import CURRENT_VERSION as sec_version
-from app.lib.security import structure as sec_structure
+from app.db.models import Audit, Finding, IntermediateResponse, Prompt
 from app.utils.clients.llm import llm_client
+from app.utils.schema.output import GasOutputStructure, SecurityOutputStructure
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
 
@@ -31,15 +28,12 @@ class LlmPipeline:
         self.audit_type = audit.audit_type
         self.usage = Usage()
 
-        # will always use the most recent version
-        self.version_use = (
-            sec_structure
-            if audit.audit_type == AuditTypeEnum.SECURITY
-            else gas_structure
+        self.output_structure = (
+            GasOutputStructure
+            if audit.audit_type == AuditTypeEnum.GAS
+            else SecurityOutputStructure
         )
-        self.version = (
-            sec_version if audit.audit_type == AuditTypeEnum.SECURITY else gas_version
-        )
+
         self.should_publish = should_publish
 
     def _parse_candidates(
@@ -114,9 +108,7 @@ class LlmPipeline:
             logging.warn("Failed to parse json, skipping")
             return
 
-        output_parser = self.version_use["response"]
-
-        model = output_parser(**parsed)
+        model = self.output_structure(**parsed)
 
         to_create = []
         for severity in FindingLevelEnum:
@@ -143,8 +135,8 @@ class LlmPipeline:
 
         # allows for some fault tolerance.
         now = datetime.now()
-        await self.__checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
         try:
+            await self.__checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
             response = await llm_client.chat.completions.create(
                 model="gpt-4o-mini",
                 max_completion_tokens=2000,
@@ -186,9 +178,11 @@ class LlmPipeline:
 
     async def generate_candidates(self):
         tasks = []
-        candidate_prompts = self.version_use["prompts"]["candidates"]
-        for candidate, prompt in candidate_prompts.items():
-            task = self._generate_candidate(candidate=candidate, prompt=prompt)
+        candidate_prompts = await Prompt.filter(
+            audit_type=self.audit_type, is_active=True, tag__not="reviewer"
+        )
+        for prompt in candidate_prompts:
+            task = self._generate_candidate(candidate=prompt.tag, prompt=prompt.content)
             tasks.append(task)
 
         responses: list[str | None] = await asyncio.gather(*tasks)
@@ -203,12 +197,13 @@ class LlmPipeline:
 
     async def generate_report(self):
         if not self.candidate_prompt:
-            raise NotImplementedError("must run generate_judgement() first")
+            raise NotImplementedError("must run generate_candidates() first")
 
         await self.__publish_event(name="report", status="start")
 
-        output_structure = self.version_use["response"]
-        prompt = self.version_use["prompts"]["reviewer"]
+        prompt = await Prompt.filter(
+            audit_type=self.audit_type, is_active=True, tag="reviewer"
+        ).first()
 
         now = datetime.now()
         await self.__checkpoint(step="report", status=AuditStatusEnum.PROCESSING)
@@ -221,11 +216,11 @@ class LlmPipeline:
                 messages=[
                     {
                         "role": "developer",
-                        "content": prompt,
+                        "content": prompt.content,
                     },
                     {"role": "user", "content": self.candidate_prompt},
                 ],
-                response_format=output_structure,
+                response_format=self.output_structure,
             )
         except Exception as err:
             await self.__publish_event(name="report", status="error")

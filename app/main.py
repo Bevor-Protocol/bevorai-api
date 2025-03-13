@@ -55,6 +55,7 @@ register_tortoise(
 
 app.add_middleware(PrometheusMiddleware)
 
+app.include_router(routers.admin_router)
 app.include_router(routers.app_router)
 app.include_router(routers.audit_router)
 app.include_router(routers.auth_router)

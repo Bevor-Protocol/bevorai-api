@@ -1,6 +1,5 @@
 from typing import Optional
 from uuid import UUID
-from xmlrpc.client import boolean
 
 from pydantic import (
     BaseModel,
@@ -25,7 +24,7 @@ class EvalBody(BaseModel):
 
 class FeedbackBody(BaseModel):
     feedback: Optional[str] = Field(default=None)
-    verified: boolean
+    verified: bool
 
 
 class UserUpsertBody(BaseModel):
@@ -42,7 +41,7 @@ class FilterParams(BaseModel):
     user_id: Optional[str | UUID] = None
     user_address: Optional[str] = None
     page: int = 0
-    page_size: int = 15
+    page_size: int = 20
     search: Optional[str] = Field(default=None, description="search the audit result")
     audit_type: list[AuditTypeEnum] = Field(default_factory=list)
     status: Optional[AuditStatusEnum] = None
@@ -54,7 +53,15 @@ class FilterParams(BaseModel):
     def parse_audit_to_list(cls, value: list[str] | str):
         if not value:
             return []
+        if (
+            isinstance(value, list)
+            and len(value) == 1
+            and isinstance(value[0], str)
+            and "," in value[0]
+        ):
+            return value[0].replace("%2C", ",").split(",")
         if isinstance(value, str):
+            value = value.replace("%2C", ",")
             return value.split(",")
         return value
 
@@ -63,7 +70,15 @@ class FilterParams(BaseModel):
     def parse_network_to_list(cls, value: list[str] | str):
         if not value:
             return []
+        if (
+            isinstance(value, list)
+            and len(value) == 1
+            and isinstance(value[0], str)
+            and "," in value[0]
+        ):
+            return value[0].replace("%2C", ",").split(",")
         if isinstance(value, str):
+            value = value.replace("%2C", ",")
             return value.split(",")
         return value
 
@@ -96,3 +111,28 @@ class ContractScanBody(BaseModel):
 
 class AppUpsertBody(BaseModel):
     name: str
+
+
+class UpdatePermissionsBody(BaseModel):
+    can_create_app: bool
+    can_create_api_key: bool
+
+
+class AdminQuerySearch(BaseModel):
+    identifier: Optional[str] = None
+
+
+class UpdatePromptBody(BaseModel):
+    audit_type: Optional[AuditTypeEnum] = None
+    tag: Optional[str] = None
+    content: Optional[str] = None
+    version: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class CreatePromptBody(BaseModel):
+    audit_type: AuditTypeEnum
+    tag: str
+    content: str
+    version: str
+    is_active: Optional[bool] = False

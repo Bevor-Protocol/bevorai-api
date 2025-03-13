@@ -1,4 +1,6 @@
-template = """
+# flake8: noqa
+
+gas_template = """
 # ⛽ Smart Contract Gas Audit Report
 
 ---

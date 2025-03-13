@@ -35,7 +35,6 @@ async def handle_eval(audit_id: str):
         should_publish=False,
     )
 
-    audit.version = pipeline.version
     audit.status = AuditStatusEnum.PROCESSING
     await audit.save()
 
@@ -116,7 +115,7 @@ async def get_deployment_contracts(network: NetworkEnum):
         for address in deployment_addresses:
             tasks.append(
                 asyncio.create_task(
-                    blockchain_service.fetch_contract_source_code_from_explorer(
+                    blockchain_service.get_source_code(
                         client, address=address, network=network
                     )
                 )

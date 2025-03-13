@@ -2,6 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.utils.schema.app import AppPydantic
+from app.utils.schema.prompt import PromptPydantic
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
 from .audit import AuditPydantic, AuditStepPydantic, FindingPydantic
@@ -89,7 +91,6 @@ class AppInfoResponse(IdResponse, CreatedAtResponse):
     name: str
     n_audits: int
     n_contracts: int
-    n_users: int
 
 
 class AllStatsResponse(BaseModel):
@@ -127,3 +128,28 @@ class StaticAnalysisTokenResult(BaseModel):
     can_terminate_transactions: bool = Field(
         description="Whether the token contract can terminate transactions"
     )
+
+
+class AdminPermission(BaseModel):
+    can_create_app: bool
+    can_create_api_key: bool
+
+
+class AdminUserPermission(UserPydantic):
+    permission: Optional[AdminPermission]
+
+
+class AdminUserPermissionSearch(BaseModel):
+    results: list[AdminUserPermission]
+
+
+class AdminAppPermission(AppPydantic):
+    permission: Optional[AdminPermission]
+
+
+class AdminAppPermissionSearch(BaseModel):
+    results: list[AdminAppPermission]
+
+
+class PromptGroupedResponse(BaseModel):
+    result: dict[str, dict[str, list[PromptPydantic]]]

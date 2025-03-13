@@ -5,8 +5,8 @@ import httpx
 
 from app.utils.clients.explorer import ExplorerClient
 from app.utils.clients.web3 import Web3Client
+from app.utils.helpers.code_parser import SourceCodeParser
 from app.utils.types.enums import NetworkEnum
-from app.utils.types.errors import NoSourceCodeError
 
 
 class BlockchainService:
@@ -23,7 +23,7 @@ class BlockchainService:
             data = response.json()
             return data
 
-    async def fetch_contract_source_code_from_explorer(
+    async def get_source_code(
         self, client: httpx.AsyncClient, address: str, network: NetworkEnum
     ) -> dict:
         explorer_client = ExplorerClient()
@@ -33,9 +33,11 @@ class BlockchainService:
         obj = {
             "network": network,
             "address": address,
-            "has_source_code": False,
-            "found": False,
-            "source_code": None,
+            "exists": False,
+            "is_available": False,
+            "code": None,
+            "is_proxy": False,
+            "contract_name": None,
         }
 
         try:
@@ -47,33 +49,38 @@ class BlockchainService:
 
             result = data.get("result")
             if result and isinstance(result, list) and len(result) > 0:
-                obj["found"] = True
-                source_code = result[0].get("SourceCode")
-                if source_code:
-                    obj["has_source_code"] = True
-                    obj["source_code"] = source_code
-            raise NoSourceCodeError()
-        except NoSourceCodeError:
-            obj["found"] = True
-        except Exception:
-            pass
+                obj["exists"] = True
+                parser = SourceCodeParser(result[0])
+                parser.extract_raw_code()
+                obj["is_available"] = parser.source != ""
+                obj["code"] = parser.source if parser.source != "" else None
+                obj["contract_name"] = parser.contract_name
+                obj["is_proxy"] = parser.is_proxy
+        except Exception as err:
+            logging.exception(err)
         finally:
             return obj
 
     async def get_credits(self, address: str) -> float:
+        """
+        Call the apiCredit contract directly.
+        """
         web3_client = Web3Client()
         provider = web3_client.get_deployed_provider()
 
         env = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
         if env == "production":
+            # mainnet BASE contract
             contract_address = provider.to_checksum_address(
                 "0x1bdEEe6376572F1CAE454dC68a936Af56A803e96"
             )
         elif env == "staging":
+            # testnet Sepolia contract
             contract_address = provider.to_checksum_address(
                 "0xbc14A36c59154971A8Eb431031729Af39f97eEd1"
             )
         else:
+            # local anvil deployment
             contract_address = provider.to_checksum_address(
                 "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512"
             )

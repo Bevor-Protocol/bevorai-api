@@ -8,8 +8,6 @@ from tortoise.timezone import now
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract, Finding
-from app.lib.gas import versions as gas_versions
-from app.lib.security import versions as sec_versions
 from app.utils.helpers.model_parser import (
     cast_contract,
     cast_contract_with_code,
@@ -26,6 +24,8 @@ from app.utils.schema.response import (
     CreateEvalResponse,
     GetAuditStatusResponse,
 )
+from app.utils.templates.gas import gas_template
+from app.utils.templates.security import security_template
 from app.utils.types.enums import AuditTypeEnum, RoleEnum
 
 
@@ -123,7 +123,6 @@ class AuditService:
             id=audit.id,
             created_at=audit.created_at,
             status=audit.status,
-            version=audit.version,
             audit_type=audit.audit_type,
             processing_time_seconds=audit.processing_time_seconds,
             result=result,
@@ -155,7 +154,9 @@ class AuditService:
 
         return response
 
-    async def submit_feedback(self, data: FeedbackBody, auth: AuthState, id=id) -> bool:
+    async def submit_feedback(
+        self, data: FeedbackBody, auth: AuthState, id: str
+    ) -> bool:
 
         finding = await Finding.get(id=id).select_related("audit")
 
@@ -204,14 +205,12 @@ class AuditService:
 
         return parsed
 
-    def parse_branded_markdown(self, audit: Audit, findings: dict):
+    def parse_branded_markdown(self, audit: Audit, findings: dict) -> str:
         # See if i can cast it back to the expected Pydantic struct.
-        version_use = (
-            gas_versions if audit.audit_type == AuditTypeEnum.GAS else sec_versions
+        template_use = (
+            gas_template if audit.audit_type == AuditTypeEnum.GAS else security_template
         )
-        version = version_use[audit.version]
-        markdown = version["markdown"]
-        result = markdown
+        result = template_use
 
         formatter = {
             "address": audit.contract.address,

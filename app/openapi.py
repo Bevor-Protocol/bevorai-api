@@ -28,7 +28,7 @@ The `App` role is a superset of the `User` role. It allows you to create users, 
 of other users. This is useful if you'd like to natively distinguish requests across users on your application.
 If you do not need this capability, it's recommended to authenticate as a `User`.
 
-*Note: the `x-user-identifier` header can be ignored if making requests as a `User`*
+*Note: the `Bevor-User-Identifier` header can be ignored if making requests as a `User`*
 
 ### Contracts
 You can scan contracts, OR upload raw smart contract code.

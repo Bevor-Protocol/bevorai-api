@@ -12,7 +12,7 @@ from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import ContractScanBody
 from app.utils.types.enums import RoleEnum, TransactionTypeEnum
 
-from .openapi import ANALYZE_TOKEN, GET_CONTRACT, GET_OR_CREATE_CONTRACT
+from .openapi import GET_CONTRACT, GET_OR_CREATE_CONTRACT
 
 
 class ContractRouter:
@@ -48,7 +48,8 @@ class ContractRouter:
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER)),
                 Depends(RequireCredits()),
             ],
-            **ANALYZE_TOKEN,
+            # **ANALYZE_TOKEN,
+            include_in_schema=False,
         )
 
     async def upload_contract(self, body: Annotated[ContractScanBody, Body()]):
@@ -89,11 +90,13 @@ class ContractRouter:
             price = static_pricing.get_cost()
             user.used_credits += price
             await user.save()
-            await Transaction.save(
+            await Transaction.create(
                 app_id=auth.app_id,
                 user_id=auth.user_id,
                 type=TransactionTypeEnum.SPEND,
                 amount=price,
             )
 
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        return Response(
+            response.model_dump_json(), status_code=status.HTTP_202_ACCEPTED
+        )
