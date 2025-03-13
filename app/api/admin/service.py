@@ -1,18 +1,26 @@
+from uuid import UUID
+
 from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 
-from app.db.models import App, Auth, Permission, User
-from app.utils.helpers.model_parser import cast_permission
+from app.db.models import App, Auth, Permission, Prompt, User
+from app.utils.helpers.model_parser import cast_permission, cast_prompt
 from app.utils.schema.app import AppPydantic
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.permission import PermissionPydantic
-from app.utils.schema.request import UpdatePermissionsBody
+from app.utils.schema.request import (
+    CreatePromptBody,
+    UpdatePermissionsBody,
+    UpdatePromptBody,
+)
 from app.utils.schema.response import (
     AdminAppPermission,
     AdminPermission,
     AdminUserPermission,
+    PromptGroupedResponse,
 )
-from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
+from app.utils.types.enums import AuditTypeEnum, AuthScopeEnum, ClientTypeEnum
 
 
 class AdminService:
@@ -130,3 +138,90 @@ class AdminService:
             )
 
         return results
+
+    async def get_prompts_grouped(self):
+        prompts = await Prompt.all()
+
+        prompts_grouped = {k: {} for k in AuditTypeEnum}
+
+        for prompt in prompts:
+            audit_type = prompt.audit_type
+            tag = prompt.tag
+            is_active = prompt.is_active
+            if tag not in prompts_grouped[audit_type]:
+                prompts_grouped[audit_type][tag] = []
+
+            prompt_instance = cast_prompt(prompt)
+
+            if is_active:
+                prompts_grouped[audit_type][tag].insert(0, prompt_instance)
+            else:
+                prompts_grouped[audit_type][tag].append(prompt_instance)
+
+        return PromptGroupedResponse(result=prompts_grouped)
+
+    async def update_prompt(self, id: str, body: UpdatePromptBody):
+        if (
+            not body.content
+            and not body.version
+            and not body.tag
+            and body.is_active is None
+        ):
+            return
+
+        prompt = await Prompt.get(id=id)
+
+        prompt_demote = None
+        if body.is_active:
+            if not prompt.is_active:
+                prompt_demote = (
+                    await Prompt.filter(
+                        id__not=id, tag=prompt.tag, audit_type=prompt.audit_type
+                    )
+                    .order_by("-created_at")
+                    .first()
+                )
+                if prompt_demote:
+                    prompt_demote.is_active = False
+
+        if body.is_active is not None:
+            prompt.is_active = body.is_active
+        if body.version:
+            prompt.version = body.version
+        if body.content:
+            prompt.content = body.content
+        if body.tag:
+            prompt.tag = body.tag
+
+        async with in_transaction():
+            await prompt.save()
+            if prompt_demote:
+                await prompt_demote.save()
+
+    async def add_prompt(self, body: CreatePromptBody) -> UUID:
+        prompt = Prompt(
+            audit_type=body.audit_type.value,
+            tag=body.tag,
+            content=body.content,
+            version=body.version,
+            is_active=body.is_active if body.is_active is not None else False,
+        )
+
+        prompt_demote = None
+        if body.is_active:
+            prompt_demote = (
+                await Prompt.filter(
+                    id__not=prompt.id, tag=prompt.tag, audit_type=prompt.audit_type
+                )
+                .order_by("-created_at")
+                .first()
+            )
+            if prompt_demote:
+                prompt_demote.is_active = False
+
+        async with in_transaction():
+            await prompt.save()
+            if prompt_demote:
+                await prompt_demote.save()
+
+        return prompt.id

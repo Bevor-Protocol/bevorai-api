@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from app.utils.schema.app import AppPydantic
+from app.utils.schema.prompt import PromptPydantic
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
 from .audit import AuditPydantic, AuditStepPydantic, FindingPydantic
@@ -148,3 +149,7 @@ class AdminAppPermission(AppPydantic):
 
 class AdminAppPermissionSearch(BaseModel):
     results: list[AdminAppPermission]
+
+
+class PromptGroupedResponse(BaseModel):
+    result: dict[str, dict[str, list[PromptPydantic]]]

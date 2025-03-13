@@ -120,3 +120,19 @@ class UpdatePermissionsBody(BaseModel):
 
 class AdminQuerySearch(BaseModel):
     identifier: str
+
+
+class UpdatePromptBody(BaseModel):
+    audit_type: Optional[AuditTypeEnum] = None
+    tag: Optional[str] = None
+    content: Optional[str] = None
+    version: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class CreatePromptBody(BaseModel):
+    audit_type: AuditTypeEnum
+    tag: str
+    content: str
+    version: str
+    is_active: Optional[bool] = False

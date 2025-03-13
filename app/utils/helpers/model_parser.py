@@ -1,8 +1,17 @@
-from app.db.models import App, Contract, Finding, IntermediateResponse, Permission, User
+from app.db.models import (
+    App,
+    Contract,
+    Finding,
+    IntermediateResponse,
+    Permission,
+    Prompt,
+    User,
+)
 from app.utils.schema.app import AppPydantic
 from app.utils.schema.audit import AuditStepPydantic, FindingPydantic
 from app.utils.schema.contract import ContractPydantic, ContractWithCodePydantic
 from app.utils.schema.permission import PermissionPydantic
+from app.utils.schema.prompt import PromptPydantic
 from app.utils.schema.user import UserPydantic
 
 """
@@ -69,4 +78,16 @@ def cast_permission(permission: Permission) -> PermissionPydantic:
         client_type=permission.client_type,
         can_create_app=permission.can_create_app,
         can_create_api_key=permission.can_create_api_key,
+    )
+
+
+def cast_prompt(prompt: Prompt) -> PromptPydantic:
+    return PromptPydantic(
+        id=prompt.id,
+        created_at=prompt.created_at,
+        audit_type=prompt.audit_type,
+        is_active=prompt.is_active,
+        tag=prompt.tag,
+        version=prompt.version,
+        content=prompt.content,
     )

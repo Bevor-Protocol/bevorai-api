@@ -6,12 +6,17 @@ from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 from app.api.admin.service import AdminService
 from app.api.dependencies import Authentication
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import AdminQuerySearch, UpdatePermissionsBody
+from app.utils.schema.request import (
+    AdminQuerySearch,
+    CreatePromptBody,
+    UpdatePermissionsBody,
+    UpdatePromptBody,
+)
 from app.utils.schema.response import (
     AdminAppPermissionSearch,
     AdminUserPermissionSearch,
 )
-from app.utils.schema.shared import BooleanResponse
+from app.utils.schema.shared import BooleanResponse, IdResponse
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
 
 
@@ -29,7 +34,6 @@ class AdminRouter:
             dependencies=[
                 Depends(Authentication(required_role=RoleEnum.APP_FIRST_PARTY))
             ],
-            include_in_schema=False,
         )
         self.router.add_api_route(
             "/search/app",
@@ -43,7 +47,6 @@ class AdminRouter:
                     )
                 )
             ],
-            include_in_schema=False,
         )
         self.router.add_api_route(
             "/search/user",
@@ -57,7 +60,6 @@ class AdminRouter:
                     )
                 )
             ],
-            include_in_schema=False,
         )
         self.router.add_api_route(
             "/permissions/{client_type}/{id}",
@@ -71,7 +73,45 @@ class AdminRouter:
                     )
                 )
             ],
-            include_in_schema=False,
+        )
+        self.router.add_api_route(
+            "/prompts",
+            self.get_prompts,
+            methods=["GET"],
+            dependencies=[
+                Depends(
+                    Authentication(
+                        required_role=RoleEnum.APP_FIRST_PARTY,
+                        delegated_scope=AuthScopeEnum.ADMIN,
+                    )
+                )
+            ],
+        )
+        self.router.add_api_route(
+            "/prompt/{id}",
+            self.update_prompt,
+            methods=["PATCH"],
+            dependencies=[
+                Depends(
+                    Authentication(
+                        required_role=RoleEnum.APP_FIRST_PARTY,
+                        delegated_scope=AuthScopeEnum.ADMIN,
+                    )
+                )
+            ],
+        )
+        self.router.add_api_route(
+            "/prompt",
+            self.add_prompt,
+            methods=["POST"],
+            dependencies=[
+                Depends(
+                    Authentication(
+                        required_role=RoleEnum.APP_FIRST_PARTY,
+                        delegated_scope=AuthScopeEnum.ADMIN,
+                    )
+                )
+            ],
         )
 
     async def is_admin(self, request: Request):
@@ -128,5 +168,40 @@ class AdminRouter:
 
         return Response(
             BooleanResponse(success=True).model_dump_json(),
+            status_code=status.HTTP_202_ACCEPTED,
+        )
+
+    async def get_prompts(self):
+        admin_service = AdminService()
+
+        prompts_grouped = await admin_service.get_prompts_grouped()
+
+        return Response(
+            prompts_grouped.model_dump_json(), status_code=status.HTTP_200_OK
+        )
+
+    async def update_prompt(self, body: Annotated[UpdatePromptBody, Body()], id: str):
+        admin_service = AdminService()
+
+        try:
+            await admin_service.update_prompt(body=body, id=id)
+            return Response(
+                BooleanResponse(success=True).model_dump_json(),
+                status_code=status.HTTP_202_ACCEPTED,
+            )
+        except Exception:
+            return Response(
+                BooleanResponse(success=False).model_dump_json(),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+    async def add_prompt(self, body: Annotated[CreatePromptBody, Body()]):
+        admin_service = AdminService()
+
+        logging.info(body)
+
+        result = await admin_service.add_prompt(body=body)
+        return Response(
+            IdResponse(id=result).model_dump_json(),
             status_code=status.HTTP_202_ACCEPTED,
         )
