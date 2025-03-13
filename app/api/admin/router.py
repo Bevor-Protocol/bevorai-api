@@ -125,7 +125,7 @@ class AdminRouter:
 
         return Response(
             BooleanResponse(success=is_admin).model_dump_json(),
-            status_code=status.HTTP_202_ACCEPTED,
+            status_code=status.HTTP_200_OK,
         )
 
     async def search_users(

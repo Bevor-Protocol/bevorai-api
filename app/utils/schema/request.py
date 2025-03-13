@@ -119,7 +119,7 @@ class UpdatePermissionsBody(BaseModel):
 
 
 class AdminQuerySearch(BaseModel):
-    identifier: str
+    identifier: Optional[str] = None
 
 
 class UpdatePromptBody(BaseModel):
