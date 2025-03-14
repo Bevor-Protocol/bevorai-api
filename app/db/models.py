@@ -4,7 +4,7 @@ import secrets
 from tortoise import fields
 from tortoise.models import Model
 
-from app.utils.enums import (
+from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
     AuditTypeEnum,
@@ -15,7 +15,6 @@ from app.utils.enums import (
     FindingLevelEnum,
     NetworkEnum,
     TransactionTypeEnum,
-    WebhookEventEnum,
 )
 
 
@@ -32,24 +31,19 @@ class AbstractModel(Model):
 
 
 class User(AbstractModel):
-    app_owner = fields.ForeignKeyField(
-        "models.App",
-        on_delete=fields.CASCADE,
-        description="app that the user was created through",
-        null=True,  # need to set this to null so i can backfill.
-    )
-    address = fields.CharField(max_length=255, unique=True)
-    total_credits = fields.IntField(default=0)
-    used_credits = fields.IntField(default=0)
+    address = fields.CharField(max_length=255)
+    total_credits = fields.FloatField(default=0)
+    used_credits = fields.FloatField(default=0)
 
-    app: fields.ReverseRelation["App"]
+    # users can own 0 to many apps
+    apps: fields.ReverseRelation["App"]
     audits: fields.ReverseRelation["Audit"]
     auth: fields.ReverseRelation["Auth"]
     permissions: fields.ReverseRelation["Permission"]
 
     class Meta:
         table = "user"
-        indexes = (("address",), ("app_owner_id",), ("app_owner_id", "address"))
+        indexes = ("address",)
 
     def __str__(self):
         return f"{str(self.id)} | {self.address}"
@@ -58,12 +52,13 @@ class User(AbstractModel):
 class App(AbstractModel):
     # Every app will have an owner, unless it's a first party app.
     owner: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
-        "models.User", on_delete=fields.SET_NULL, null=True, related_name="app"
+        "models.User", on_delete=fields.SET_NULL, null=True, related_name="apps"
     )
     name = fields.CharField(max_length=255)
     type = fields.CharEnumField(enum_type=AppTypeEnum, default=AppTypeEnum.THIRD_PARTY)
 
     auth: fields.ReverseRelation["Auth"]
+    audits: fields.ReverseRelation["Audit"]
     permissions: fields.ReverseRelation["Permission"]
 
     class Meta:
@@ -87,6 +82,7 @@ class Auth(AbstractModel):
     hashed_key = fields.CharField(max_length=255)
     revoked_at = fields.DatetimeField(null=True, default=None)
     scope = fields.CharEnumField(enum_type=AuthScopeEnum, default=AuthScopeEnum.WRITE)
+    consumes_credits = fields.BooleanField(default=True)
 
     class Meta:
         table = "auth"
@@ -137,17 +133,12 @@ class Transaction(AbstractModel):
 class Contract(AbstractModel):
     method = fields.CharEnumField(enum_type=ContractMethodEnum)
     is_available = fields.BooleanField(
-        default=True, description="if via cron, whether source code is available"
-    )
-    n_retries = fields.IntField(
-        default=0, description="current # of retries to get source code"
-    )
-    next_attempt_at = fields.DatetimeField(
-        auto_now=True,
-        description="if source code unavailable, next timestamp to allow scan",
+        default=True, description="whether source code is available"
     )
     address = fields.CharField(max_length=255, null=True, default=None)
     network = fields.CharEnumField(enum_type=NetworkEnum, null=True, default=None)
+    contract_name = fields.TextField(null=True, default=None)
+    is_proxy = fields.BooleanField(default=False)
     raw_code = fields.TextField(null=True, default=None)
     hash_code = fields.CharField(max_length=255, null=True, default=None)
 
@@ -155,7 +146,7 @@ class Contract(AbstractModel):
         table = "contract"
 
     def __str__(self):
-        return f"{str(self.id)} | {self.job_id}"
+        return f"{str(self.id)} | {self.address}"
 
     @classmethod
     async def create(self, *args, **kwargs):
@@ -181,7 +172,6 @@ class Audit(AbstractModel):
     contract: fields.ForeignKeyRelation[Contract] = fields.ForeignKeyField(
         "models.Contract", on_delete=fields.CASCADE, related_name="audits"
     )
-    version = fields.CharField(max_length=20, null=True, default="v1")
     audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
     processing_time_seconds = fields.IntField(null=True, default=None)
     status = fields.CharEnumField(
@@ -190,6 +180,7 @@ class Audit(AbstractModel):
     raw_output = fields.TextField(null=True, default=None)
 
     intermediate_responses: fields.ReverseRelation["IntermediateResponse"]
+    findings: fields.ReverseRelation["Finding"]
 
     class Meta:
         table = "audit"
@@ -201,7 +192,7 @@ class Audit(AbstractModel):
         )
 
     def __str__(self):
-        return f"{str(self.id)} | {self.job_id}"
+        return f"{str(self.id)}"
 
 
 class IntermediateResponse(AbstractModel):
@@ -214,6 +205,12 @@ class IntermediateResponse(AbstractModel):
     )
     processing_time_seconds = fields.IntField(null=True, default=None)
     result = fields.TextField(null=True, default=None)
+    prompt: fields.ForeignKeyNullableRelation["Prompt"] = fields.ForeignKeyField(
+        "models.Prompt",
+        on_delete=fields.SET_NULL,
+        null=True,
+        related_name="intermediate_responses",
+    )
 
     class Meta:
         table = "intermediate_response"
@@ -245,26 +242,22 @@ class Finding(AbstractModel):
         return f"{str(self.id)} | {self.audit_id}"
 
 
-class Webhook(AbstractModel):
-    app: fields.ForeignKeyRelation[App] = fields.ForeignKeyField(
-        "models.App", on_delete=fields.CASCADE, null=True, related_name="webhooks"
-    )
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", on_delete=fields.CASCADE, null=True, related_name="webhooks"
-    )
-    url = fields.CharField(max_length=255)
-    event = fields.CharEnumField(enum_type=WebhookEventEnum)
-    is_enabled = fields.BooleanField(default=True)
-    failure_count = fields.IntField(default=0)
-    last_failure = fields.DatetimeField(null=True)
-    last_success = fields.DatetimeField(null=True)
-    next_retry = fields.DatetimeField(null=True)
+class Prompt(AbstractModel):
+    audit_type = fields.CharEnumField(enum_type=AuditTypeEnum)
+    tag = fields.CharField(max_length=50)  # "step" or component prompt of audit
+    version = fields.CharField(max_length=20)
+    content = fields.TextField()
+    is_active = fields.BooleanField(default=True)
 
     class Meta:
-        table = "webhook"
+        table = "prompt"
+        indexes = (
+            ("audit_type",),
+            ("audit_type", "tag"),
+        )
 
     def __str__(self):
-        return f"{str(self.id)} | {self.url}"
+        return f"{self.audit_type} | {self.tag} | v{self.version}"
 
 
 class Permission(AbstractModel):

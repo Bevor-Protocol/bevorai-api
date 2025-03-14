@@ -11,7 +11,7 @@ from tortoise import Tortoise
 
 from app.config import TORTOISE_ORM, redis_settings
 from app.prometheus import logger
-from app.utils.enums import NetworkEnum
+from app.utils.types.enums import NetworkEnum
 
 # from app.prometheus import logger
 from .tasks import get_deployment_contracts, handle_eval

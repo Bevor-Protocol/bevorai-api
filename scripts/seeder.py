@@ -11,7 +11,7 @@ from tortoise import Tortoise
 
 from app.config import TORTOISE_ORM
 from app.db.models import App, Auth
-from app.utils.enums import AppTypeEnum, ClientTypeEnum
+from app.utils.types.enums import AppTypeEnum, ClientTypeEnum
 
 
 async def init():

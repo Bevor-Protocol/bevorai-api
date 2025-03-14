@@ -1,0 +1,58 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ main, prod ]
+  pull_request:
+    branches: [ main, prod ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.8.5
+
+    - name: Install dependencies
+      run: |
+        poetry config virtualenvs.create false
+        poetry install --with dev
+
+    - name: Run tests
+      env:
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpassword
+        POSTGRES_DB: testdb
+        PGHOST: localhost:5432
+        PGSCHEME: postgres
+        OPENAI_API_KEY: fake-key
+        ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      run: |
+        poetry run pytest tests/ --cov=app --cov-fail-under=70
+

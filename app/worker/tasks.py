@@ -4,27 +4,30 @@ from datetime import datetime
 
 import httpx
 
-from app.api.services.blockchain import BlockchainService
-from app.api.services.llm_pipeline import LlmPipeline
-from app.client.web3 import Web3Client
-from app.db.models import Audit, Contract
-from app.schema.response import WebhookResponse, WebhookResponseData
-from app.utils.enums import (
+from app.api.blockchain.service import BlockchainService
+from app.api.pipeline.audit_generation import LlmPipeline
+from app.db.models import Audit, Auth, Contract, Transaction
+from app.utils.clients.web3 import Web3Client
+from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
+    ClientTypeEnum,
     ContractMethodEnum,
     NetworkEnum,
+    TransactionTypeEnum,
 )
 
 
 async def handle_eval(audit_id: str):
     now = datetime.now()
-    audit = await Audit.get(id=audit_id).select_related("app", "contract", "user")
+    audit = await Audit.get(id=audit_id).select_related("contract")
 
-    # only use pubsub for first-party applications.
-    # otherwise, we can rely on webhooks or polling.
-    # should_publish = audit.app and audit.app.type == AppTypeEnum.FIRST_PARTY
-    consume_credits = (not audit.app) or (audit.app.type != AppTypeEnum.FIRST_PARTY)
+    if audit.app_id:
+        # was called via an App, whether 1st or 3rd party
+        caller_auth = await Auth.get(app_id=audit.app_id).select_related("app__owner")
+    else:
+        # was called directly by a user via api.
+        caller_auth = await Auth.get(user_id=audit.user_id).select_related("user")
 
     pipeline = LlmPipeline(
         input=audit.contract.raw_code,
@@ -32,7 +35,6 @@ async def handle_eval(audit_id: str):
         should_publish=False,
     )
 
-    audit.version = pipeline.version
     audit.status = AuditStatusEnum.PROCESSING
     await audit.save()
 
@@ -41,23 +43,11 @@ async def handle_eval(audit_id: str):
 
         response = await pipeline.generate_report()
 
-        cost = pipeline.usage.get_cost()
-
         audit.raw_output = response
         audit.status = AuditStatusEnum.SUCCESS
 
-        # NOTE: could remove this if condition in the future. Free via the app.
-        if consume_credits:
-            # implied that it's not a FIRST_PARTY app
-            if audit.app:
-                user = audit.app.owner
-                user.used_credits += cost
-                await user.save()
-            else:
-                user = audit.user
-                user.used_credits += cost
-                await user.save()
-
+        audit.processing_time_seconds = (datetime.now() - now).seconds
+        await audit.save()
     except Exception as err:
         logging.exception(err)
         audit.status = AuditStatusEnum.FAILED
@@ -65,31 +55,32 @@ async def handle_eval(audit_id: str):
         await audit.save()
         raise err
 
-    audit.processing_time_seconds = (datetime.now() - now).seconds
-    await audit.save()
+    # NOTE: could remove this if condition in the future. Free via the app.
 
-    return {"audit_id": audit_id, "audit_status": audit.status}
+    cost = pipeline.usage.get_cost()
 
-
-async def handle_outgoing_webhook(
-    audit_id: str,
-    audit_status: AuditStatusEnum,
-    webhook_url: str,
-):
-    response = WebhookResponse(
-        success=True,
+    transaction = Transaction(
+        app_id=audit.app_id,
+        user_id=audit.user_id,
+        type=TransactionTypeEnum.SPEND,
+        amount=cost,
     )
 
-    data = {
-        "id": audit_id,
-        "status": audit_status,
-    }
+    if caller_auth.consumes_credits:
+        if caller_auth.client_type == ClientTypeEnum.APP:
+            app = caller_auth.app
+            if app.type == AppTypeEnum.THIRD_PARTY:
+                user = caller_auth.app.owner
+                user.used_credits += cost
+                await user.save()
+                await transaction.save()
+        else:
+            user = caller_auth.user
+            user.used_credits += cost
+            await user.save()
+            await transaction.save()
 
-    response.result = WebhookResponseData(**data)
-
-    async with httpx.AsyncClient() as client:
-        body = response.model_dump()
-        await client.post(webhook_url, json=body)
+    return {"audit_id": audit_id, "audit_status": audit.status}
 
 
 async def get_deployment_contracts(network: NetworkEnum):
@@ -124,7 +115,7 @@ async def get_deployment_contracts(network: NetworkEnum):
         for address in deployment_addresses:
             tasks.append(
                 asyncio.create_task(
-                    blockchain_service.fetch_contract_source_code_from_explorer(
+                    blockchain_service.get_source_code(
                         client, address=address, network=network
                     )
                 )

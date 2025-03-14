@@ -17,6 +17,7 @@ openai = "^1.59.2"
 prometheus-client = "^0.21.1"
 arq = "^0.26.3"
 hypercorn = "^0.17.3"
+solidity-parser = "^0.1.1"
 
 [tool.poetry.dependencies.fastapi]
 extras = [
@@ -45,11 +46,28 @@ version = "^4.14.0"
 [tool.poetry.group.dev.dependencies]
 rq-dashboard = "^0.8.2.2"
 watchfiles = "^1.0.4"
+pytest = "^7.3.1"
+pytest-asyncio = "^0.21.0"
+fakeredis = "^2.27.0"
+pytest-cov = "^6.0.0"
+notebook = "^7.3.2"
 
 [tool.aerich]
 tortoise_orm = "app.config.TORTOISE_ORM"
 location = "app/db/migrations"
 src_folder = "./."
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --log-cli-level=INFO"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning"
+]
+log_format = "%(asctime)s %(levelname)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+anyio_backend = "asyncio"
 
 [build-system]
 requires = [
