@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from tortoise.exceptions import DoesNotExist
 
-from app.api.dependencies import Authentication
+from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.api.user.service import UserService
 from app.utils.constants.openapi_tags import USER_TAG
 from app.utils.schema.request import UserUpsertBody
@@ -23,7 +23,9 @@ class UserRouter:
             "",
             self.get_or_create_user,
             methods=["POST"],
-            dependencies=[Depends(Authentication(required_role=RoleEnum.APP))],
+            dependencies=[
+                Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.APP))
+            ],
             **GET_OR_CREATE_USER,
         )
         self.router.add_api_route(

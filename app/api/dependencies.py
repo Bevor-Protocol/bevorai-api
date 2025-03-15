@@ -58,6 +58,10 @@ class Authentication:
             if auth.client_type != ClientTypeEnum.APP:
                 raise Exception("invalid api permissions")
 
+        if user_identifier is not None:
+            if not await User.exists(id=user_identifier):
+                raise Exception("bevor-user-id provided is not a valid user")
+
         is_delegated = user_identifier is not None
         credit_consumer_user_id = None
         consumes_credits = auth.consumes_credits

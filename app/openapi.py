@@ -5,6 +5,7 @@
 from app.utils.constants.openapi_tags import (
     APP_TAG,
     AUDIT_TAG,
+    CODE_EXAMPLE_APP_TAG,
     CODE_EXAMPLE_TAG,
     CONTRACT_TAG,
     PLATFORM_TAG,
@@ -53,6 +54,7 @@ contract_response = requests.post(
     url="https://api.bevor.io/contract",
     json={
         "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "network": "eth", # optional
     },
     headers={
         "Authorization": f"Bearer <api-key>"
@@ -63,14 +65,13 @@ contract_data = contract_response.json()
 
 # Extract Contract Id
 contract_id = None
-network_use = "eth" # could pass this in the body, to avoid the need for "candidates"
 if contract_data["exists"]:
-    if contract_data["exact_match"]:
-        contract_id = contract_data["candidates"][0]["id"]
-    else:
-        for contract in contract_data["candidates"]:
-            if contract["network"] == network_use:
-                contract_id = contract["id"]
+    contract_id = contract_data["contract"]["id"]
+
+# if contract_id is None, it means that there was no verified source code (if requested via scan)
+# or something else went wrong.
+# if contract_data["exact_match"] is false, it means that `network` was not provided in the request
+# and multiple instances of this address were found across different networks.
 
 
 # Create an Audit
@@ -122,6 +123,113 @@ print(findings_json)
 ```
 """
 
+code_app_example = """
+### Basic Implementation as an App
+
+Assumes you have an App and an API key for your App through the BevorAI app.
+While you can authenticate only on behalf of your App, you can also delegate certain
+responses via the Bevor-User-Identifier header, to natively be able to differentiate
+users in your application.
+
+```python
+import requests
+import time
+
+# Get or create a User
+user_response = requests.post(
+    url="https://api.bevor.io",
+    headers={
+        "Authorization": f"Bearer <api-key>"
+    }
+    json={
+        "address": <user-wallet-address>,
+    }
+)
+
+user_data = user_response.json()
+user_id = user_data["id"]
+
+# Upload contract
+contract_response = requests.post(
+    url="https://api.bevor.io/contract",
+    json={
+        "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "network": "eth", # optional
+    },
+    headers={
+        "Authorization": f"Bearer <api-key>"
+        # using Bevor-User-Identifier has no impact here
+    }
+)
+
+contract_data = contract_response.json()
+
+# Extract Contract Id
+contract_id = None
+if contract_data["exists"]:
+    contract_id = contract_data["contract"]["id"]
+
+
+# Create an Audit
+
+# declare that the audit was created on behalf of a User
+# if the Bevor-User-Identifier header is excluded, the audit will be created on
+# behalf of your App
+
+audit_response = requests.post(
+    url="https://api.bevor.io/audit",
+    json={
+        "contract_id": contract_id,
+        "audit_type": "gas",
+    },
+    headers={
+        "Authorization": f"Bearer <api-key>"
+        "Bevor-User-Identifier": user_id
+    }
+)
+
+# immediate response
+audit_id = audit_response.json()["id"]
+
+# When querying for the audit, you must include the same Bevor-User-Identifier that you used to create the audit.
+# if you excluded the header in the audit creation, you can exclude it in the audit queries as well.
+
+
+# Lightweight Poll for audit status
+is_complete = False
+while not is_complete:
+    audit_status_response = requests.get(
+        url=f"https://api.bevor.io/audit/{audit_id}/status",
+        headers={
+            "Authorization": f"Bearer <api-key>",
+            "Bevor-User-Identifier": user_id
+        }
+    )
+
+    audit_status_data = audit_status_response.json()
+    status = audit_status_data["status"]
+    if status in ["success", "failed"]:
+        is_complete = True
+    else:
+        time.sleep(1)
+        # can do something with status["steps"]
+
+audit_response = requests.get(
+    url=f"https://api.bevor.io/audit/{audit_id}",
+    headers={
+        "Authorization": f"Bearer <api-key>",
+        "Bevor-User-Identifier": user_id
+    }
+)
+
+audit_data = audit_response.json()
+
+findings_json = audit_data["findings"]
+
+print(findings_json)
+```
+"""
+
 
 OPENAPI_SCHEMA = {
     "core": {
@@ -145,6 +253,7 @@ OPENAPI_SCHEMA = {
                 "description": "Creating users as an `App`, or getting user level information",
             },
             {"name": CODE_EXAMPLE_TAG, "description": code_example},
+            {"name": CODE_EXAMPLE_APP_TAG, "description": code_app_example},
         ],
     },
     # openapi extensions
@@ -153,7 +262,10 @@ OPENAPI_SCHEMA = {
             {"name": TAG_GROUP_CORE, "tags": [CONTRACT_TAG, AUDIT_TAG]},
             {"name": TAG_GROUP_MANAGEMENT, "tags": [USER_TAG, APP_TAG]},
             {"name": TAG_GROUP_MISC, "tags": [PLATFORM_TAG]},
-            {"name": TAG_GROUP_EXAMPLES, "tags": [CODE_EXAMPLE_TAG]},
+            {
+                "name": TAG_GROUP_EXAMPLES,
+                "tags": [CODE_EXAMPLE_TAG, CODE_EXAMPLE_APP_TAG],
+            },
         ],
         "info": {
             "x-logo": {
