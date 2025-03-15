@@ -383,6 +383,43 @@ async def test_auth_generate_api_key_wrong_permissions(
 
 
 @pytest.mark.anyio
+async def test_auth_fails_invalid_user_header(third_party_app, async_client):
+    """
+    Test that providing an invalid Bevor-User-Identifier fails in the dependency.
+    """
+    # Make a request to generate an API key for a user
+    response = await async_client.post(
+        "/audit",
+        headers={
+            "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
+            "Bevor-User-Identifier": "im-a-fake-id",
+        },
+        json={"contract_id": "fake-id", "audit_type": "gas"},
+    )
+
+    # Check that the request was successful
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_header_no_effect_if_no_delegation(third_party_app, async_client):
+    """
+    Test that providing an invalid Bevor-User-Identifier fails in the dependency.
+    """
+    # Make a request to generate an API key for a user
+    response = await async_client.get(
+        "/platform/cost-estimate",
+        headers={
+            "Authorization": f"Bearer {FIRST_PARTY_APP_API_KEY}",
+            "Bevor-User-Identifier": "im-a-fake-id",
+        },
+    )
+
+    # Check that the request was successful
+    assert response.status_code == 200
+
+
+@pytest.mark.anyio
 async def test_credit_sync_mocked(async_client, monkeypatch):
     """
     Test that the authentication dependency check works correctly for the
