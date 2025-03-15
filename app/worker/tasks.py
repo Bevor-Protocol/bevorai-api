@@ -1,8 +1,8 @@
 import asyncio
-import logging
 from datetime import datetime
 
 import httpx
+from utils.logger import get_logger
 
 from app.api.blockchain.service import BlockchainService
 from app.api.pipeline.audit_generation import LlmPipeline

@@ -2,7 +2,7 @@ from prometheus_client import Counter, Gauge, Histogram
 from prometheus_client.utils import INF
 
 
-class Logger:
+class PromLogger:
     def __init__(self):
         # Queue metrics
         # Intuitively a lot of these can be Counters, but I'm a bit limited
@@ -59,4 +59,4 @@ class Logger:
         self.websockets = Gauge("websockets_active_total", "Total active websockets")
 
 
-logger = Logger()
+prom_logger = PromLogger()

@@ -1,12 +1,14 @@
-import logging
 import os
 
 from eth_typing import BlockNumber
+from utils.logger import get_logger
 from web3 import AsyncWeb3
 from web3.types import BlockReceipts
 
 from app.utils.helpers.mappers import network_rpc_mapper
 from app.utils.types.enums import NetworkEnum
+
+logger = get_logger("api")
 
 
 class Web3Client:
@@ -81,5 +83,5 @@ class Web3Client:
             return credits
         except Exception:
             # most likely in development, if not running anvil + connected to ngrok
-            logging.warning("unable to query contract")
+            logger.warning("unable to query contract")
             return 0

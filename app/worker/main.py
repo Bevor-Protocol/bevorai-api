@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import re
 from datetime import datetime
 from typing import Optional, TypedDict
@@ -8,15 +7,16 @@ from arq import ArqRedis, Retry
 from arq.constants import default_queue_name, health_check_key_suffix
 from prometheus_client import start_http_server
 from tortoise import Tortoise
+from utils.logger import get_logger
 
 from app.config import TORTOISE_ORM, redis_settings
-from app.prometheus import logger
+from app.prometheus import prom_logger
 from app.utils.types.enums import NetworkEnum
 
 # from app.prometheus import logger
 from .tasks import get_deployment_contracts, handle_eval
 
-logging.basicConfig(level=logging.INFO)
+logger = get_logger("api")
 
 
 class PrometheusMiddleware:
@@ -32,7 +32,7 @@ class PrometheusMiddleware:
         try:
             start_http_server(9192, addr="::")
         except Exception:
-            logging.error("issue starting http server for prometheus")
+            logger.error("issue starting http server for prometheus")
             pass
         await self.__start_metrics_task()
 
@@ -46,15 +46,15 @@ class PrometheusMiddleware:
             try:
                 await self.__observe_healthcheck()
             except Exception as e:
-                logging.error(e)
+                logger.error(e)
 
         self._metrics_task = asyncio.create_task(func_wrapper())
 
     def log_enqueue_time(self, duration: float):
-        logger.tasks_enqueue_duration.observe(duration)
+        prom_logger.tasks_enqueue_duration.observe(duration)
 
     def log_process_time(self, duration: float):
-        logger.tasks_duration.observe(duration)
+        prom_logger.tasks_duration.observe(duration)
 
     async def __parse(self) -> dict:
         healthcheck = await self.ctx["redis"].get(self.health_check_key)
@@ -70,7 +70,7 @@ class PrometheusMiddleware:
         while True:
             # Sleep first to let worker initialize itself.
             await asyncio.sleep(5)
-            logging.info("[arq_prometheus] Gathering metrics (interval 5s)")
+            logger.info("[arq_prometheus] Gathering metrics (interval 5s)")
 
             await self.__handle_health_logging()
 
@@ -81,7 +81,7 @@ class PrometheusMiddleware:
 
         for k, v in data.items():
             value = int(v)
-            logger.tasks_info.labels(type=k).set(value)
+            prom_logger.tasks_info.labels(type=k).set(value)
 
 
 class JobContext(TypedDict):

@@ -1,10 +1,10 @@
 import asyncio
 import json
-import logging
 import re
 from datetime import datetime
 
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
+from utils.logger import get_logger
 
 from app.api.pricing.service import Usage
 from app.config import redis_client
@@ -12,6 +12,8 @@ from app.db.models import Audit, Finding, IntermediateResponse, Prompt
 from app.lib.clients import llm_client
 from app.utils.schema.output import GasOutputStructure, SecurityOutputStructure
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
+
+logger = get_logger("worker")
 
 
 class LlmPipeline:
@@ -105,7 +107,7 @@ class LlmPipeline:
         try:
             parsed = json.loads(raw_data)
         except Exception:
-            logging.warn("Failed to parse json, skipping")
+            logger.warning("Failed to parse json, skipping")
             return
 
         model = self.output_structure(**parsed)
@@ -167,7 +169,7 @@ class LlmPipeline:
             return result
 
         except Exception as err:
-            logging.warning(err)
+            logger.warning(err)
             await self.__publish_event(name=candidate, status="error")
             await self.__checkpoint(
                 step=candidate,

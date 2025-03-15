@@ -1,5 +1,3 @@
-import logging
-
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
@@ -12,8 +10,6 @@ from app.openapi import OPENAPI_SCHEMA
 
 # from app.api.middlewares.auth import AuthenticationMiddleware
 # from app.api.middlewares.rate_limit import RateLimitMiddleware
-
-logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 

@@ -4,17 +4,19 @@ basis. Fundamentally acts as a middleware, but we have more control over when it
 used without explicitly needing to whitelist / blacklist routes.
 """
 
-import logging
 from datetime import datetime
 from typing import Annotated, Optional
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from utils.logger import get_logger, state_var
 
 from app.config import redis_client
 from app.db.models import Auth, User
 from app.utils.schema.dependencies import AuthState
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
+
+logger = get_logger("api")
 
 security = HTTPBearer(description="API key authorization")
 
@@ -38,29 +40,8 @@ class Authentication:
             "user", "app__owner"
         )
 
-        if auth.revoked_at:
-            raise Exception("api key revoked")
-
         app = auth.app
         user = auth.user
-
-        if self.required_role == RoleEnum.APP_FIRST_PARTY:
-            if not app:
-                raise Exception("invalid api permissions")
-            if auth.client_type != ClientTypeEnum.APP:
-                raise Exception("invalid api permissions")
-            if app.type != AppTypeEnum.FIRST_PARTY:
-                raise Exception("invalid api permissions")
-
-        if self.required_role == RoleEnum.APP:
-            if not app:
-                raise Exception("invalid api permissions")
-            if auth.client_type != ClientTypeEnum.APP:
-                raise Exception("invalid api permissions")
-
-        if user_identifier is not None:
-            if not await User.exists(id=user_identifier):
-                raise Exception("bevor-user-id provided is not a valid user")
 
         is_delegated = user_identifier is not None
         credit_consumer_user_id = None
@@ -92,6 +73,29 @@ class Authentication:
             user_id=user_id,
             app_id=app_id,
         )
+
+        state_var.set(auth_state.model_dump_json())
+
+        if auth.revoked_at:
+            raise Exception("api key revoked")
+
+        if self.required_role == RoleEnum.APP_FIRST_PARTY:
+            if not app:
+                raise Exception("invalid api permissions")
+            if auth.client_type != ClientTypeEnum.APP:
+                raise Exception("invalid api permissions")
+            if app.type != AppTypeEnum.FIRST_PARTY:
+                raise Exception("invalid api permissions")
+
+        if self.required_role == RoleEnum.APP:
+            if not app:
+                raise Exception("invalid api permissions")
+            if auth.client_type != ClientTypeEnum.APP:
+                raise Exception("invalid api permissions")
+
+        if user_identifier is not None:
+            if not await User.exists(id=user_identifier):
+                raise Exception("bevor-user-id provided is not a valid user")
 
         request.state.auth = auth_state
 
@@ -152,7 +156,7 @@ class Authentication:
             await self.check_authorization(request=request, auth=auth)
             await self.check_delegated_scope(user_identifier=bevor_user_identifier)
         except Exception as err:
-            logging.exception(err)
+            logger.exception(err)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)
             )
@@ -173,25 +177,8 @@ class AuthenticationWithoutDelegation:
             "user", "app__owner"
         )
 
-        if auth.revoked_at:
-            raise Exception("api key revoked")
-
         app = auth.app
         user = auth.user
-
-        if self.required_role == RoleEnum.APP_FIRST_PARTY:
-            if not app:
-                raise Exception("invalid api permissions")
-            if auth.client_type != ClientTypeEnum.APP:
-                raise Exception("invalid api permissions")
-            if app.type != AppTypeEnum.FIRST_PARTY:
-                raise Exception("invalid api permissions")
-
-        if self.required_role == RoleEnum.APP:
-            if not app:
-                raise Exception("invalid api permissions")
-            if auth.client_type != ClientTypeEnum.APP:
-                raise Exception("invalid api permissions")
 
         credit_consumer_user_id = None
         consumes_credits = auth.consumes_credits
@@ -221,6 +208,25 @@ class AuthenticationWithoutDelegation:
             user_id=user_id,
             app_id=app_id,
         )
+
+        state_var.set(auth_state.model_dump_json())
+
+        if auth.revoked_at:
+            raise Exception("api key revoked")
+
+        if self.required_role == RoleEnum.APP_FIRST_PARTY:
+            if not app:
+                raise Exception("invalid api permissions")
+            if auth.client_type != ClientTypeEnum.APP:
+                raise Exception("invalid api permissions")
+            if app.type != AppTypeEnum.FIRST_PARTY:
+                raise Exception("invalid api permissions")
+
+        if self.required_role == RoleEnum.APP:
+            if not app:
+                raise Exception("invalid api permissions")
+            if auth.client_type != ClientTypeEnum.APP:
+                raise Exception("invalid api permissions")
 
         request.state.auth = auth_state
 
@@ -255,7 +261,7 @@ class AuthenticationWithoutDelegation:
             )
             await self.check_authorization(request=request, auth=auth)
         except Exception as err:
-            logging.exception(err)
+            logger.exception(err)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)
             )
