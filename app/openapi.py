@@ -65,12 +65,12 @@ contract_data = contract_response.json()
 contract_id = None
 network_use = "eth" # could pass this in the body, to avoid the need for "candidates"
 if contract_data["exists"]:
-    if contract_data["exact_match"]:
-        contract_id = contract_data["candidates"][0]["id"]
-    else:
-        for contract in contract_data["candidates"]:
-            if contract["network"] == network_use:
-                contract_id = contract["id"]
+    contract_id = contract_data["candidates"][0]["id"]
+
+# if contract_id is None, it means that there was no verified source code (if requested via scan)
+# or something else went wrong.
+# if contract_data["exact_match"] is false, it means that `network` was not provided in the request
+# and multiple instances of this address were found across different networks.
 
 
 # Create an Audit
