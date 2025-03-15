@@ -70,7 +70,6 @@ class PrometheusMiddleware:
         while True:
             # Sleep first to let worker initialize itself.
             await asyncio.sleep(5)
-            logger.info("[arq_prometheus] Gathering metrics (interval 5s)")
 
             await self.__handle_health_logging()
 

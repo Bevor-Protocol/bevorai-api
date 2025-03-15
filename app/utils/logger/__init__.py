@@ -29,7 +29,10 @@ def get_logger(name: str = __name__) -> logging.Logger:
     if not logger.hasHandlers():
         handler = logging.StreamHandler(stream=sys.stdout)
 
-        fmt = jsonlogger.JsonFormatter("%(name)s %(asctime)s %(levelname)s %(message)s")
+        fmt = jsonlogger.JsonFormatter(
+            "%(name)s %(asctime)s %(levelname)s %(message)s",
+            rename_fields={"levelname": "level"},
+        )
 
         handler.setFormatter(fmt)
 

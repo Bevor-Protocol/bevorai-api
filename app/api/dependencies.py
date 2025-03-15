@@ -74,8 +74,8 @@ class Authentication:
             app_id=app_id,
         )
 
-        state_var.set(auth_state.model_dump_json())
-        logger.info(f"{request.method} request to ${request.url.path}")
+        state_var.set(auth_state.model_dump())
+        logger.info(f"{request.method} request to {request.url.path}")
 
         if auth.revoked_at:
             raise Exception("api key revoked")
@@ -210,7 +210,8 @@ class AuthenticationWithoutDelegation:
             app_id=app_id,
         )
 
-        state_var.set(auth_state.model_dump_json())
+        state_var.set(auth_state.model_dump())
+        logger.info(f"{request.method} request to {request.url.path}")
 
         if auth.revoked_at:
             raise Exception("api key revoked")
