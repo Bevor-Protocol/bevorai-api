@@ -7,7 +7,7 @@ import httpx
 from app.api.blockchain.service import BlockchainService
 from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Auth, Contract, Transaction
-from app.utils.clients.web3 import Web3Client
+from app.lib.clients import Web3Client
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
@@ -86,11 +86,9 @@ async def handle_eval(audit_id: str):
 async def get_deployment_contracts(network: NetworkEnum):
     logging.info(f"RUNNING contract scan for {network}")
     web3_client = Web3Client()
-    provider = web3_client.get_provider(network)
-
-    current_block = provider.eth.get_block_number()
+    current_block = await web3_client.get_block_number()
     logging.info(f"Network: {network} --- Current block: {current_block}")
-    receipts = await provider.eth.get_block_receipts(current_block)
+    receipts = await web3_client.get_block_receipts(current_block)
 
     logging.info(f"RECEIPTS FOUND {len(receipts)}")
 

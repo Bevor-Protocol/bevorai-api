@@ -9,7 +9,7 @@ from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 from app.api.pricing.service import Usage
 from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse, Prompt
-from app.utils.clients.llm import llm_client
+from app.lib.clients import llm_client
 from app.utils.schema.output import GasOutputStructure, SecurityOutputStructure
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
