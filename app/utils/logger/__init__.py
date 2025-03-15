@@ -31,7 +31,7 @@ def get_logger(name: str = __name__) -> logging.Logger:
 
         fmt = jsonlogger.JsonFormatter(
             "%(name)s %(asctime)s %(levelname)s %(message)s",
-            rename_fields={"levelname": "level"},
+            rename_fields={"levelname": "level"},  # railway requires "level"
         )
 
         handler.setFormatter(fmt)
