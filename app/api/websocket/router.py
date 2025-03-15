@@ -8,10 +8,10 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
-from utils.logger import get_logger
 
 from app.config import redis_client
 from app.prometheus import prom_logger
+from app.utils.logger import get_logger
 
 secret = os.getenv("SHARED_SECRET")
 logger = get_logger("websocket")

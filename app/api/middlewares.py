@@ -3,10 +3,10 @@ from datetime import datetime
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-from utils.logger import request_url_var
 
 from app.config import redis_client
 from app.prometheus import prom_logger
+from app.utils.logger import request_url_var
 
 endpoint_groupings = ["/ai", "/analytics", "/auth", "/blockchain", "/status"]
 

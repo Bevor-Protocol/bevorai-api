@@ -1,10 +1,10 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
-from utils.logger import get_logger
 
 from app.api.admin.service import AdminService
 from app.api.dependencies import Authentication
+from app.utils.logger import get_logger
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import (
     AdminQuerySearch,

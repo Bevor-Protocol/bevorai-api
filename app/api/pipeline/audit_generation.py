@@ -4,12 +4,12 @@ import re
 from datetime import datetime
 
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
-from utils.logger import get_logger
 
 from app.api.pricing.service import Usage
 from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse, Prompt
 from app.lib.clients import llm_client
+from app.utils.logger import get_logger
 from app.utils.schema.output import GasOutputStructure, SecurityOutputStructure
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 

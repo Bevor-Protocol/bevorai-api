@@ -7,10 +7,10 @@ from arq import ArqRedis, Retry
 from arq.constants import default_queue_name, health_check_key_suffix
 from prometheus_client import start_http_server
 from tortoise import Tortoise
-from utils.logger import get_logger
 
 from app.config import TORTOISE_ORM, redis_settings
 from app.prometheus import prom_logger
+from app.utils.logger import get_logger
 from app.utils.types.enums import NetworkEnum
 
 # from app.prometheus import logger

@@ -4,13 +4,13 @@ from typing import Optional
 
 import httpx
 from fastapi import HTTPException, status
-from utils.logger import get_logger
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
 from app.utils.helpers.code_parser import SourceCodeParser
 from app.utils.helpers.mappers import networks_by_type
 from app.utils.helpers.model_parser import cast_contract_with_code
+from app.utils.logger import get_logger
 from app.utils.schema.contract import ContractWithCodePydantic
 from app.utils.schema.request import ContractScanBody
 from app.utils.schema.response import StaticAnalysisTokenResult, UploadContractResponse

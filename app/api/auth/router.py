@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
-from utils.logger import get_logger
 
 from app.api.auth.service import AuthService
 from app.api.blockchain.service import BlockchainService
 from app.api.dependencies import Authentication
 from app.db.models import Transaction, User
+from app.utils.logger import get_logger
 from app.utils.schema.dependencies import AuthState
 from app.utils.types.enums import ClientTypeEnum, RoleEnum, TransactionTypeEnum
 

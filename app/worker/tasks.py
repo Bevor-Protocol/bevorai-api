@@ -2,12 +2,12 @@ import asyncio
 from datetime import datetime
 
 import httpx
-from utils.logger import get_logger
 
 from app.api.blockchain.service import BlockchainService
 from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Auth, Contract, Transaction
 from app.lib.clients import Web3Client
+from app.utils.logger import get_logger
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,

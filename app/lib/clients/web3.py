@@ -1,11 +1,11 @@
 import os
 
 from eth_typing import BlockNumber
-from utils.logger import get_logger
 from web3 import AsyncWeb3
 from web3.types import BlockReceipts
 
 from app.utils.helpers.mappers import network_rpc_mapper
+from app.utils.logger import get_logger
 from app.utils.types.enums import NetworkEnum
 
 logger = get_logger("api")
