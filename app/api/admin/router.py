@@ -123,7 +123,7 @@ class AdminRouter:
 
         is_admin = await admin_service.is_admin(auth)
         if not is_admin:
-            logger.warning(f"unauthenticated attempt at admin access {auth.user_id}")
+            logger.warning("unauthenticated attempt at admin access")
 
         return Response(
             BooleanResponse(success=is_admin).model_dump_json(),

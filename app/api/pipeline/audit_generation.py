@@ -76,6 +76,16 @@ class LlmPipeline:
             audit_id=self.audit.id, step=step
         ).first()
 
+        logger.info(
+            "Checkpointing audit intermediate response",
+            extra={
+                "audit_id": str(self.audit.id),
+                "status": status,
+                "step": step,
+                "processing_time_seconds": processing_time,
+            },
+        )
+
         if checkpoint:
             checkpoint.status = status
             checkpoint.result = result
@@ -107,7 +117,10 @@ class LlmPipeline:
         try:
             parsed = json.loads(raw_data)
         except Exception:
-            logger.warning("Failed to parse json, skipping")
+            logger.warning(
+                "unable to parse json for audit findings, skipping",
+                extra={"audit_id": str(self.audit.id)},
+            )
             return
 
         model = self.output_structure(**parsed)

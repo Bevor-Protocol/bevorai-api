@@ -75,6 +75,7 @@ class Authentication:
         )
 
         state_var.set(auth_state.model_dump_json())
+        logger.info(f"{request.method} request to ${request.url.path}")
 
         if auth.revoked_at:
             raise Exception("api key revoked")
