@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from datetime import datetime
 
 import httpx
@@ -7,7 +6,8 @@ import httpx
 from app.api.blockchain.service import BlockchainService
 from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Auth, Contract, Transaction
-from app.utils.clients.web3 import Web3Client
+from app.lib.clients import Web3Client
+from app.utils.logger import get_logger
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
@@ -16,6 +16,8 @@ from app.utils.types.enums import (
     NetworkEnum,
     TransactionTypeEnum,
 )
+
+logger = get_logger("worker")
 
 
 async def handle_eval(audit_id: str):
@@ -49,7 +51,7 @@ async def handle_eval(audit_id: str):
         audit.processing_time_seconds = (datetime.now() - now).seconds
         await audit.save()
     except Exception as err:
-        logging.exception(err)
+        logger.exception(err, extra={"audit_id": str(audit.id)})
         audit.status = AuditStatusEnum.FAILED
         audit.processing_time_seconds = (datetime.now() - now).seconds
         await audit.save()
@@ -72,11 +74,31 @@ async def handle_eval(audit_id: str):
             if app.type == AppTypeEnum.THIRD_PARTY:
                 user = caller_auth.app.owner
                 user.used_credits += cost
+
+                logger.info(
+                    "spending credits for audit as app",
+                    extra={
+                        "audit_id": str(audit.id),
+                        "cost": cost,
+                        "user_id": str(user.id),
+                    },
+                )
+
                 await user.save()
                 await transaction.save()
         else:
             user = caller_auth.user
             user.used_credits += cost
+
+            logger.info(
+                "spending credits for audit as user",
+                extra={
+                    "audit_id": str(audit.id),
+                    "cost": cost,
+                    "user_id": str(user.id),
+                },
+            )
+
             await user.save()
             await transaction.save()
 
@@ -84,15 +106,13 @@ async def handle_eval(audit_id: str):
 
 
 async def get_deployment_contracts(network: NetworkEnum):
-    logging.info(f"RUNNING contract scan for {network}")
+    logger.info(f"RUNNING contract scan for {network}")
     web3_client = Web3Client()
-    provider = web3_client.get_provider(network)
+    current_block = await web3_client.get_block_number()
+    logger.info(f"Network: {network} --- Current block: {current_block}")
+    receipts = await web3_client.get_block_receipts(current_block)
 
-    current_block = provider.eth.get_block_number()
-    logging.info(f"Network: {network} --- Current block: {current_block}")
-    receipts = await provider.eth.get_block_receipts(current_block)
-
-    logging.info(f"RECEIPTS FOUND {len(receipts)}")
+    logger.info(f"RECEIPTS FOUND {len(receipts)}")
 
     deployment_addresses = []
     for receipt in receipts:
@@ -103,10 +123,10 @@ async def get_deployment_contracts(network: NetworkEnum):
                 address = initial_log["address"]
                 deployment_addresses.append(address)
 
-    logging.info(f"DEPLOYMENT ADDRESSES {deployment_addresses}")
+    logger.info(f"DEPLOYMENT ADDRESSES {deployment_addresses}")
 
     if not deployment_addresses:
-        logging.info("no deployment addresses found")
+        logger.info("no deployment addresses found")
         return
 
     tasks = []
@@ -122,7 +142,7 @@ async def get_deployment_contracts(network: NetworkEnum):
             )
         results: list[dict] = await asyncio.gather(*tasks)
 
-    logging.info(f"RESULTS {results}")
+    logger.info(f"RESULTS {results}")
 
     to_create = []
     for result in results:
@@ -139,4 +159,4 @@ async def get_deployment_contracts(network: NetworkEnum):
 
     if to_create:
         await Contract.bulk_create(objects=to_create)
-    logging.info(f"Added {len(to_create)} contracts from {network}")
+    logger.info(f"Added {len(to_create)} contracts from {network}")

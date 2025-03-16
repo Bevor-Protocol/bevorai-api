@@ -1,10 +1,10 @@
-import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 
 from app.api.admin.service import AdminService
 from app.api.dependencies import Authentication
+from app.utils.logger import get_logger
 from app.utils.schema.dependencies import AuthState
 from app.utils.schema.request import (
     AdminQuerySearch,
@@ -18,6 +18,8 @@ from app.utils.schema.response import (
 )
 from app.utils.schema.shared import BooleanResponse, IdResponse
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
+
+logger = get_logger("api")
 
 
 class AdminRouter:
@@ -121,7 +123,7 @@ class AdminRouter:
 
         is_admin = await admin_service.is_admin(auth)
         if not is_admin:
-            logging.warn(f"unauthenticated attempt at admin access {auth.user_id}")
+            logger.warning("unauthenticated attempt at admin access")
 
         return Response(
             BooleanResponse(success=is_admin).model_dump_json(),
@@ -197,8 +199,6 @@ class AdminRouter:
 
     async def add_prompt(self, body: Annotated[CreatePromptBody, Body()]):
         admin_service = AdminService()
-
-        logging.info(body)
 
         result = await admin_service.add_prompt(body=body)
         return Response(

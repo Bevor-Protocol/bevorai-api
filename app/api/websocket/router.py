@@ -2,7 +2,6 @@ import asyncio
 import hashlib
 import hmac
 import json
-import logging
 import os
 from collections import defaultdict
 from datetime import datetime
@@ -11,9 +10,11 @@ from typing import List
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
 
 from app.config import redis_client
-from app.prometheus import logger
+from app.prometheus import prom_logger
+from app.utils.logger import get_logger
 
 secret = os.getenv("SHARED_SECRET")
+logger = get_logger("websocket")
 
 
 class WebsocketRouter:
@@ -39,18 +40,18 @@ class WebsocketRouter:
 
             while True:
                 raw_message = await websocket.receive_text()
-                logging.info(f"raw message from ws: {raw_message}")
+                logger.info(f"raw message from ws: {raw_message}")
                 message = str(raw_message).strip()
                 if message.startswith("subscribe:"):
                     job_id = message.split(":")[1]
-                    logging.info(f"WS subscribed to job {job_id}")
+                    logger.info(f"WS subscribed to job {job_id}")
                     self.assign_job(job_id, websocket)
                 elif message == "PONG":
                     self.heartbeat_check[websocket] = False
         except WebSocketDisconnect:
             await self.disconnect(websocket)
         except WebSocketException as e:
-            logging.error(f"WebSocket error: {e}")
+            logger.error(f"WebSocket error: {e}")
             await websocket.close(code=4001)
 
     async def listen_to_pubsub(self):
@@ -67,7 +68,7 @@ class WebsocketRouter:
                 if message and message["type"] == "message":
                     data = json.loads(message["data"])
                     job_id = data["job_id"]
-                    logging.info(f"event received for job {job_id}")
+                    logger.info(f"event received for job {job_id}")
 
                     websocket = self.pending_jobs.get(job_id)
                     if websocket:
@@ -76,7 +77,7 @@ class WebsocketRouter:
             await pubsub.unsubscribe("evals")
             await pubsub.close()
         except Exception as e:
-            logging.error(f"Error in Pub/Sub listener: {e}")
+            logger.error(f"Error in Pub/Sub listener: {e}")
 
     def stop_pubsub_task(self):
         """Stop the background Pub/Sub listener."""
@@ -101,7 +102,7 @@ class WebsocketRouter:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logging.info(
+        logger.info(
             "New WS connection, current connection count:"
             f" {len(self.active_connections)}"
         )
@@ -109,7 +110,7 @@ class WebsocketRouter:
         asyncio.create_task(self.heartbeat(websocket))
         if len(self.active_connections) == 1:
             self.pubsub_task = asyncio.create_task(self.listen_to_pubsub())
-        logger.websockets.set(len(self.active_connections))
+        prom_logger.websockets.set(len(self.active_connections))
 
     def assign_job(self, job_id: str, websocket: WebSocket):
         self.pending_jobs[job_id] = websocket
@@ -126,7 +127,7 @@ class WebsocketRouter:
             self.stop_pubsub_task()
         if websocket.client_state.name != "DISCONNECTED":
             await websocket.close()
-        logger.websockets.set(len(self.active_connections))
+        prom_logger.websockets.set(len(self.active_connections))
 
     async def send_personal_message(self, data: str, websocket: WebSocket):
         await websocket.send_json(data)

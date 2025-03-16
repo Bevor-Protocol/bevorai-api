@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 
 from fastapi import HTTPException, Request
@@ -6,9 +5,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from app.config import redis_client
-from app.prometheus import logger
-
-logging.basicConfig(level=logging.INFO)
+from app.prometheus import prom_logger
+from app.utils.logger import request_url_var
 
 endpoint_groupings = ["/ai", "/analytics", "/auth", "/blockchain", "/status"]
 
@@ -17,6 +15,8 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         method = request.method
         endpoint = request.url.path
+
+        request_url_var.set(endpoint)
 
         group_use = None
         for grouping in endpoint_groupings:
@@ -28,15 +28,15 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             return response
 
-        logger.api_active.inc()
+        prom_logger.api_active.inc()
 
-        with logger.api_duration.labels(method=method, endpoint=group_use).time():
+        with prom_logger.api_duration.labels(method=method, endpoint=group_use).time():
             response = await call_next(request)
 
-        logger.api_requests.labels(
+        prom_logger.api_requests.labels(
             method=method, endpoint=group_use, status_code=response.status_code
         ).inc()
-        logger.api_active.dec()
+        prom_logger.api_active.dec()
 
         return response
 

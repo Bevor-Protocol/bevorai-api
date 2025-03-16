@@ -1,5 +1,3 @@
-import logging
-
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
@@ -7,8 +5,11 @@ from app.api.auth.service import AuthService
 from app.api.blockchain.service import BlockchainService
 from app.api.dependencies import Authentication
 from app.db.models import Transaction, User
+from app.utils.logger import get_logger
 from app.utils.schema.dependencies import AuthState
 from app.utils.types.enums import ClientTypeEnum, RoleEnum, TransactionTypeEnum
+
+logger = get_logger("api")
 
 
 class AuthRouter:
@@ -52,7 +53,7 @@ class AuthRouter:
             user = await User.get(id=auth.user_id)
             credits = await blockchain_service.get_credits(user.address)
         except Exception as err:
-            logging.exception(err)
+            logger.exception(err)
             return JSONResponse(
                 {"success": False, "error": "could not connect to network"},
                 status_code=status.HTTP_200_OK,

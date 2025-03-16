@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 import re
 from datetime import datetime
 
@@ -9,9 +8,12 @@ from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 from app.api.pricing.service import Usage
 from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse, Prompt
-from app.utils.clients.llm import llm_client
+from app.lib.clients import llm_client
+from app.utils.logger import get_logger
 from app.utils.schema.output import GasOutputStructure, SecurityOutputStructure
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
+
+logger = get_logger("worker")
 
 
 class LlmPipeline:
@@ -74,6 +76,16 @@ class LlmPipeline:
             audit_id=self.audit.id, step=step
         ).first()
 
+        logger.info(
+            "Checkpointing audit intermediate response",
+            extra={
+                "audit_id": str(self.audit.id),
+                "status": status,
+                "step": step,
+                "processing_time_seconds": processing_time,
+            },
+        )
+
         if checkpoint:
             checkpoint.status = status
             checkpoint.result = result
@@ -105,7 +117,10 @@ class LlmPipeline:
         try:
             parsed = json.loads(raw_data)
         except Exception:
-            logging.warn("Failed to parse json, skipping")
+            logger.warning(
+                "unable to parse json for audit findings, skipping",
+                extra={"audit_id": str(self.audit.id)},
+            )
             return
 
         model = self.output_structure(**parsed)
@@ -167,7 +182,7 @@ class LlmPipeline:
             return result
 
         except Exception as err:
-            logging.warning(err)
+            logger.warning(err)
             await self.__publish_event(name=candidate, status="error")
             await self.__checkpoint(
                 step=candidate,
