@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import logging
 from typing import Optional
 
 import httpx
@@ -11,10 +10,13 @@ from app.db.models import Contract
 from app.utils.helpers.code_parser import SourceCodeParser
 from app.utils.helpers.mappers import networks_by_type
 from app.utils.helpers.model_parser import cast_contract_with_code
+from app.utils.logger import get_logger
 from app.utils.schema.contract import ContractWithCodePydantic
 from app.utils.schema.request import ContractScanBody
 from app.utils.schema.response import StaticAnalysisTokenResult, UploadContractResponse
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
+
+logger = get_logger("api")
 
 
 class ContractService:
@@ -49,7 +51,7 @@ class ContractService:
         contracts = await Contract.filter(**filter_obj)
 
         if contracts:
-            logging.info(f"early exiting for {address}")
+            logger.info(f"early exiting for {address}")
             return contracts
 
         if code:

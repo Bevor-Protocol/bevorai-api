@@ -1,12 +1,11 @@
-import logging
-import os
-
 import httpx
 
-from app.utils.clients.explorer import ExplorerClient
-from app.utils.clients.web3 import Web3Client
+from app.lib.clients import ExplorerClient, Web3Client
 from app.utils.helpers.code_parser import SourceCodeParser
+from app.utils.logger import get_logger
 from app.utils.types.enums import NetworkEnum
+
+logger = get_logger("api")
 
 
 class BlockchainService:
@@ -28,7 +27,7 @@ class BlockchainService:
     ) -> dict:
         explorer_client = ExplorerClient()
 
-        logging.info(f"SCANNING {network} for address {address}")
+        logger.info(f"SCANNING {network} for address {address}")
 
         obj = {
             "network": network,
@@ -57,7 +56,7 @@ class BlockchainService:
                 obj["contract_name"] = parser.contract_name
                 obj["is_proxy"] = parser.is_proxy
         except Exception as err:
-            logging.exception(err)
+            logger.exception(err)
         finally:
             return obj
 
@@ -65,42 +64,7 @@ class BlockchainService:
         """
         Call the apiCredit contract directly.
         """
-        web3_client = Web3Client()
-        provider = web3_client.get_deployed_provider()
+        web3_client = Web3Client.from_deployment()
 
-        env = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
-        if env == "production":
-            # mainnet BASE contract
-            contract_address = provider.to_checksum_address(
-                "0x1bdEEe6376572F1CAE454dC68a936Af56A803e96"
-            )
-        elif env == "staging":
-            # testnet Sepolia contract
-            contract_address = provider.to_checksum_address(
-                "0xbc14A36c59154971A8Eb431031729Af39f97eEd1"
-            )
-        else:
-            # local anvil deployment
-            contract_address = provider.to_checksum_address(
-                "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512"
-            )
-
-        user_address = provider.to_checksum_address(address)
-
-        abi = [
-            {
-                "inputs": [{"type": "address"}],
-                "name": "apiCredits",
-                "outputs": [{"type": "uint256"}],
-                "stateMutability": "view",
-                "type": "function",
-            }
-        ]
-
-        contract = provider.eth.contract(address=contract_address, abi=abi)
-
-        # Call apiCredits mapping to get credits for the address
-        credits_raw = await contract.functions.apiCredits(user_address).call()
-        credits = credits_raw / 10**18
-
+        credits = await web3_client.get_user_credits(user_address=address)
         return credits
