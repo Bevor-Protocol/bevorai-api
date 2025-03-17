@@ -1,7 +1,13 @@
+import os
+
 from github import Github
 
 # Authentication is defined via github.Auth
 from github import Auth
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # using an access token
 auth = Auth.Token(os.getenv("GITHUB_TOKEN"))
