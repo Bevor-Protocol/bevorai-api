@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
 from app.utils.helpers.code_parser import SourceCodeParser
+from app.utils.helpers.github import get_solidity_source
 from app.utils.helpers.mappers import networks_by_type
 from app.utils.helpers.model_parser import cast_contract_with_code
 from app.utils.logger import get_logger
@@ -133,6 +134,12 @@ class ContractService:
         contract = await Contract.get(id=id)
 
         return cast_contract_with_code(contract)
+
+    async def get_contracts_from_github(self, url: str) -> ContractWithCodePydantic:
+
+        code = get_solidity_source(url)
+
+        return await self.fetch_from_source(code=code, address=None, network=None)
 
     async def process_static_eval_token(
         self, body: ContractScanBody
