@@ -25,6 +25,13 @@ GET_CONTRACT = OpenApiParams(
     responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )
 
+GET_CONTRACT = OpenApiParams(
+    summary="Get contract by github repo URL",
+    description="Retrieve a contract from a github repo URL",
+    response_model=ContractWithCodePydantic,
+    responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+)
+
 ANALYZE_TOKEN = OpenApiParams(
     summary="Token static analysis",
     description="Upload a token contract to receive a static analysis",

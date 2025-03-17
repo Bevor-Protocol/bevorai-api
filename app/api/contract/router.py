@@ -74,6 +74,18 @@ class ContractRouter:
                 detail="this contract does not exist",
             )
 
+    async def get_contracts_from_github(self, url: str):
+        contract_service = ContractService()
+
+        try:
+            response = await contract_service.get_contracts_from_github(url)
+            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="this repo does not exist",
+            )
+
     async def process_token(
         self,
         request: Request,

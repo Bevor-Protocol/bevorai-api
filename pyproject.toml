@@ -19,6 +19,7 @@ arq = "^0.26.3"
 hypercorn = "^0.17.3"
 solidity-parser = "^0.1.1"
 python-json-logger = "^3.3.0"
+pygithub = "^2.6.1"
 
 [tool.poetry.dependencies.fastapi]
 extras = [
