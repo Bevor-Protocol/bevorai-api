@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
+from app.api.audit.interface import CreateEvalResponse, EvalBody
 from app.api.audit.service import AuditService
 from app.api.auth.service import AuthService
 from app.api.user.service import UserService
@@ -19,8 +20,6 @@ from app.db.models import (
 )
 from app.lib.gas.v1.response import FindingsStructure, FindingType, OutputStructure
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import EvalBody
-from app.utils.schema.response import CreateEvalResponse
 from app.utils.types.enums import (
     AuditStatusEnum,
     AuditTypeEnum,

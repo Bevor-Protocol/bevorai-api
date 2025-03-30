@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, Response, status
 from app.api.dependencies import AuthenticationWithoutDelegation
 from app.api.pricing.service import Usage
 from app.utils.constants.openapi_tags import PLATFORM_TAG
-from app.utils.schema.response import GetCostEstimateResponse
 from app.utils.types.enums import RoleEnum
 
+from .interface import GetCostEstimateResponse
 from .openapi import GET_COST_ESTIMATE
 
 

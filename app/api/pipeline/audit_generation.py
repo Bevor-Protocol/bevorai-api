@@ -48,7 +48,7 @@ class LlmPipeline:
 
         return {"role": "assistant", "content": choice.message.content}
 
-    async def __publish_event(self, name: str, status: str):
+    async def _publish_event(self, name: str, status: str):
         if not self.should_publish:
             return
 
@@ -64,7 +64,7 @@ class LlmPipeline:
             json.dumps(message),
         )
 
-    async def __checkpoint(
+    async def _checkpoint(
         self,
         step: str,
         status: AuditStatusEnum,
@@ -101,7 +101,7 @@ class LlmPipeline:
             processing_time_seconds=processing_time,
         )
 
-    async def __write_findings(self, response):
+    async def _write_findings(self, response):
 
         pattern = r"<<(.*?)>>"
 
@@ -171,8 +171,8 @@ class LlmPipeline:
             self.usage.add_input(usage.prompt_tokens)
             self.usage.add_output(usage.completion_tokens)
             result = response.choices[0].message.content
-            await self.__publish_event(name=candidate, status="done")
-            await self.__checkpoint(
+            await self._publish_event(name=candidate, status="done")
+            await self._checkpoint(
                 step=candidate,
                 status=AuditStatusEnum.SUCCESS,
                 result=result,
@@ -183,8 +183,8 @@ class LlmPipeline:
 
         except Exception as err:
             logger.warning(err)
-            await self.__publish_event(name=candidate, status="error")
-            await self.__checkpoint(
+            await self._publish_event(name=candidate, status="error")
+            await self._checkpoint(
                 step=candidate,
                 status=AuditStatusEnum.FAILED,
                 processing_time=(datetime.now() - now).seconds,
@@ -214,14 +214,14 @@ class LlmPipeline:
         if not self.candidate_prompt:
             raise NotImplementedError("must run generate_candidates() first")
 
-        await self.__publish_event(name="report", status="start")
+        await self._publish_event(name="report", status="start")
 
         prompt = await Prompt.filter(
             audit_type=self.audit_type, is_active=True, tag="reviewer"
         ).first()
 
         now = datetime.now()
-        await self.__checkpoint(step="report", status=AuditStatusEnum.PROCESSING)
+        await self._checkpoint(step="report", status=AuditStatusEnum.PROCESSING)
 
         try:
             response = await llm_client.beta.chat.completions.parse(
@@ -238,8 +238,8 @@ class LlmPipeline:
                 response_format=self.output_structure,
             )
         except Exception as err:
-            await self.__publish_event(name="report", status="error")
-            await self.__checkpoint(
+            await self._publish_event(name="report", status="error")
+            await self._checkpoint(
                 step="report",
                 status=AuditStatusEnum.FAILED,
                 processing_time=(datetime.now() - now).seconds,
@@ -251,12 +251,12 @@ class LlmPipeline:
         usage = response.usage
         self.usage.add_input(usage.prompt_tokens)
         self.usage.add_output(usage.completion_tokens)
-        await self.__publish_event(name="report", status="done")
-        await self.__checkpoint(
+        await self._publish_event(name="report", status="done")
+        await self._checkpoint(
             step="report",
             status=AuditStatusEnum.SUCCESS,
             processing_time=(datetime.now() - now).seconds,
         )
-        await self.__write_findings(result)
+        await self._write_findings(result)
 
         return result

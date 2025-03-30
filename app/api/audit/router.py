@@ -12,14 +12,12 @@ from fastapi import (
 )
 from tortoise.exceptions import DoesNotExist
 
-from app.api.audit.service import AuditService
 from app.api.dependencies import Authentication, RequireCredits
 from app.utils.constants.openapi_tags import AUDIT_TAG
-from app.utils.schema.request import EvalBody, FeedbackBody, FilterParams
-from app.utils.schema.response import GetAuditStatusResponse
 from app.utils.schema.shared import BooleanResponse
 from app.utils.types.enums import RoleEnum
 
+from .interface import EvalBody, FeedbackBody, FilterParams
 from .openapi import (
     CREATE_AUDIT,
     GET_AUDIT,
@@ -27,6 +25,7 @@ from .openapi import (
     GET_AUDITS,
     SUBMIT_FEEDBACK,
 )
+from .service import AuditService
 
 
 class AuditRouter(APIRouter):
@@ -71,6 +70,11 @@ class AuditRouter(APIRouter):
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
             **SUBMIT_FEEDBACK,
         )
+        self.add_api_route(
+            "/game",
+            self.game,
+            methods=["POST"],
+        )
 
     async def create_audit(
         self,
@@ -109,9 +113,7 @@ class AuditRouter(APIRouter):
                 detail="this audit does not exist under these credentials",
             )
 
-    async def get_audit_status(
-        self, request: Request, id: str
-    ) -> GetAuditStatusResponse:
+    async def get_audit_status(self, request: Request, id: str):
         audit_service = AuditService()
 
         try:
@@ -132,5 +134,18 @@ class AuditRouter(APIRouter):
         )
         return Response(
             BooleanResponse(success=response).model_dump_json(),
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    async def game(self):
+        from app.lib.clients.agent import worker
+
+        worker.run(
+            "generate a smart contract audit for mainnet"
+            " contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        )
+
+        return Response(
+            BooleanResponse(success=True).model_dump_json(),
             status_code=status.HTTP_201_CREATED,
         )

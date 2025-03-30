@@ -4,7 +4,7 @@ from eth_typing import BlockNumber
 from web3 import AsyncWeb3
 from web3.types import BlockReceipts
 
-from app.utils.helpers.mappers import network_rpc_mapper
+from app.utils.constants.mappers import network_rpc_mapper
 from app.utils.logger import get_logger
 from app.utils.types.enums import NetworkEnum
 
@@ -14,35 +14,35 @@ logger = get_logger("api")
 class Web3Client:
 
     def __init__(self, network: NetworkEnum):
-        self.provider = self.__get_provider(network=network)
+        self.provider = self._get_provider(network=network)
+        self.ENV = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
 
     @classmethod
     def from_deployment(cls):
-        instance = cls.__new__(cls)
+        instance = cls._new_(cls)
         instance.provider = instance.get_deployed_provider()
         return instance
 
-    def __get_base_url(self, network: NetworkEnum) -> str:
+    def _get_base_url(self, network: NetworkEnum) -> str:
         rpc_url = network_rpc_mapper[network]
         api_key = os.getenv("ALCHEMY_API_KEY")
         url = f"https://{rpc_url}/v2/{api_key}"
 
         return url
 
-    def __get_provider(self, network: NetworkEnum) -> AsyncWeb3:
-        url = self.__get_base_url(network)
+    def _get_provider(self, network: NetworkEnum) -> AsyncWeb3:
+        url = self._get_base_url(network)
 
         return AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(url))
 
     def get_deployed_provider(self) -> AsyncWeb3:
-        env = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
-        if env == "production":
-            url = self.__get_base_url(NetworkEnum.BASE)
-        elif env == "staging":
-            url = self.__get_base_url(NetworkEnum.ETH_SEPOLIA)
-        else:
-            # url = "http://127.0.0.1:8545"
-            url = os.getenv("LOCAL_BLOCKCHAIN_URL")
+        url_mappper = {
+            "production": self._get_base_url(NetworkEnum.BASE),
+            "staging": self._get_base_url(NetworkEnum.ETH_SEPOLIA),
+            "development": os.getenv("LOCAL_BLOCKCHAIN_URL"),
+        }
+
+        url = url_mappper[self.ENV]
 
         return AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(url))
 
@@ -55,7 +55,6 @@ class Web3Client:
         return receipts
 
     async def get_user_credits(self, user_address: str) -> int:
-        ENV = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
 
         contract_mapper = {
             "production": "0x1bdEEe6376572F1CAE454dC68a936Af56A803e96",
@@ -73,7 +72,7 @@ class Web3Client:
             }
         ]
 
-        contract_address = self.provider.to_checksum_address(contract_mapper[ENV])
+        contract_address = self.provider.to_checksum_address(contract_mapper[self.ENV])
         user_addres = self.provider.to_checksum_address(user_address)
 
         try:

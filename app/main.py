@@ -52,4 +52,3 @@ register_tortoise(
 app.add_middleware(PrometheusMiddleware)
 
 app.include_router(router)
-# app.include_router(routers.websocket_router) # exclude in favor of polling

@@ -1,26 +1,21 @@
-from uuid import UUID
-
 from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
 from app.db.models import App, Auth, Permission, Prompt, User
-from app.utils.helpers.model_parser import cast_permission, cast_prompt
-from app.utils.schema.app import AppPydantic
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.permission import PermissionPydantic
-from app.utils.schema.request import (
-    CreatePromptBody,
-    UpdatePermissionsBody,
-    UpdatePromptBody,
-)
-from app.utils.schema.response import (
+from app.utils.schema.models import PromptSchema
+from app.utils.types.enums import AuditTypeEnum, AuthScopeEnum, ClientTypeEnum
+
+from .interface import (
     AdminAppPermission,
     AdminPermission,
     AdminUserPermission,
+    CreatePromptBody,
     PromptGroupedResponse,
+    UpdatePermissionsBody,
+    UpdatePromptBody,
 )
-from app.utils.types.enums import AuditTypeEnum, AuthScopeEnum, ClientTypeEnum
 
 
 class AdminService:
@@ -31,18 +26,6 @@ class AdminService:
         except DoesNotExist:
             return False
         return auth.scope == AuthScopeEnum.ADMIN
-
-    async def get_permissions(
-        self, id: str, client_type: ClientTypeEnum
-    ) -> PermissionPydantic:
-        filter = {"client_type": client_type}
-        if type == ClientTypeEnum.APP:
-            filter["app_id"] = id
-        else:
-            filter["user_id"] = id
-        permission = await Permission.get(**filter)
-
-        return cast_permission(permission)
 
     async def update_permissions(
         self, id: str, client_type: ClientTypeEnum, body: UpdatePermissionsBody
@@ -95,7 +78,7 @@ class AdminService:
 
         return results
 
-    async def search_apps(self, identifier: str) -> list[AppPydantic]:
+    async def search_apps(self, identifier: str) -> list[AdminAppPermission]:
         """
         Search for users by either their UUID or address.
 
@@ -139,7 +122,7 @@ class AdminService:
 
         return results
 
-    async def get_prompts_grouped(self):
+    async def get_prompts_grouped(self) -> PromptGroupedResponse:
         prompts = await Prompt.all()
 
         prompts_grouped = {k: {} for k in AuditTypeEnum}
@@ -151,7 +134,7 @@ class AdminService:
             if tag not in prompts_grouped[audit_type]:
                 prompts_grouped[audit_type][tag] = []
 
-            prompt_instance = cast_prompt(prompt)
+            prompt_instance = PromptSchema.from_tortoise(prompt)
 
             if is_active:
                 prompts_grouped[audit_type][tag].insert(0, prompt_instance)
@@ -160,7 +143,7 @@ class AdminService:
 
         return PromptGroupedResponse(result=prompts_grouped)
 
-    async def update_prompt(self, id: str, body: UpdatePromptBody):
+    async def update_prompt(self, id: str, body: UpdatePromptBody) -> None:
         if (
             not body.content
             and not body.version
@@ -198,7 +181,7 @@ class AdminService:
             if prompt_demote:
                 await prompt_demote.save()
 
-    async def add_prompt(self, body: CreatePromptBody) -> UUID:
+    async def add_prompt(self, body: CreatePromptBody) -> Prompt:
         prompt = Prompt(
             audit_type=body.audit_type.value,
             tag=body.tag,
@@ -224,4 +207,4 @@ class AdminService:
             if prompt_demote:
                 await prompt_demote.save()
 
-        return prompt.id
+        return prompt

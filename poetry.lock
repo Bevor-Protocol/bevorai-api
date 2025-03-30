@@ -1711,6 +1711,22 @@ files = [
 ]
 
 [[package]]
+name = "game-sdk"
+version = "0.1.5"
+description = "Official Python SDK for GAME by Virtuals"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "game_sdk-0.1.5-py3-none-any.whl", hash = "sha256:0300849e0ab5aef7f02003426abaf135f854a495c9e79c43e475fdc06cdac60d"},
+    {file = "game_sdk-0.1.5.tar.gz", hash = "sha256:838c204833fa974977e5e5bb806e6f0dbbe8db8290a23dc206cade62d65d4c91"},
+]
+
+[package.dependencies]
+pydantic = ">=2.10.5"
+requests = ">=2.26.0"
+typing-extensions = ">=4.0.0"
+
+[[package]]
 name = "h11"
 version = "0.14.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
@@ -5092,4 +5108,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "b817bb69e48fda06253ecaad5b02c9550f3be670f9f3316b7390706b151f520e"
+content-hash = "bcd7d962abd5d602db71e6fa73ca70b8aac5dd14f595d0b8e5b339225f200a59"

@@ -8,25 +8,27 @@ from tortoise.timezone import now
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract, Finding
-from app.utils.helpers.model_parser import (
-    cast_contract,
-    cast_contract_with_code,
-    cast_finding,
-    cast_user,
-)
-from app.utils.schema.audit import AuditStepPydantic
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import EvalBody, FeedbackBody, FilterParams
-from app.utils.schema.response import (
-    AuditMetadata,
-    AuditResponse,
-    AuditsResponse,
-    CreateEvalResponse,
-    GetAuditStatusResponse,
+from app.utils.schema.models import (
+    ContractSchema,
+    FindingSchema,
+    IntermediateResponseSchema,
+    UserSchema,
 )
 from app.utils.templates.gas import gas_template
 from app.utils.templates.security import security_template
 from app.utils.types.enums import AuditTypeEnum, RoleEnum
+
+from .interface import (
+    AuditMetadata,
+    AuditResponse,
+    AuditsResponse,
+    CreateEvalResponse,
+    EvalBody,
+    FeedbackBody,
+    FilterParams,
+    GetAuditStatusResponse,
+)
 
 
 class AuditService:
@@ -80,8 +82,8 @@ class AuditService:
 
         data = []
         for i, result in enumerate(results_trimmed):
-            contract = cast_contract(result.contract)
-            user = cast_user(result.user)
+            contract = ContractSchema.from_tortoise(result.contract)
+            user = UserSchema.from_tortoise(result.user)
             response = AuditMetadata(
                 id=result.id,
                 created_at=result.created_at,
@@ -115,9 +117,9 @@ class AuditService:
         if audit.raw_output:
             result = self.sanitize_data(audit=audit, as_markdown=True)
 
-        findings = list(map(cast_finding, audit.findings))
-        contract = cast_contract_with_code(audit.contract)
-        user = cast_user(audit.user)
+        findings = list(map(FindingSchema.from_tortoise, audit.findings))
+        contract = ContractSchema.from_tortoise(audit.contract)
+        user = UserSchema.from_tortoise(audit.user)
 
         return AuditResponse(
             id=audit.id,
@@ -142,13 +144,7 @@ class AuditService:
 
         steps = []
         for step in audit.intermediate_responses:
-            steps.append(
-                AuditStepPydantic(
-                    step=step.step,
-                    status=step.status,
-                    processing_time_seconds=step.processing_time_seconds,
-                )
-            )
+            steps.append(IntermediateResponseSchema.from_tortoise(step))
 
         response = GetAuditStatusResponse(status=audit.status, steps=steps)
 

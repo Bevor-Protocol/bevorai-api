@@ -1,20 +1,21 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import (
-    BaseModel,
-    Field,
-    field_serializer,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
-from app.utils.types.enums import (
-    AuditStatusEnum,
-    AuditTypeEnum,
-    NetworkEnum,
-    ResponseStructureEnum,
+from app.utils.schema.models import (
+    AuditSchema,
+    ContractSchema,
+    FindingSchema,
+    IntermediateResponseSchema,
+    UserSchema,
 )
+from app.utils.schema.shared import CreatedAtResponse, IdResponse
+from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
+
+"""
+Used for HTTP request validation, response Serialization, and arbitrary typing.
+"""
 
 
 class EvalBody(BaseModel):
@@ -22,19 +23,13 @@ class EvalBody(BaseModel):
     audit_type: AuditTypeEnum = Field(default=AuditTypeEnum.GAS)
 
 
+class CreateEvalResponse(IdResponse):
+    status: AuditStatusEnum = Field(description="initial status of created audit")
+
+
 class FeedbackBody(BaseModel):
     feedback: Optional[str] = Field(default=None)
     verified: bool
-
-
-class UserUpsertBody(BaseModel):
-    address: str
-
-
-class EvalParams(BaseModel):
-    response_type: Optional[ResponseStructureEnum] = Field(
-        default=ResponseStructureEnum.JSON
-    )
 
 
 class FilterParams(BaseModel):
@@ -89,50 +84,32 @@ class FilterParams(BaseModel):
         return id
 
 
-class ContractScanBody(BaseModel):
-    address: Optional[str] = Field(default=None, description="contract address to scan")
-    network: Optional[NetworkEnum] = Field(
-        default=None, description="network that the contract address is on"
-    )
-    code: Optional[str] = Field(default=None, description="raw contract code to upload")
-
-    @model_validator(mode="after")
-    def validate_params(self):
-        if not self.code and not self.address:
-            raise ValueError("must provide at least one of address or code")
-
-        if self.network:
-            if not self.address and not self.code:
-                raise ValueError(
-                    "when using network, you must provide the address or code"
-                )
-        return self
-
-
-class AppUpsertBody(BaseModel):
-    name: str
-
-
-class UpdatePermissionsBody(BaseModel):
-    can_create_app: bool
-    can_create_api_key: bool
-
-
-class AdminQuerySearch(BaseModel):
-    identifier: Optional[str] = None
-
-
-class UpdatePromptBody(BaseModel):
-    audit_type: Optional[AuditTypeEnum] = None
-    tag: Optional[str] = None
-    content: Optional[str] = None
-    version: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
-class CreatePromptBody(BaseModel):
+class AuditMetadata(IdResponse, CreatedAtResponse):
+    n: int
     audit_type: AuditTypeEnum
-    tag: str
-    content: str
-    version: str
-    is_active: Optional[bool] = False
+    status: AuditStatusEnum
+    contract: ContractSchema
+    user: UserSchema
+
+
+class AuditsResponse(BaseModel):
+    results: list[AuditMetadata] = Field(
+        default_factory=lambda: [], description="array of audits"
+    )
+    more: bool = Field(
+        description="whether more audits exist, given page and page_size"
+    )
+    total_pages: int = Field(description="total pages, given page_size")
+
+
+class AuditResponse(AuditSchema):
+    findings: list[FindingSchema] = Field(default_factory=lambda: [])
+    contract: ContractSchema
+    user: UserSchema
+
+
+class GetAuditStatusResponse(BaseModel):
+    status: AuditStatusEnum = Field(
+        description="status of entire audit, depends on steps"
+    )
+    steps: list[IntermediateResponseSchema] = Field(default_factory=lambda: [])

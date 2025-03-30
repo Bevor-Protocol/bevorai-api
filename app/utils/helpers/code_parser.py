@@ -3,9 +3,9 @@ import re
 
 from solidity_parser import parser as solidity_parser
 
+from app.api.contract.interface import StaticAnalysisTokenResult
 from app.db.models import Contract
 from app.utils.logger import get_logger
-from app.utils.schema.response import StaticAnalysisTokenResult
 
 logger = get_logger("api")
 

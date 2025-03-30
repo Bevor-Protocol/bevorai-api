@@ -34,17 +34,17 @@ class PrometheusMiddleware:
         except Exception:
             logger.error("issue starting http server for prometheus")
             pass
-        await self.__start_metrics_task()
+        await self._start_metrics_task()
 
     def stop(self):
         if self._metrics_task is not None:
             self._metrics_task.cancel()
 
-    async def __start_metrics_task(self) -> None:
+    async def _start_metrics_task(self) -> None:
         async def func_wrapper() -> None:
             """Wrapper function for a better error mesage when coroutine fails"""
             try:
-                await self.__observe_healthcheck()
+                await self._observe_healthcheck()
             except Exception as e:
                 logger.error(e)
 
@@ -56,7 +56,7 @@ class PrometheusMiddleware:
     def log_process_time(self, duration: float):
         prom_logger.tasks_duration.observe(duration)
 
-    async def __parse(self) -> dict:
+    async def _parse(self) -> dict:
         healthcheck = await self.ctx["redis"].get(self.health_check_key)
         if not healthcheck:
             return
@@ -66,15 +66,15 @@ class PrometheusMiddleware:
         info = self.scan.search(healthcheck)
         return info.groupdict()
 
-    async def __observe_healthcheck(self):
+    async def _observe_healthcheck(self):
         while True:
             # Sleep first to let worker initialize itself.
             await asyncio.sleep(5)
 
-            await self.__handle_health_logging()
+            await self._handle_health_logging()
 
-    async def __handle_health_logging(self):
-        data = await self.__parse()
+    async def _handle_health_logging(self):
+        data = await self._parse()
         if not data:
             return
 

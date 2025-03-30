@@ -3,16 +3,17 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from tortoise.exceptions import DoesNotExist
 
-from app.api.contract.service import ContractService
 from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
 from app.api.pricing.service import StaticAnalysis
 from app.db.models import Transaction, User
 from app.utils.constants.openapi_tags import CONTRACT_TAG
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import ContractScanBody
+from app.utils.schema.models import ContractSchema
 from app.utils.types.enums import RoleEnum, TransactionTypeEnum
 
+from .interface import ContractScanBody
 from .openapi import GET_CONTRACT, GET_OR_CREATE_CONTRACT
+from .service import ContractService
 
 
 class ContractRouter(APIRouter):
@@ -63,7 +64,8 @@ class ContractRouter(APIRouter):
         contract_service = ContractService()
 
         try:
-            response = await contract_service.get(id)
+            contract = await contract_service.get(id)
+            response = ContractSchema.from_tortoise(contract)
             return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
         except DoesNotExist:
             raise HTTPException(

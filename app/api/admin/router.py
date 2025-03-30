@@ -2,22 +2,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 
-from app.api.admin.service import AdminService
 from app.api.dependencies import Authentication
 from app.utils.logger import get_logger
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import (
+from app.utils.schema.shared import BooleanResponse, IdResponse
+from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
+
+from .interface import (
+    AdminAppPermissionSearch,
     AdminQuerySearch,
+    AdminUserPermissionSearch,
     CreatePromptBody,
     UpdatePermissionsBody,
     UpdatePromptBody,
 )
-from app.utils.schema.response import (
-    AdminAppPermissionSearch,
-    AdminUserPermissionSearch,
-)
-from app.utils.schema.shared import BooleanResponse, IdResponse
-from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
+from .service import AdminService
 
 logger = get_logger("api")
 
@@ -197,8 +196,8 @@ class AdminRouter(APIRouter):
     async def add_prompt(self, body: Annotated[CreatePromptBody, Body()]):
         admin_service = AdminService()
 
-        result = await admin_service.add_prompt(body=body)
+        prompt = await admin_service.add_prompt(body=body)
         return Response(
-            IdResponse(id=result).model_dump_json(),
+            IdResponse(id=prompt.id).model_dump_json(),
             status_code=status.HTTP_202_ACCEPTED,
         )
