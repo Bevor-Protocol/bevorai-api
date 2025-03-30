@@ -146,7 +146,7 @@ class LlmPipeline:
             await Finding.bulk_create(objects=to_create)
 
     async def _generate_candidate(self, candidate: str, prompt: str):
-        await self.__publish_event(name=candidate, status="start")
+        await self._publish_event(name=candidate, status="start")
 
         # allows for some fault tolerance.
         now = datetime.now()
