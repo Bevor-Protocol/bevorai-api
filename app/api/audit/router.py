@@ -70,11 +70,11 @@ class AuditRouter(APIRouter):
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
             **SUBMIT_FEEDBACK,
         )
-        self.add_api_route(
-            "/game",
-            self.game,
-            methods=["POST"],
-        )
+        # self.add_api_route(
+        #     "/game",
+        #     self.game,
+        #     methods=["POST"],
+        # )
 
     async def create_audit(
         self,
@@ -137,15 +137,15 @@ class AuditRouter(APIRouter):
             status_code=status.HTTP_201_CREATED,
         )
 
-    async def game(self):
-        from app.lib.clients.agent import worker
+    # async def game(self):
+    #     from app.lib.clients.agent import worker
 
-        worker.run(
-            "generate a smart contract audit for mainnet"
-            " contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-        )
+    #     worker.run(
+    #         "generate a smart contract audit for mainnet"
+    #         " contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    #     )
 
-        return Response(
-            BooleanResponse(success=True).model_dump_json(),
-            status_code=status.HTTP_201_CREATED,
-        )
+    #     return Response(
+    #         BooleanResponse(success=True).model_dump_json(),
+    #         status_code=status.HTTP_201_CREATED,
+    #     )
