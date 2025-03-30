@@ -151,7 +151,7 @@ class LlmPipeline:
         # allows for some fault tolerance.
         now = datetime.now()
         try:
-            await self.__checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
+            await self._checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
             response = await llm_client.chat.completions.create(
                 model="gpt-4o-mini",
                 max_completion_tokens=2000,
