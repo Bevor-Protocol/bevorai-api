@@ -72,7 +72,10 @@ class AdminService:
 
             results.append(
                 AdminUserPermission(
-                    id=user.id, address=user.address, permission=permission
+                    id=user.id,
+                    created_at=user.created_at,
+                    address=user.address,
+                    permission=permission,
                 )
             )
 
@@ -113,6 +116,7 @@ class AdminService:
             results.append(
                 AdminAppPermission(
                     id=app.id,
+                    created_at=app.created_at,
                     name=app.name,
                     type=app.type,
                     owner_id=app.owner_id,
