@@ -1,13 +1,14 @@
 # flake8: noqa
 
-from app.utils.schema.response import (
+from app.utils.schema.shared import BooleanResponse, ErrorResponse
+from app.utils.types.openapi import OpenApiParams
+
+from .interface import (
     AuditResponse,
     AuditsResponse,
     CreateEvalResponse,
     GetAuditStatusResponse,
 )
-from app.utils.schema.shared import BooleanResponse, ErrorResponse
-from app.utils.types.openapi import OpenApiParams
 
 CREATE_AUDIT = OpenApiParams(
     summary="Create AI eval",

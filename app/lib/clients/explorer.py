@@ -2,7 +2,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.utils.helpers.mappers import (
+from app.utils.constants.mappers import (
     network_chainid_mapper,
     network_explorer_apikey_mapper,
     network_explorer_mapper,
@@ -13,7 +13,7 @@ from app.utils.types.enums import NetworkEnum, NetworkTypeEnum
 
 class ExplorerClient:
 
-    def __get_base_url(self, network: NetworkEnum) -> str:
+    def _get_base_url(self, network: NetworkEnum) -> str:
         platform_route = network_explorer_mapper[network]
         chain_id = network_chainid_mapper[network]
 
@@ -40,7 +40,7 @@ class ExplorerClient:
             "apikey": api_key,
         }
 
-        url = self.__get_base_url(network=network)
+        url = self._get_base_url(network=network)
         params_encoded = urlencode(params)
 
         return await client.get(f"{url}?{params_encoded}")
@@ -56,7 +56,7 @@ class ExplorerClient:
             "apikey": api_key,
         }
 
-        url = self.__get_base_url(network=network)
+        url = self._get_base_url(network=network)
         params_encoded = urlencode(params)
 
         return await client.get(f"{url}?${params_encoded}")

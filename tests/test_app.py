@@ -1,9 +1,9 @@
 import pytest
 import pytest_asyncio
 
+from app.api.app.interface import AppUpsertBody
 from app.api.user.service import UserService
 from app.db.models import App, Audit, Contract, Permission
-from app.utils.schema.request import AppUpsertBody
 from app.utils.types.enums import AuditTypeEnum, ContractMethodEnum, NetworkEnum
 from tests.constants import FIRST_PARTY_APP_API_KEY, THIRD_PARTY_APP_API_KEY
 

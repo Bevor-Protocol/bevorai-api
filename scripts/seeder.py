@@ -47,5 +47,11 @@ async def seed():
     await Tortoise.close_connections()
 
 
-if __name__ == "__main__":
+def seed_command():
+    """Entry point for Poetry script"""
     asyncio.run(seed())
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(seed_command())

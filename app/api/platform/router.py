@@ -3,19 +3,17 @@ from fastapi import APIRouter, Depends, Response, status
 from app.api.dependencies import AuthenticationWithoutDelegation
 from app.api.pricing.service import Usage
 from app.utils.constants.openapi_tags import PLATFORM_TAG
-from app.utils.schema.response import GetCostEstimateResponse
 from app.utils.types.enums import RoleEnum
 
+from .interface import GetCostEstimateResponse
 from .openapi import GET_COST_ESTIMATE
 
 
-class PlatformRouter:
+class PlatformRouter(APIRouter):
     def __init__(self):
-        self.router = APIRouter(prefix="/platform", tags=[PLATFORM_TAG])
-        self.register_routes()
+        super().__init__(prefix="/platform", tags=[PLATFORM_TAG])
 
-    def register_routes(self):
-        self.router.add_api_route(
+        self.add_api_route(
             "/cost-estimate",
             self.get_credit_estimate,
             methods=["GET"],

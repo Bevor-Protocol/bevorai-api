@@ -6,11 +6,11 @@ import pytest_asyncio
 from httpx import Request, Response
 
 from app.api.auth.service import AuthService
+from app.api.contract.interface import ContractScanBody
 from app.api.user.service import UserService
 from app.db.models import Auth, Contract, Permission
 from app.lib.clients import ExplorerClient
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import ContractScanBody
 from app.utils.types.enums import ClientTypeEnum, NetworkEnum, RoleEnum
 from tests.constants import USER_API_KEY
 

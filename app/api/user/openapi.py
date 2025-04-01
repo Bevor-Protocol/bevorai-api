@@ -1,8 +1,9 @@
 # flake8: noqa
 
-from app.utils.schema.response import IdResponse, UserInfoResponse
-from app.utils.schema.shared import ErrorResponse
+from app.utils.schema.shared import ErrorResponse, IdResponse
 from app.utils.types.openapi import OpenApiParams
+
+from .interface import UserInfoResponse
 
 GET_OR_CREATE_USER = OpenApiParams(
     summary="Create a user",

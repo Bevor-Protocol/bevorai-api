@@ -5,10 +5,10 @@ from typing import AsyncGenerator
 
 import pytest_asyncio
 
+from app.api.app.interface import AppUpsertBody
 from app.api.app.service import AppService
 from app.api.auth.service import AuthService
 from app.api.user.service import UserService
-from app.utils.schema.request import AppUpsertBody
 from tests.constants import (
     FIRST_PARTY_APP_API_KEY,
     FIRST_PARTY_APP_NAME,

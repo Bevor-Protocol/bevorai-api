@@ -1,7 +1,7 @@
 import pytest
 
+from app.api.user.interface import UserUpsertBody
 from app.db.models import User
-from app.utils.schema.request import UserUpsertBody
 from tests.constants import (
     FIRST_PARTY_APP_API_KEY,
     THIRD_PARTY_APP_API_KEY,
