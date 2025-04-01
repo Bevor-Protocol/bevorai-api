@@ -83,6 +83,7 @@ class AuditService:
         data = []
         for i, result in enumerate(results_trimmed):
             contract = ContractSchema.from_tortoise(result.contract)
+            contract.code = result.contract.raw_code
             user = UserSchema.from_tortoise(result.user)
             response = AuditMetadata(
                 id=result.id,

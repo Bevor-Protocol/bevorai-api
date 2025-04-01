@@ -99,7 +99,7 @@ class ContractSchema(BaseInstance):
         default=None, description="network that the contract is on, if applicable"
     )
     is_available: bool = Field(description="whether source code is available")
-    code: Optional[str] = None
+    code: Optional[str] = Field(default=None, alias="raw_code")
 
 
 class IntermediateResponseSchema(BaseInstance):

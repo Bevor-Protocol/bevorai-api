@@ -2,20 +2,28 @@ from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
-from app.db.models import App, Auth, Permission, Prompt, User
+from app.api.audit.service import AuditService
+from app.db.models import App, Audit, Auth, Permission, Prompt, User
+from app.utils.logger import get_logger
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.models import PromptSchema
-from app.utils.types.enums import AuditTypeEnum, AuthScopeEnum, ClientTypeEnum
+from app.utils.schema.models import (
+    FindingSchema,
+    IntermediateResponseSchema,
+    PromptSchema,
+)
+from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
 
 from .interface import (
     AdminAppPermission,
     AdminPermission,
     AdminUserPermission,
+    AuditWithChildren,
     CreatePromptBody,
-    PromptGroupedResponse,
     UpdatePermissionsBody,
     UpdatePromptBody,
 )
+
+logger = get_logger("api")
 
 
 class AdminService:
@@ -126,26 +134,10 @@ class AdminService:
 
         return results
 
-    async def get_prompts_grouped(self) -> PromptGroupedResponse:
+    async def get_prompts(self) -> list[PromptSchema]:
         prompts = await Prompt.all()
 
-        prompts_grouped = {k: {} for k in AuditTypeEnum}
-
-        for prompt in prompts:
-            audit_type = prompt.audit_type
-            tag = prompt.tag
-            is_active = prompt.is_active
-            if tag not in prompts_grouped[audit_type]:
-                prompts_grouped[audit_type][tag] = []
-
-            prompt_instance = PromptSchema.from_tortoise(prompt)
-
-            if is_active:
-                prompts_grouped[audit_type][tag].insert(0, prompt_instance)
-            else:
-                prompts_grouped[audit_type][tag].append(prompt_instance)
-
-        return PromptGroupedResponse(result=prompts_grouped)
+        return list(map(PromptSchema.from_tortoise, prompts))
 
     async def update_prompt(self, id: str, body: UpdatePromptBody) -> None:
         if (
@@ -212,3 +204,42 @@ class AdminService:
                 await prompt_demote.save()
 
         return prompt
+
+    async def get_audit_children(self, id: str):
+
+        audit_service = AuditService()
+
+        audit = (
+            await Audit.get(id=id)
+            .select_related("contract")
+            .prefetch_related("intermediate_responses", "findings")
+        )
+
+        intermediate_responses = []
+        findings = []
+
+        for intermediate in audit.intermediate_responses:
+            intermediate_responses.append(
+                IntermediateResponseSchema.from_tortoise(intermediate)
+            )
+        for finding in audit.findings:
+            findings.append(FindingSchema.from_tortoise(finding))
+
+        result = None
+        if audit.raw_output:
+            result = audit_service.sanitize_data(audit=audit, as_markdown=True)
+
+        audit_response = AuditWithChildren(
+            id=audit.id,
+            created_at=audit.created_at,
+            status=audit.status,
+            audit_type=audit.audit_type,
+            processing_time_seconds=audit.processing_time_seconds,
+            result=result,
+            intermediate_responses=intermediate_responses,
+            findings=findings,
+        )
+
+        logger.info(audit_response)
+
+        return audit_response

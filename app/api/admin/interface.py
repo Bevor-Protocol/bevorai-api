@@ -2,7 +2,14 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from app.utils.schema.models import AppSchema, PromptSchema, UserSchema
+from app.utils.schema.models import (
+    AppSchema,
+    AuditSchema,
+    FindingSchema,
+    IntermediateResponseSchema,
+    PromptSchema,
+    UserSchema,
+)
 from app.utils.types.enums import AuditTypeEnum
 
 """
@@ -58,3 +65,12 @@ class AdminAppPermission(AppSchema):
 
 class AdminAppPermissionSearch(BaseModel):
     results: list[AdminAppPermission]
+
+
+class AuditWithChildren(AuditSchema):
+    intermediate_responses: list[IntermediateResponseSchema]
+    findings: list[FindingSchema]
+
+
+class PromptsResponse(BaseModel):
+    results: list[PromptSchema]

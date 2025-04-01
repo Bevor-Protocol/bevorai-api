@@ -13,6 +13,7 @@ from .interface import (
     AdminQuerySearch,
     AdminUserPermissionSearch,
     CreatePromptBody,
+    PromptsResponse,
     UpdatePermissionsBody,
     UpdatePromptBody,
 )
@@ -111,6 +112,19 @@ class AdminRouter(APIRouter):
                 )
             ],
         )
+        self.add_api_route(
+            "/audit/{id}",
+            self.get_audit,
+            methods=["GET"],
+            dependencies=[
+                Depends(
+                    Authentication(
+                        required_role=RoleEnum.APP_FIRST_PARTY,
+                        delegated_scope=AuthScopeEnum.ADMIN,
+                    )
+                )
+            ],
+        )
 
     async def is_admin(self, request: Request):
         admin_service = AdminService()
@@ -172,11 +186,11 @@ class AdminRouter(APIRouter):
     async def get_prompts(self):
         admin_service = AdminService()
 
-        prompts_grouped = await admin_service.get_prompts_grouped()
+        prompts = await admin_service.get_prompts()
 
-        return Response(
-            prompts_grouped.model_dump_json(), status_code=status.HTTP_200_OK
-        )
+        response = PromptsResponse(results=prompts)
+
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 
     async def update_prompt(self, body: Annotated[UpdatePromptBody, Body()], id: str):
         admin_service = AdminService()
@@ -199,5 +213,14 @@ class AdminRouter(APIRouter):
         prompt = await admin_service.add_prompt(body=body)
         return Response(
             IdResponse(id=prompt.id).model_dump_json(),
+            status_code=status.HTTP_202_ACCEPTED,
+        )
+
+    async def get_audit(self, id: str):
+        admin_service = AdminService()
+
+        response = await admin_service.get_audit_children(id)
+        return Response(
+            response.model_dump_json(),
             status_code=status.HTTP_202_ACCEPTED,
         )
