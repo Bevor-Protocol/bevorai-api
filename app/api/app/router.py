@@ -4,24 +4,22 @@ from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.exceptions import HTTPException
 from tortoise.exceptions import DoesNotExist
 
-from app.api.app.service import AppService
 from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.utils.constants.openapi_tags import APP_TAG
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import AppUpsertBody
 from app.utils.schema.shared import BooleanResponse
 from app.utils.types.enums import RoleEnum
 
+from .interface import AppUpsertBody
 from .openapi import GET_APP_INFO
+from .service import AppService
 
 
-class AppRouter:
+class AppRouter(APIRouter):
     def __init__(self):
-        self.router = APIRouter(prefix="/app", tags=[APP_TAG])
-        self.register_routes()
+        super().__init__(prefix="/app", tags=[APP_TAG])
 
-    def register_routes(self):
-        self.router.add_api_route(
+        self.add_api_route(
             "",
             self.upsert_app,
             methods=["POST", "PATCH"],
@@ -31,7 +29,7 @@ class AppRouter:
             operation_id="upsert_app",
             include_in_schema=False,
         )
-        self.router.add_api_route(
+        self.add_api_route(
             "/info",
             self.get_app_info,
             methods=["GET"],
@@ -40,7 +38,7 @@ class AppRouter:
             ],
             **GET_APP_INFO
         )
-        self.router.add_api_route(
+        self.add_api_route(
             "/stats",
             self.get_stats,
             methods=["GET"],
@@ -65,9 +63,9 @@ class AppRouter:
             fct = app_service.update
 
         try:
-            response = await fct(auth=request.state.auth, body=body)
+            await fct(auth=request.state.auth, body=body)
             return Response(
-                BooleanResponse(success=response).model_dump_json(),
+                BooleanResponse(success=True).model_dump_json(),
                 status_code=status.HTTP_202_ACCEPTED,
             )
         except DoesNotExist as err:

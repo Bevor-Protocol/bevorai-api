@@ -1,6 +1,7 @@
-from app.utils.schema.response import AppInfoResponse
 from app.utils.schema.shared import ErrorResponse
 from app.utils.types.openapi import OpenApiParams
+
+from .interface import AppInfoResponse
 
 GET_APP_INFO = OpenApiParams(
     summary="Get App Info",

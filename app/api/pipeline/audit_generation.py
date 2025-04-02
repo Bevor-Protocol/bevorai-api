@@ -48,7 +48,7 @@ class LlmPipeline:
 
         return {"role": "assistant", "content": choice.message.content}
 
-    async def __publish_event(self, name: str, status: str):
+    async def _publish_event(self, name: str, status: str):
         if not self.should_publish:
             return
 
@@ -64,16 +64,16 @@ class LlmPipeline:
             json.dumps(message),
         )
 
-    async def __checkpoint(
+    async def _checkpoint(
         self,
-        step: str,
+        prompt: Prompt,
         status: AuditStatusEnum,
         result: str | None = None,
         processing_time: int | None = None,
     ):
 
         checkpoint = await IntermediateResponse.filter(
-            audit_id=self.audit.id, step=step
+            audit_id=self.audit.id, prompt_id=prompt.id
         ).first()
 
         logger.info(
@@ -81,7 +81,7 @@ class LlmPipeline:
             extra={
                 "audit_id": str(self.audit.id),
                 "status": status,
-                "step": step,
+                "step": prompt.tag,
                 "processing_time_seconds": processing_time,
             },
         )
@@ -95,13 +95,14 @@ class LlmPipeline:
 
         await IntermediateResponse.create(
             audit_id=self.audit.id,
-            step=step,
+            prompt=prompt,
+            step=prompt.tag,
             status=status,
             result=result,
             processing_time_seconds=processing_time,
         )
 
-    async def __write_findings(self, response):
+    async def _write_findings(self, response):
 
         pattern = r"<<(.*?)>>"
 
@@ -145,13 +146,13 @@ class LlmPipeline:
         if to_create:
             await Finding.bulk_create(objects=to_create)
 
-    async def _generate_candidate(self, candidate: str, prompt: str):
-        await self.__publish_event(name=candidate, status="start")
+    async def _generate_candidate(self, prompt: Prompt):
+        await self._publish_event(name=prompt.tag, status="start")
 
         # allows for some fault tolerance.
         now = datetime.now()
         try:
-            await self.__checkpoint(step=candidate, status=AuditStatusEnum.PROCESSING)
+            await self._checkpoint(prompt=prompt, status=AuditStatusEnum.PROCESSING)
             response = await llm_client.chat.completions.create(
                 model="gpt-4o-mini",
                 max_completion_tokens=2000,
@@ -159,7 +160,7 @@ class LlmPipeline:
                 messages=[
                     {
                         "role": "developer",
-                        "content": prompt,
+                        "content": prompt.content,
                     },
                     {
                         "role": "user",
@@ -171,9 +172,9 @@ class LlmPipeline:
             self.usage.add_input(usage.prompt_tokens)
             self.usage.add_output(usage.completion_tokens)
             result = response.choices[0].message.content
-            await self.__publish_event(name=candidate, status="done")
-            await self.__checkpoint(
-                step=candidate,
+            await self._publish_event(name=prompt.tag, status="done")
+            await self._checkpoint(
+                prompt=prompt,
                 status=AuditStatusEnum.SUCCESS,
                 result=result,
                 processing_time=(datetime.now() - now).seconds,
@@ -183,9 +184,9 @@ class LlmPipeline:
 
         except Exception as err:
             logger.warning(err)
-            await self.__publish_event(name=candidate, status="error")
-            await self.__checkpoint(
-                step=candidate,
+            await self._publish_event(name=prompt.tag, status="error")
+            await self._checkpoint(
+                prompt=prompt,
                 status=AuditStatusEnum.FAILED,
                 processing_time=(datetime.now() - now).seconds,
             )
@@ -197,7 +198,7 @@ class LlmPipeline:
             audit_type=self.audit_type, is_active=True, tag__not="reviewer"
         )
         for prompt in candidate_prompts:
-            task = self._generate_candidate(candidate=prompt.tag, prompt=prompt.content)
+            task = self._generate_candidate(prompt)
             tasks.append(task)
 
         responses: list[str | None] = await asyncio.gather(*tasks)
@@ -214,14 +215,14 @@ class LlmPipeline:
         if not self.candidate_prompt:
             raise NotImplementedError("must run generate_candidates() first")
 
-        await self.__publish_event(name="report", status="start")
-
         prompt = await Prompt.filter(
             audit_type=self.audit_type, is_active=True, tag="reviewer"
         ).first()
 
+        await self._publish_event(name=prompt.tag, status="start")
+
         now = datetime.now()
-        await self.__checkpoint(step="report", status=AuditStatusEnum.PROCESSING)
+        await self._checkpoint(prompt=prompt, status=AuditStatusEnum.PROCESSING)
 
         try:
             response = await llm_client.beta.chat.completions.parse(
@@ -238,9 +239,9 @@ class LlmPipeline:
                 response_format=self.output_structure,
             )
         except Exception as err:
-            await self.__publish_event(name="report", status="error")
-            await self.__checkpoint(
-                step="report",
+            await self._publish_event(name=prompt.tag, status="error")
+            await self._checkpoint(
+                prompt=prompt,
                 status=AuditStatusEnum.FAILED,
                 processing_time=(datetime.now() - now).seconds,
             )
@@ -251,12 +252,13 @@ class LlmPipeline:
         usage = response.usage
         self.usage.add_input(usage.prompt_tokens)
         self.usage.add_output(usage.completion_tokens)
-        await self.__publish_event(name="report", status="done")
-        await self.__checkpoint(
-            step="report",
+        await self._publish_event(name=prompt.tag, status="done")
+        await self._checkpoint(
+            prompt=prompt,
             status=AuditStatusEnum.SUCCESS,
+            result=result,
             processing_time=(datetime.now() - now).seconds,
         )
-        await self.__write_findings(result)
+        await self._write_findings(result)
 
         return result

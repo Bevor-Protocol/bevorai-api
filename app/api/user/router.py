@@ -4,22 +4,20 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, 
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
-from app.api.user.service import UserService
 from app.utils.constants.openapi_tags import USER_TAG
-from app.utils.schema.request import UserUpsertBody
-from app.utils.schema.response import IdResponse
+from app.utils.schema.shared import IdResponse
 from app.utils.types.enums import RoleEnum
 
+from .interface import UserUpsertBody
 from .openapi import GET_OR_CREATE_USER, GET_USER_INFO
+from .service import UserService
 
 
-class UserRouter:
+class UserRouter(APIRouter):
     def __init__(self):
-        self.router = APIRouter(prefix="/user", tags=[USER_TAG])
-        self.register_routes()
+        super().__init__(prefix="/user", tags=[USER_TAG])
 
-    def register_routes(self):
-        self.router.add_api_route(
+        self.add_api_route(
             "",
             self.get_or_create_user,
             methods=["POST"],
@@ -28,7 +26,7 @@ class UserRouter:
             ],
             **GET_OR_CREATE_USER,
         )
-        self.router.add_api_route(
+        self.add_api_route(
             "/info",
             self.get_user_info,
             methods=["GET"],

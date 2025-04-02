@@ -3,26 +3,24 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from tortoise.exceptions import DoesNotExist
 
-from app.api.contract.service import ContractService
 from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
 from app.api.pricing.service import StaticAnalysis
 from app.db.models import Transaction, User
 from app.utils.constants.openapi_tags import CONTRACT_TAG
 from app.utils.schema.dependencies import AuthState
-from app.utils.schema.request import ContractScanBody
+from app.utils.schema.models import ContractSchema
 from app.utils.types.enums import RoleEnum, TransactionTypeEnum
 
+from .interface import ContractScanBody
 from .openapi import GET_CONTRACT, GET_OR_CREATE_CONTRACT
+from .service import ContractService
 
 
-class ContractRouter:
+class ContractRouter(APIRouter):
     def __init__(self):
-        super().__init__()
-        self.router = APIRouter(prefix="/contract", tags=[CONTRACT_TAG])
-        self.register_routes()
+        super().__init__(prefix="/contract", tags=[CONTRACT_TAG])
 
-    def register_routes(self):
-        self.router.add_api_route(
+        self.add_api_route(
             "",
             self.upload_contract,
             methods=["POST"],
@@ -31,7 +29,7 @@ class ContractRouter:
             ],
             **GET_OR_CREATE_CONTRACT,
         )
-        self.router.add_api_route(
+        self.add_api_route(
             "/{id}",
             self.get_contract,
             methods=["GET"],
@@ -40,7 +38,7 @@ class ContractRouter:
             ],
             **GET_CONTRACT,
         )
-        self.router.add_api_route(
+        self.add_api_route(
             "/token/static",
             self.process_token,
             methods=["POST"],
@@ -66,7 +64,8 @@ class ContractRouter:
         contract_service = ContractService()
 
         try:
-            response = await contract_service.get(id)
+            contract = await contract_service.get(id)
+            response = ContractSchema.from_tortoise(contract)
             return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
         except DoesNotExist:
             raise HTTPException(

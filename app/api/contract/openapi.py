@@ -1,9 +1,10 @@
 # flake8: noqa
 
-from app.utils.schema.contract import ContractWithCodePydantic
-from app.utils.schema.response import StaticAnalysisTokenResult, UploadContractResponse
+from app.utils.schema.models import ContractSchema
 from app.utils.schema.shared import ErrorResponse
 from app.utils.types.openapi import OpenApiParams
+
+from .interface import StaticAnalysisTokenResult, UploadContractResponse
 
 GET_OR_CREATE_CONTRACT = OpenApiParams(
     summary="Contract get/create",
@@ -21,7 +22,7 @@ a given address exists on multiple chains, which is why `candidates` is provided
 GET_CONTRACT = OpenApiParams(
     summary="Get contract by id",
     description="Retrieve a previously uploaded contract by `id`",
-    response_model=ContractWithCodePydantic,
+    response_model=ContractSchema,
     responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )
 

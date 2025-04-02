@@ -7,14 +7,17 @@ from fastapi import HTTPException, status
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
+from app.utils.constants.mappers import networks_by_type
 from app.utils.helpers.code_parser import SourceCodeParser
-from app.utils.helpers.mappers import networks_by_type
-from app.utils.helpers.model_parser import cast_contract_with_code
 from app.utils.logger import get_logger
-from app.utils.schema.contract import ContractWithCodePydantic
-from app.utils.schema.request import ContractScanBody
-from app.utils.schema.response import StaticAnalysisTokenResult, UploadContractResponse
+from app.utils.schema.models import ContractSchema
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
+
+from .interface import (
+    ContractScanBody,
+    StaticAnalysisTokenResult,
+    UploadContractResponse,
+)
 
 logger = get_logger("api")
 
@@ -27,7 +30,7 @@ class ContractService:
     ):
         self.allow_testnet = allow_testnet
 
-    async def __get_or_create_contract(
+    async def _get_or_create_contract(
         self,
         code: Optional[str],
         address: Optional[str],
@@ -114,13 +117,13 @@ class ContractService:
         if not code and not address:
             raise ValueError("Either contract code or address must be provided")
 
-        contracts = await self.__get_or_create_contract(
+        contracts = await self._get_or_create_contract(
             code=code, address=address, network=network
         )
 
         first_candidate = next(filter(lambda x: x.is_available, contracts), None)
         if first_candidate:
-            first_candidate = cast_contract_with_code(first_candidate)
+            first_candidate = ContractSchema.from_tortoise(first_candidate)
 
         return UploadContractResponse(
             exact_match=len(contracts) == 1,
@@ -128,17 +131,17 @@ class ContractService:
             contract=first_candidate,
         )
 
-    async def get(self, id: str) -> ContractWithCodePydantic:
+    async def get(self, id: str) -> Contract:
 
         contract = await Contract.get(id=id)
 
-        return cast_contract_with_code(contract)
+        return contract
 
     async def process_static_eval_token(
         self, body: ContractScanBody
     ) -> StaticAnalysisTokenResult:
 
-        contracts = await self.__get_or_create_contract(
+        contracts = await self._get_or_create_contract(
             code=body.code, address=body.address, network=body.network
         )
 
