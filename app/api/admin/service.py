@@ -89,16 +89,12 @@ class AdminService:
         return results
 
     async def search_apps(self, identifier: str) -> list[AdminAppPermission]:
-        """
-        Search for users by either their UUID or address.
-
+        """Search for users by either their UUID or address.
         Args:
             identifier: A string that could be either a UUID or an address
-
         Returns:
             The user object if found, None otherwise
         """
-        # Use OR clause to search by ID or address with partial matching
 
         apps = (
             await App.filter(
