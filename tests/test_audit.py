@@ -192,7 +192,7 @@ async def test_successfully_creates_audit(user_with_auth_and_credits, async_clie
         address="0xTESTCONTRACT",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
+        code="contract Test {}",
         is_available=True,
     )
 
@@ -254,7 +254,7 @@ async def test_audit_processing_with_intermediate_states(
         address="0xARQTESTCONTRACT",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract ArqTest {}",
+        code="contract ArqTest {}",
         is_available=True,
     )
 
@@ -417,7 +417,7 @@ async def test_get_audit(user_with_auth, async_client):
         address="0xAUDITGET",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
+        code="contract Test {}",
     )
 
     output_json = json.dumps(
@@ -470,7 +470,7 @@ async def test_get_audits(user_with_auth, async_client):
         address="0xAUDITLIST",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
+        code="contract Test {}",
     )
 
     output_json = json.dumps(
@@ -545,7 +545,7 @@ async def test_submit_feedback(user_with_auth, async_client):
         address="0xAUDITFEEDBACK",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
+        code="contract Test {}",
     )
 
     output_json = json.dumps(
@@ -615,7 +615,7 @@ async def test_get_audit_with_delegation(user_with_auth, third_party_app, async_
         address="0xAUDITGET",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
+        code="contract Test {}",
     )
 
     output_json = json.dumps(

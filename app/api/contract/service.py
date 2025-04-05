@@ -40,7 +40,7 @@ class ContractService:
         Otherwise get from source
         """
 
-        filter_obj = {"is_available": True, "raw_code__isnull": False}
+        filter_obj = {"is_available": True, "code__isnull": False}
 
         if address:
             filter_obj["address"] = address
@@ -48,7 +48,7 @@ class ContractService:
             filter_obj["network"] = network
         if code:
             hashed_content = hashlib.sha256(code.encode()).hexdigest()
-            filter_obj["hash_code"] = hashed_content
+            filter_obj["hashed_code"] = hashed_content
 
         contracts = await Contract.filter(**filter_obj)
 
@@ -60,7 +60,7 @@ class ContractService:
             contract = await Contract.create(
                 method=ContractMethodEnum.UPLOAD,
                 network=network,
-                raw_code=code,
+                code=code,
             )
             return [contract]
 
@@ -99,7 +99,7 @@ class ContractService:
                     network=result["network"],
                     is_proxy=result["is_proxy"],
                     contract_name=result["contract_name"],
-                    raw_code=result["code"],
+                    code=result["code"],
                 )
                 if contract.is_available:
                     contracts_return.append(contract)

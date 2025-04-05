@@ -10,9 +10,7 @@ from app.config import redis_settings
 from app.db.models import Audit, Contract, Finding
 from app.utils.types.shared import AuthState
 from app.utils.types.models import (
-    ContractSchema,
     IntermediateResponseSchema,
-    UserSchema,
 )
 from app.utils.templates.gas import gas_template
 from app.utils.templates.security import security_template
@@ -36,8 +34,8 @@ class AuditService:
         offset = query.page * limit
 
         filter = {}
-        if query.search:
-            filter["status"] = query.search
+        if query.status:
+            filter["status"] = query.status
         if query.search:
             filter["raw_output__icontains"] = query.search
         if query.audit_type:
@@ -79,17 +77,14 @@ class AuditService:
 
         data = []
         for i, result in enumerate(results_trimmed):
-            contract = ContractSchema.from_tortoise(result.contract)
-            contract.code = result.contract.raw_code
-            user = UserSchema.from_tortoise(result.user)
             response = AuditMetadata(
                 id=result.id,
                 created_at=result.created_at,
                 n=i + offset,
                 audit_type=result.audit_type,
                 status=result.status,
-                user=user,
-                contract=contract,
+                user=result.user,
+                contract=result.contract,
             )
             data.append(response)
 

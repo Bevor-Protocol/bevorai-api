@@ -15,7 +15,7 @@ def main():
         if result.stdout.strip():
             print("Running migrations inside the 'api' container...")
             subprocess.run(
-                ["docker", "exec", "-it", "api", "poetry", "run", "aerich", "upgrade"],
+                ["docker", "exec", "-it", "api", "uv", "run", "aerich", "upgrade"],
                 check=True,
             )
         else:

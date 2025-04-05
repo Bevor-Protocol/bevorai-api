@@ -11,7 +11,6 @@ logger = get_logger("api")
 
 
 class SourceCodeParser:
-
     def __init__(self, source_input: dict):
         self.proxy_contract = source_input.get("Implementation", "")
         self.is_proxy = self.proxy_contract != ""
@@ -49,11 +48,11 @@ class SourceCodeParser:
         instance.is_proxy = contract.is_proxy
         instance.contract_name = contract.contract_name
         instance.is_object = False
-        instance.raw_content = contract.raw_code
-        instance.source = contract.raw_code
+        instance.raw_content = contract.code
+        instance.source = contract.code
         return instance
 
-    def extract_raw_code(self):
+    def extract_code(self):
         if not self.is_object:
             self.source = self.raw_content
             return self.source

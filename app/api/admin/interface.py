@@ -1,6 +1,7 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from fastapi import HTTPException
+from pydantic import BaseModel, model_validator
 
 from app.utils.types.models import (
     AppSchema,
@@ -31,6 +32,14 @@ class UpdatePromptBody(BaseModel):
     content: Optional[str] = None
     version: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def check_data(self):
+        if not any([self.content, self.version, self.tag, self.is_active is not None]):
+            raise HTTPException(
+                status_code=400, detail="At least one field must be provided for update"
+            )
+        return self
 
 
 class CreatePromptBody(BaseModel):

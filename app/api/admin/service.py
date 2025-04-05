@@ -6,11 +6,6 @@ from app.api.audit.service import AuditService
 from app.db.models import App, Audit, Auth, Permission, Prompt, User
 from app.utils.logger import get_logger
 from app.utils.types.shared import AuthState
-from app.utils.types.models import (
-    FindingSchema,
-    IntermediateResponseSchema,
-    PromptSchema,
-)
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
 
 from .interface import (
@@ -48,17 +43,6 @@ class AdminService:
         await permission.save()
 
     async def search_users(self, identifier: str) -> list[AdminUserPermission]:
-        """
-        Search for users by either their UUID or address.
-
-        Args:
-            identifier: A string that could be either a UUID or an address
-
-        Returns:
-            The user object if found, None otherwise
-        """
-        # Use OR clause to search by ID or address with partial matching
-
         users = (
             await User.filter(
                 Q(id__icontains=identifier) | Q(address__icontains=identifier)
@@ -89,13 +73,6 @@ class AdminService:
         return results
 
     async def search_apps(self, identifier: str) -> list[AdminAppPermission]:
-        """Search for users by either their UUID or address.
-        Args:
-            identifier: A string that could be either a UUID or an address
-        Returns:
-            The user object if found, None otherwise
-        """
-
         apps = (
             await App.filter(
                 Q(id__icontains=identifier)
@@ -129,20 +106,13 @@ class AdminService:
 
         return results
 
-    async def get_prompts(self) -> list[PromptSchema]:
+    async def get_prompts(self) -> list[Prompt]:
         prompts = await Prompt.all()
 
-        return list(map(PromptSchema.from_tortoise, prompts))
+        return prompts
 
     async def update_prompt(self, id: str, body: UpdatePromptBody) -> None:
-        if (
-            not body.content
-            and not body.version
-            and not body.tag
-            and body.is_active is None
-        ):
-            return
-
+        """Update a prompt and automatically demote a promote, if applicable"""
         prompt = await Prompt.get(id=id)
 
         prompt_demote = None
@@ -150,7 +120,9 @@ class AdminService:
             if not prompt.is_active:
                 prompt_demote = (
                     await Prompt.filter(
-                        id__not=id, tag=prompt.tag, audit_type=prompt.audit_type
+                        id__not=id,
+                        tag=prompt.tag,
+                        audit_type=body.audit_type or prompt.audit_type,
                     )
                     .order_by("-created_at")
                     .first()
@@ -158,21 +130,14 @@ class AdminService:
                 if prompt_demote:
                     prompt_demote.is_active = False
 
-        if body.is_active is not None:
-            prompt.is_active = body.is_active
-        if body.version:
-            prompt.version = body.version
-        if body.content:
-            prompt.content = body.content
-        if body.tag:
-            prompt.tag = body.tag
-
         async with in_transaction():
+            await prompt.update(**body.model_dump(exclude_none=True))
             await prompt.save()
             if prompt_demote:
                 await prompt_demote.save()
 
     async def add_prompt(self, body: CreatePromptBody) -> Prompt:
+        """Add a prompt and automatically demote a promote, if applicable"""
         prompt = Prompt(
             audit_type=body.audit_type.value,
             tag=body.tag,
@@ -201,26 +166,16 @@ class AdminService:
         return prompt
 
     async def get_audit_children(self, id: str):
-        audit_service = AuditService()
-
+        """Get all corresponding intermediate resposnes and findings for an audit"""
         audit = (
             await Audit.get(id=id)
             .select_related("contract")
             .prefetch_related("intermediate_responses", "findings")
         )
 
-        intermediate_responses = []
-        findings = []
-
-        for intermediate in audit.intermediate_responses:
-            intermediate_responses.append(
-                IntermediateResponseSchema.from_tortoise(intermediate)
-            )
-        for finding in audit.findings:
-            findings.append(FindingSchema.from_tortoise(finding))
-
         result = None
         if audit.raw_output:
+            audit_service = AuditService()
             result = audit_service.sanitize_data(audit=audit, as_markdown=True)
 
         audit_response = AuditWithChildren(
@@ -230,8 +185,8 @@ class AdminService:
             audit_type=audit.audit_type,
             processing_time_seconds=audit.processing_time_seconds,
             result=result,
-            intermediate_responses=intermediate_responses,
-            findings=findings,
+            intermediate_responses=audit.intermediate_responses,
+            findings=audit.findings,
         )
 
         return audit_response

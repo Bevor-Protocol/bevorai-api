@@ -139,8 +139,8 @@ class Contract(AbstractModel):
     network = fields.CharEnumField(enum_type=NetworkEnum, null=True, default=None)
     contract_name = fields.TextField(null=True, default=None)
     is_proxy = fields.BooleanField(default=False)
-    raw_code = fields.TextField(null=True, default=None)
-    hash_code = fields.CharField(max_length=255, null=True, default=None)
+    code = fields.TextField(null=True, default=None)
+    hashed_code = fields.CharField(max_length=255, null=True, default=None)
 
     class Meta:
         table = "contract"
@@ -150,15 +150,15 @@ class Contract(AbstractModel):
 
     @classmethod
     async def create(self, *args, **kwargs):
-        raw_code = kwargs.get("raw_code")
-        if raw_code:
-            kwargs["hash_code"] = hashlib.sha256(raw_code.encode()).hexdigest()
+        code = kwargs.get("code")
+        if code:
+            kwargs["hashed_code"] = hashlib.sha256(code.encode()).hexdigest()
         return await super().create(*args, **kwargs)
 
     async def save(self, *args, **kwargs):
-        raw_code = kwargs.get("raw_code")
-        if raw_code:
-            kwargs["hash_code"] = hashlib.sha256(raw_code.encode()).hexdigest()
+        code = kwargs.get("code")
+        if code:
+            kwargs["hashed_code"] = hashlib.sha256(code.encode()).hexdigest()
         await super().save(*args, **kwargs)
 
 

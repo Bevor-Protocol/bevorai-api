@@ -9,7 +9,6 @@ logger = get_logger("api")
 
 
 class BlockchainService:
-
     async def get_gas(self) -> dict:
         explorer_client = ExplorerClient()
 
@@ -50,7 +49,7 @@ class BlockchainService:
             if result and isinstance(result, list) and len(result) > 0:
                 obj["exists"] = True
                 parser = SourceCodeParser(result[0])
-                parser.extract_raw_code()
+                parser.extract_code()
                 obj["is_available"] = parser.source != ""
                 obj["code"] = parser.source if parser.source != "" else None
                 obj["contract_name"] = parser.contract_name

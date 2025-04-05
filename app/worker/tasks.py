@@ -32,7 +32,7 @@ async def handle_eval(audit_id: str):
         caller_auth = await Auth.get(user_id=audit.user_id).select_related("user")
 
     pipeline = LlmPipeline(
-        input=audit.contract.raw_code,
+        input=audit.contract.code,
         audit=audit,
         should_publish=False,
     )
@@ -153,7 +153,7 @@ async def get_deployment_contracts(network: NetworkEnum):
                     "address": address,
                     "is_available": result["has_source_code"],
                     "network": result["network"],
-                    "raw_code": result["source_code"],
+                    "code": result["source_code"],
                 }
                 to_create.append(obj)
 

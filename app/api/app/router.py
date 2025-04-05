@@ -89,4 +89,3 @@ class AppRouter(APIRouter):
         response = await app_service.get_stats()
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

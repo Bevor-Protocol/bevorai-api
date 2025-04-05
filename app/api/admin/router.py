@@ -187,8 +187,9 @@ class AdminRouter(APIRouter):
         admin_service = AdminService()
 
         prompts = await admin_service.get_prompts()
+        results = list(map(PromptSchema.from_tortoise, prompts))
 
-        response = ResultsResponse[PromptSchema](results=prompts)
+        response = ResultsResponse[PromptSchema](results=results)
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 

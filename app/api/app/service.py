@@ -72,10 +72,6 @@ class AppService:
         return response
 
     async def get_stats(self) -> AllStatsResponse:
-        """
-        pass an app_id if not the FIRST_PARTY app.
-        """
-
         n_apps = await App.all().count()
 
         audits = await Audit.all().prefetch_related("findings")
@@ -100,8 +96,10 @@ class AppService:
 
         audits_by_date = {}
         contract_set = set()
-        gas_findings = {k.value: 0 for k in FindingLevelEnum}
-        sec_findings = {k.value: 0 for k in FindingLevelEnum}
+        findings = {
+            audit_type: {level: 0 for level in FindingLevelEnum}
+            for audit_type in AuditTypeEnum
+        }
         n_audits = 0
         n_contracts = 0
         for audit in audits:
@@ -113,11 +111,7 @@ class AppService:
             n_audits += 1
 
             for finding in audit.findings:
-                match finding.audit_type:
-                    case AuditTypeEnum.SECURITY:
-                        sec_findings[finding.level] += 1
-                    case AuditTypeEnum.GAS:
-                        gas_findings[finding.level] += 1
+                findings[finding.audit_type][finding.level] += 1
 
         n_contracts = len(contract_set)
         audits_timeseries = sorted(
@@ -127,15 +121,13 @@ class AppService:
             ],
             key=lambda x: x.date,
         )
+
         response = AllStatsResponse(
             n_apps=n_apps,
             n_users=n_users,
             n_contracts=n_contracts,
             n_audits=n_audits,
-            findings={
-                AuditTypeEnum.GAS: gas_findings,
-                AuditTypeEnum.SECURITY: sec_findings,
-            },
+            findings=findings,
             users_timeseries=users_timeseries,
             audits_timeseries=audits_timeseries,
         )

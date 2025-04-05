@@ -75,7 +75,7 @@ def generate_audit(
 
     now = datetime.now()
     pipeline = LlmPipeline(
-        input=audit.contract.raw_code,
+        input=audit.contract.code,
         audit=audit,
         should_publish=False,
     )

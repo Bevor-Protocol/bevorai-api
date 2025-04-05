@@ -6,10 +6,10 @@ import sys
 def pre_deploy():
     try:
         print("Running database migrations...")
-        subprocess.run(["poetry", "run", "aerich", "upgrade"], check=True)
+        subprocess.run(["uv", "run", "aerich", "upgrade"], check=True)
 
         print("Running database seeder...")
-        subprocess.run(["poetry", "run", "python", "scripts/seeder.py"], check=True)
+        subprocess.run(["uv", "run", "python", "scripts/seeder.py"], check=True)
 
         print("Pre-deploy tasks completed successfully")
         return 0

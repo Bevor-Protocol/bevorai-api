@@ -112,7 +112,7 @@ class ContractSchema(BaseSchema):
         default=None, description="network that the contract is on, if applicable"
     )
     is_available: bool = Field(description="whether source code is available")
-    code: Optional[str] = Field(default=None, alias="raw_code")
+    code: Optional[str] = Field(default=None)
 
 
 class IntermediateResponseSchema(BaseSchema, FkMixin):
