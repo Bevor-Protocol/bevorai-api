@@ -27,7 +27,6 @@ logger = get_logger("api")
 
 
 class AdminService:
-
     async def is_admin(self, auth_state: AuthState) -> bool:
         try:
             auth = await Auth.get(user_id=auth_state.user_id)
@@ -39,7 +38,7 @@ class AdminService:
         self, id: str, client_type: ClientTypeEnum, body: UpdatePermissionsBody
     ) -> None:
         filter = {"client_type": client_type}
-        if type == ClientTypeEnum.APP:
+        if client_type == ClientTypeEnum.APP:
             filter["app_id"] = id
         else:
             filter["user_id"] = id
@@ -206,7 +205,6 @@ class AdminService:
         return prompt
 
     async def get_audit_children(self, id: str):
-
         audit_service = AuditService()
 
         audit = (
@@ -242,4 +240,5 @@ class AdminService:
 
         logger.info(audit_response)
 
+        return audit_response
         return audit_response

@@ -2,9 +2,7 @@ from tortoise import BaseDBAsyncClient
 from tortoise.transactions import in_transaction
 
 from app.db.models import Audit, IntermediateResponse, Prompt
-from app.lib.gas import CURRENT_VERSION as gas_version
 from app.lib.gas import structure as gas_structure
-from app.lib.security import CURRENT_VERSION as sec_version
 from app.lib.security import structure as sec_structure
 from app.utils.types.enums import AuditTypeEnum
 

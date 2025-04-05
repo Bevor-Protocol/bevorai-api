@@ -3,5 +3,8 @@
 .env*
 !.env.example
 *.ipynb
+.pytest_cache
+.ipynb_checkpoints
+.ruff_cache
 
 **__pycache__**
