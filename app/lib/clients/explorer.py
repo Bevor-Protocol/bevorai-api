@@ -2,7 +2,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.utils.constants.mappers import (
+from app.utils.mappers import (
     network_chainid_mapper,
     network_explorer_apikey_mapper,
     network_explorer_mapper,
@@ -12,7 +12,6 @@ from app.utils.types.enums import NetworkEnum, NetworkTypeEnum
 
 
 class ExplorerClient:
-
     def _get_base_url(self, network: NetworkEnum) -> str:
         platform_route = network_explorer_mapper[network]
         chain_id = network_chainid_mapper[network]

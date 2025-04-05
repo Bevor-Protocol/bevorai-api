@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
-from app.utils.schema.shared import CreatedAtResponse, IdResponse, Timeseries
+from app.utils.types.models import AppSchema
+from app.utils.types.shared import Timeseries
 from app.utils.types.enums import AuditTypeEnum, FindingLevelEnum
 
 """
@@ -12,8 +13,7 @@ class AppUpsertBody(BaseModel):
     name: str
 
 
-class AppInfoResponse(IdResponse, CreatedAtResponse):
-    name: str
+class AppInfoResponse(AppSchema):
     n_audits: int
     n_contracts: int
 

@@ -13,8 +13,8 @@ from fastapi import (
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, RequireCredits
-from app.utils.constants.openapi_tags import AUDIT_TAG
-from app.utils.schema.shared import BooleanResponse
+from app.utils.openapi_tags import AUDIT_TAG
+from app.utils.types.shared import BooleanResponse
 from app.utils.types.enums import RoleEnum
 
 from .interface import EvalBody, FeedbackBody, FilterParams

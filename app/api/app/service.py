@@ -4,8 +4,8 @@ from tortoise.transactions import in_transaction
 
 from app.api.permission.service import PermissionService
 from app.db.models import App, Audit, User
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.shared import Timeseries
+from app.utils.types.shared import AuthState
+from app.utils.types.shared import Timeseries
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditTypeEnum,
@@ -19,7 +19,6 @@ from .interface import AllStatsResponse, AppInfoResponse, AppUpsertBody
 
 class AppService:
     async def create(self, auth: AuthState, body: AppUpsertBody) -> None:
-
         app = await App.filter(owner_id=auth.user_id).first()
         if app:
             return
@@ -48,7 +47,6 @@ class AppService:
             )
 
     async def update(self, auth: AuthState, body: AppUpsertBody) -> None:
-
         app = await App.filter(owner_id=auth.user_id).first()
         if not app:
             raise DoesNotExist("this user does not have an app yet")
@@ -56,7 +54,6 @@ class AppService:
         await app.save()
 
     async def get_info(self, app_id: str) -> AppInfoResponse:
-
         app = await App.get(id=app_id).prefetch_related("audits")
 
         audits = app.audits

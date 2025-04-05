@@ -13,7 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import redis_client
 from app.db.models import Auth, User
 from app.utils.logger import get_logger, state_var
-from app.utils.schema.dependencies import AuthState
+from app.utils.types.shared import AuthState
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
 
 logger = get_logger("api")

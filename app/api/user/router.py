@@ -4,8 +4,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, 
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
-from app.utils.constants.openapi_tags import USER_TAG
-from app.utils.schema.shared import IdResponse
+from app.utils.openapi_tags import USER_TAG
+from app.utils.types.shared import IdResponse
 from app.utils.types.enums import RoleEnum
 
 from .interface import UserUpsertBody

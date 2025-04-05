@@ -10,14 +10,14 @@ from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse, Prompt
 from app.lib.clients import llm_client
 from app.utils.logger import get_logger
-from app.utils.schema.output import GasOutputStructure, SecurityOutputStructure
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
+
+from .types import GasOutputStructure, SecurityOutputStructure
 
 logger = get_logger("worker")
 
 
 class LlmPipeline:
-
     def __init__(
         self,
         audit: Audit,
@@ -71,7 +71,6 @@ class LlmPipeline:
         result: str | None = None,
         processing_time: int | None = None,
     ):
-
         checkpoint = await IntermediateResponse.filter(
             audit_id=self.audit.id, prompt_id=prompt.id
         ).first()
@@ -103,7 +102,6 @@ class LlmPipeline:
         )
 
     async def _write_findings(self, response):
-
         pattern = r"<<(.*?)>>"
 
         # this parsing should not be required, but we'll include it for safety
@@ -261,4 +259,7 @@ class LlmPipeline:
         )
         await self._write_findings(result)
 
+        return result
+
+        return result
         return result

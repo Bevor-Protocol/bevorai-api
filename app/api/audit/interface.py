@@ -1,17 +1,19 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from app.utils.schema.models import (
+from app.utils.types.models import (
     AuditSchema,
+    BaseSchema,
     ContractSchema,
     FindingSchema,
     IntermediateResponseSchema,
     UserSchema,
 )
-from app.utils.schema.shared import CreatedAtResponse, IdResponse
+from app.utils.types.shared import IdResponse
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
+from app.utils.types.mixins import FkMixin
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.
@@ -32,7 +34,7 @@ class FeedbackBody(BaseModel):
     verified: bool
 
 
-class FilterParams(BaseModel):
+class FilterParams(BaseModel, FkMixin):
     user_id: Optional[str | UUID] = None
     user_address: Optional[str] = None
     page: int = 0
@@ -77,14 +79,8 @@ class FilterParams(BaseModel):
             return value.split(",")
         return value
 
-    @field_serializer("user_id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class AuditMetadata(IdResponse, CreatedAtResponse):
+class AuditMetadata(BaseSchema):
     n: int
     audit_type: AuditTypeEnum
     status: AuditStatusEnum

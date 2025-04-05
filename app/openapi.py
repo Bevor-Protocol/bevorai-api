@@ -2,7 +2,7 @@
 
 # Define OpenAPI spec as a plain dictionary (no instantiation required)
 
-from app.utils.constants.openapi_tags import (
+from app.utils.openapi_tags import (
     APP_TAG,
     AUDIT_TAG,
     CODE_EXAMPLE_APP_TAG,
@@ -17,7 +17,7 @@ from app.utils.constants.openapi_tags import (
 )
 
 _description = """
-We're in private Beta. Reach out to our team if you'd like access. Once granted access, 
+We're in private Beta. Reach out to our team if you'd like access. Once granted access,
 go to <a href='https://app.bevor.ai/dashboard' target='_blank'>BevorAI App</a> to create your API key.
 
 ### Authentication

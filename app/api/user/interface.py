@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from app.utils.schema.shared import CreatedAtResponse, IdResponse
+from app.utils.types.models import UserSchema
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.
@@ -27,8 +27,7 @@ class UserAppInfo(BaseModel):
     exists_auth: Optional[bool] = False
 
 
-class UserInfoResponse(IdResponse, CreatedAtResponse):
-    address: str
+class UserInfoResponse(UserSchema):
     total_credits: float
     remaining_credits: float
     auth: AuthInfo

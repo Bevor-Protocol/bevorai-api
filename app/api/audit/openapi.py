@@ -1,6 +1,6 @@
 # flake8: noqa
 
-from app.utils.schema.shared import BooleanResponse, ErrorResponse
+from app.utils.types.shared import BooleanResponse, ErrorResponse
 from app.utils.types.openapi import OpenApiParams
 
 from .interface import (

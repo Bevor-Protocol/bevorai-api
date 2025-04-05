@@ -8,10 +8,9 @@ from tortoise.timezone import now
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract, Finding
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.models import (
+from app.utils.types.shared import AuthState
+from app.utils.types.models import (
     ContractSchema,
-    FindingSchema,
     IntermediateResponseSchema,
     UserSchema,
 )
@@ -32,9 +31,7 @@ from .interface import (
 
 
 class AuditService:
-
     async def get_audits(self, auth: AuthState, query: FilterParams) -> AuditsResponse:
-
         limit = query.page_size
         offset = query.page * limit
 
@@ -118,10 +115,6 @@ class AuditService:
         if audit.raw_output:
             result = self.sanitize_data(audit=audit, as_markdown=True)
 
-        findings = list(map(FindingSchema.from_tortoise, audit.findings))
-        contract = ContractSchema.from_tortoise(audit.contract)
-        user = UserSchema.from_tortoise(audit.user)
-
         return AuditResponse(
             id=audit.id,
             created_at=audit.created_at,
@@ -129,9 +122,9 @@ class AuditService:
             audit_type=audit.audit_type,
             processing_time_seconds=audit.processing_time_seconds,
             result=result,
-            findings=findings,
-            contract=contract,
-            user=user,
+            findings=audit.findings,
+            contract=audit.contract,
+            user=audit.user,
         )
 
     async def get_status(self, auth: AuthState, id: str) -> GetAuditStatusResponse:
@@ -154,7 +147,6 @@ class AuditService:
     async def submit_feedback(
         self, data: FeedbackBody, auth: AuthState, id: str
     ) -> bool:
-
         finding = await Finding.get(id=id).select_related("audit")
 
         user_id = finding.audit.user_id

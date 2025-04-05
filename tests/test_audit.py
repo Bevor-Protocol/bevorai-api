@@ -19,7 +19,7 @@ from app.db.models import (
     User,
 )
 from app.lib.gas.v1.response import FindingsStructure, FindingType, OutputStructure
-from app.utils.schema.dependencies import AuthState
+from app.utils.types.shared import AuthState
 from app.utils.types.enums import (
     AuditStatusEnum,
     AuditTypeEnum,

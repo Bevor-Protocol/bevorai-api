@@ -7,10 +7,10 @@ from fastapi import HTTPException, status
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
-from app.utils.constants.mappers import networks_by_type
 from app.utils.helpers.code_parser import SourceCodeParser
 from app.utils.logger import get_logger
-from app.utils.schema.models import ContractSchema
+from app.utils.mappers import networks_by_type
+from app.utils.types.models import ContractSchema
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 
 from .interface import (
@@ -23,7 +23,6 @@ logger = get_logger("api")
 
 
 class ContractService:
-
     def __init__(
         self,
         allow_testnet: bool = False,
@@ -113,7 +112,6 @@ class ContractService:
         address: Optional[str] = None,
         network: Optional[NetworkEnum] = None,
     ) -> UploadContractResponse:
-
         if not code and not address:
             raise ValueError("Either contract code or address must be provided")
 
@@ -132,7 +130,6 @@ class ContractService:
         )
 
     async def get(self, id: str) -> Contract:
-
         contract = await Contract.get(id=id)
 
         return contract
@@ -140,7 +137,6 @@ class ContractService:
     async def process_static_eval_token(
         self, body: ContractScanBody
     ) -> StaticAnalysisTokenResult:
-
         contracts = await self._get_or_create_contract(
             code=body.code, address=body.address, network=body.network
         )

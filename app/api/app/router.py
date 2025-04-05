@@ -5,9 +5,9 @@ from fastapi.exceptions import HTTPException
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
-from app.utils.constants.openapi_tags import APP_TAG
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.shared import BooleanResponse
+from app.utils.openapi_tags import APP_TAG
+from app.utils.types.shared import AuthState
+from app.utils.types.shared import BooleanResponse
 from app.utils.types.enums import RoleEnum
 
 from .interface import AppUpsertBody
@@ -36,7 +36,7 @@ class AppRouter(APIRouter):
             dependencies=[
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.APP))
             ],
-            **GET_APP_INFO
+            **GET_APP_INFO,
         )
         self.add_api_route(
             "/stats",
@@ -88,4 +88,5 @@ class AppRouter(APIRouter):
 
         response = await app_service.get_stats()
 
+        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)

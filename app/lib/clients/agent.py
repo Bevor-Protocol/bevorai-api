@@ -16,7 +16,7 @@ from game_sdk.game.worker import Worker
 from app.api.contract.service import ContractService
 from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Finding
-from app.utils.schema.models import FindingSchema
+from app.utils.types.models import FindingSchema
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum
 
 game_api_key = os.environ.get("GAME_API_KEY")
@@ -41,7 +41,6 @@ def get_state_fn(
 
 
 def get_contract_code(address: str, **kwargs) -> Tuple[FunctionResultStatus, str, dict]:
-
     contract_service = ContractService()
 
     try:
@@ -66,7 +65,6 @@ def get_contract_code(address: str, **kwargs) -> Tuple[FunctionResultStatus, str
 def generate_audit(
     contract_id: str, audit_type: AuditTypeEnum, **kwargs
 ) -> Tuple[FunctionResultStatus, str, dict]:
-
     audit = asyncio.run(
         Audit.create(
             contract_id=contract_id,

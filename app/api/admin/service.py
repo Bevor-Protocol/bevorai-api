@@ -5,8 +5,8 @@ from tortoise.transactions import in_transaction
 from app.api.audit.service import AuditService
 from app.db.models import App, Audit, Auth, Permission, Prompt, User
 from app.utils.logger import get_logger
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.models import (
+from app.utils.types.shared import AuthState
+from app.utils.types.models import (
     FindingSchema,
     IntermediateResponseSchema,
     PromptSchema,
@@ -234,7 +234,4 @@ class AdminService:
             findings=findings,
         )
 
-        logger.info(audit_response)
-
-        return audit_response
         return audit_response

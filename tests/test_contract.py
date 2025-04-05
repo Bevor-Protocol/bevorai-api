@@ -10,7 +10,7 @@ from app.api.contract.interface import ContractScanBody
 from app.api.user.service import UserService
 from app.db.models import Auth, Contract, Permission
 from app.lib.clients import ExplorerClient
-from app.utils.schema.dependencies import AuthState
+from app.utils.types.shared import AuthState
 from app.utils.types.enums import ClientTypeEnum, NetworkEnum, RoleEnum
 from tests.constants import USER_API_KEY
 

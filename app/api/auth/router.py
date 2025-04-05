@@ -6,7 +6,7 @@ from app.api.blockchain.service import BlockchainService
 from app.api.dependencies import Authentication
 from app.db.models import Transaction, User
 from app.utils.logger import get_logger
-from app.utils.schema.dependencies import AuthState
+from app.utils.types.shared import AuthState
 from app.utils.types.enums import ClientTypeEnum, RoleEnum, TransactionTypeEnum
 
 logger = get_logger("api")

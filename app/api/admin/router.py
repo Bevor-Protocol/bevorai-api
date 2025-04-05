@@ -4,16 +4,16 @@ from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 
 from app.api.dependencies import Authentication
 from app.utils.logger import get_logger
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.shared import BooleanResponse, IdResponse
+from app.utils.types.shared import AuthState
+from app.utils.types.models import PromptSchema
+from app.utils.types.shared import BooleanResponse, IdResponse, ResultsResponse
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
 
 from .interface import (
-    AdminAppPermissionSearch,
+    AdminAppPermission,
     AdminQuerySearch,
-    AdminUserPermissionSearch,
+    AdminUserPermission,
     CreatePromptBody,
-    PromptsResponse,
     UpdatePermissionsBody,
     UpdatePromptBody,
 )
@@ -149,7 +149,7 @@ class AdminRouter(APIRouter):
         results = await admin_service.search_users(identifier=query_params.identifier)
 
         return Response(
-            AdminUserPermissionSearch(results=results).model_dump_json(),
+            ResultsResponse[AdminUserPermission](results=results).model_dump_json(),
             status_code=status.HTTP_200_OK,
         )
 
@@ -162,7 +162,7 @@ class AdminRouter(APIRouter):
         results = await admin_service.search_apps(identifier=query_params.identifier)
 
         return Response(
-            AdminAppPermissionSearch(results=results).model_dump_json(),
+            ResultsResponse[AdminAppPermission](results=results).model_dump_json(),
             status_code=status.HTTP_200_OK,
         )
 
@@ -188,7 +188,7 @@ class AdminRouter(APIRouter):
 
         prompts = await admin_service.get_prompts()
 
-        response = PromptsResponse(results=prompts)
+        response = ResultsResponse[PromptSchema](results=prompts)
 
         return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
 

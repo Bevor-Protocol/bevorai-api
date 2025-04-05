@@ -4,15 +4,14 @@ from eth_typing import BlockNumber
 from web3 import AsyncWeb3
 from web3.types import BlockReceipts
 
-from app.utils.constants.mappers import network_rpc_mapper
 from app.utils.logger import get_logger
+from app.utils.mappers import network_rpc_mapper
 from app.utils.types.enums import NetworkEnum
 
 logger = get_logger("api")
 
 
 class Web3Client:
-
     def __init__(self, network: NetworkEnum):
         self.provider = self._get_provider(network=network)
         self.ENV = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
@@ -55,7 +54,6 @@ class Web3Client:
         return receipts
 
     async def get_user_credits(self, user_address: str) -> int:
-
         contract_mapper = {
             "production": "0x1bdEEe6376572F1CAE454dC68a936Af56A803e96",
             "staging": "0xbc14A36c59154971A8Eb431031729Af39f97eEd1",

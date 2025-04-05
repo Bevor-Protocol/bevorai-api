@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.utils.schema.models import ContractSchema
+from app.utils.types.models import ContractSchema
 from app.utils.types.enums import NetworkEnum
 
 """
