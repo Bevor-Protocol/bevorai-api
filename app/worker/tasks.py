@@ -42,10 +42,7 @@ async def handle_eval(audit_id: str):
 
     try:
         await pipeline.generate_candidates()
-
-        response = await pipeline.generate_report()
-
-        audit.raw_output = response
+        await pipeline.generate_report()
         audit.status = AuditStatusEnum.SUCCESS
 
         audit.processing_time_seconds = (datetime.now() - now).seconds

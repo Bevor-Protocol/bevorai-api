@@ -17,8 +17,8 @@ class Web3Client:
         self.ENV = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
 
     @classmethod
-    def from_deployment(cls):
-        instance = cls._new_(cls)
+    def from_deployment(cls) -> "Web3Client":
+        instance = cls(network=NetworkEnum.ETH)  # Default network, will be overridden
         instance.provider = instance.get_deployed_provider()
         return instance
 

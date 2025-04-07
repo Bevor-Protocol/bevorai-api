@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from app.api.blockchain.service import BlockchainService
 from app.api.dependencies import Authentication
@@ -14,6 +14,7 @@ class BlockchainRouter(APIRouter):
             self.get_gas,
             methods=["GET"],
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
+            status_code=status.HTTP_200_OK,
         )
 
     async def get_gas(self):

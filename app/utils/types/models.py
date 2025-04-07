@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional, Type, TypeVar, get_type_hints
+from typing import Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -33,31 +33,6 @@ class BaseSchema(BaseModel, IdMixin, CreatedAtMixin):
     class Config:
         from_attributes = True
 
-    @classmethod
-    def from_tortoise(cls: Type[T], instance: Any) -> T:
-        """Convert a Tortoise model instance to a Pydantic model, with relations if needed."""
-        data = instance.__dict__.copy()
-        type_hints = get_type_hints(cls)
-
-        # Then process each field, looking for relations
-        for field_name, field_type in type_hints.items():
-            value = getattr(instance, field_name, None)
-
-            # Handle single relationships
-            if hasattr(value, "__class__") and hasattr(value, "id"):
-                schema_class = field_type
-                data[field_name] = schema_class.from_tortoise(value)
-
-            # Handle lists of relationships
-            elif isinstance(value, (list, set)):
-                if field_name in type_hints:
-                    schema_class = type_hints[field_name].__args__[0]
-                    data[field_name] = [
-                        schema_class.from_tortoise(item) for item in value
-                    ]
-
-        return cls.model_validate(data)
-
 
 class AppSchema(BaseSchema, FkMixin):
     owner_id: NullableModelId = None
@@ -71,7 +46,6 @@ class AuditSchema(BaseSchema):
     processing_time_seconds: Optional[int] = Field(
         default=None, description="total processing time, if applicable"
     )
-    result: Optional[str] = Field(default=None, description="audit result in markdown")
 
 
 class UserSchema(BaseSchema):
@@ -115,11 +89,14 @@ class ContractSchema(BaseSchema):
     code: Optional[str] = Field(default=None)
 
 
-class IntermediateResponseSchema(BaseSchema, FkMixin):
-    audit_id: NullableModelId = None
-    prompt_id: NullableModelId = None
+class IntermediateResponsePartialSchema(BaseSchema):
     step: str
     status: AuditStatusEnum
+
+
+class IntermediateResponseSchema(IntermediateResponsePartialSchema, FkMixin):
+    audit_id: NullableModelId = None
+    prompt_id: NullableModelId = None
     processing_time_seconds: Optional[int] = None
     result: Optional[str] = None
 

@@ -181,6 +181,7 @@ class Audit(AbstractModel):
 
     intermediate_responses: fields.ReverseRelation["IntermediateResponse"]
     findings: fields.ReverseRelation["Finding"]
+    audit_metadata: fields.ReverseRelation["AuditMetadata"]
 
     class Meta:
         table = "audit"
@@ -190,6 +191,22 @@ class Audit(AbstractModel):
             ("user_id", "audit_type"),
             ("audit_type", "contract_id"),
         )
+
+    def __str__(self):
+        return f"{str(self.id)}"
+
+
+class AuditMetadata(AbstractModel):
+    audit: fields.OneToOneNullableRelation[Audit] = fields.OneToOneField(
+        "models.Audit", on_delete=fields.CASCADE, related_name="audit_metadata"
+    )
+    introduction = fields.TextField(null=True, default=None)
+    scope = fields.TextField(null=True, default=None)
+    conclusion = fields.TextField(null=True, default=None)
+
+    class Meta:
+        table = "audit_metadata"
+        indexes = ("audit_id",)
 
     def __str__(self):
         return f"{str(self.id)}"

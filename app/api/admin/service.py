@@ -5,14 +5,16 @@ from tortoise.transactions import in_transaction
 from app.api.audit.service import AuditService
 from app.db.models import App, Audit, Auth, Permission, Prompt, User
 from app.utils.logger import get_logger
+from app.utils.types.relations import (
+    AppPermissionRelation,
+    AuditWithChildrenRelation,
+    UserPermissionRelation,
+)
 from app.utils.types.shared import AuthState
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
 
 from .interface import (
-    AdminAppPermission,
-    AdminPermission,
-    AdminUserPermission,
-    AuditWithChildren,
+    AuditWithResult,
     CreatePromptBody,
     UpdatePermissionsBody,
     UpdatePromptBody,
@@ -42,7 +44,7 @@ class AdminService:
         permission.can_create_app = body.can_create_app
         await permission.save()
 
-    async def search_users(self, identifier: str) -> list[AdminUserPermission]:
+    async def search_users(self, identifier: str) -> list[UserPermissionRelation]:
         users = (
             await User.filter(
                 Q(id__icontains=identifier) | Q(address__icontains=identifier)
@@ -51,28 +53,11 @@ class AdminService:
             .limit(10)
         )
 
-        results = []
-        for user in users:
-            permission = None
-            if user.permissions:
-                user_permission: Permission = user.permissions
-                permission = AdminPermission(
-                    can_create_api_key=user_permission.can_create_api_key,
-                    can_create_app=user_permission.can_create_app,
-                )
-
-            results.append(
-                AdminUserPermission(
-                    id=user.id,
-                    created_at=user.created_at,
-                    address=user.address,
-                    permission=permission,
-                )
-            )
+        results = list(map(UserPermissionRelation.model_validate, users))
 
         return results
 
-    async def search_apps(self, identifier: str) -> list[AdminAppPermission]:
+    async def search_apps(self, identifier: str) -> list[AppPermissionRelation]:
         apps = (
             await App.filter(
                 Q(id__icontains=identifier)
@@ -83,26 +68,7 @@ class AdminService:
             .limit(10)
         )
 
-        results = []
-        for app in apps:
-            permission = None
-            if app.permissions:
-                app_permission: Permission = app.permissions
-                permission = AdminPermission(
-                    can_create_api_key=app_permission.can_create_api_key,
-                    can_create_app=app_permission.can_create_app,
-                )
-
-            results.append(
-                AdminAppPermission(
-                    id=app.id,
-                    created_at=app.created_at,
-                    name=app.name,
-                    type=app.type,
-                    owner_id=app.owner_id,
-                    permission=permission,
-                )
-            )
+        results = list(map(AppPermissionRelation.model_validate, apps))
 
         return results
 
@@ -131,7 +97,7 @@ class AdminService:
                     prompt_demote.is_active = False
 
         async with in_transaction():
-            await prompt.update(**body.model_dump(exclude_none=True))
+            await prompt.update_from_dict(**body.model_dump(exclude_none=True))
             await prompt.save()
             if prompt_demote:
                 await prompt_demote.save()
@@ -166,27 +132,17 @@ class AdminService:
         return prompt
 
     async def get_audit_children(self, id: str):
-        """Get all corresponding intermediate resposnes and findings for an audit"""
+        """Get all corresponding intermediate responses and findings for an audit"""
         audit = (
             await Audit.get(id=id)
-            .select_related("contract")
-            .prefetch_related("intermediate_responses", "findings")
+            .select_related("contract", "user")
+            .prefetch_related("intermediate_responses", "findings", "audit_metadata")
         )
 
-        result = None
-        if audit.raw_output:
-            audit_service = AuditService()
-            result = audit_service.sanitize_data(audit=audit, as_markdown=True)
+        audit_service = AuditService()
+        result = audit_service._parse_branded_markdown(audit=audit)
 
-        audit_response = AuditWithChildren(
-            id=audit.id,
-            created_at=audit.created_at,
-            status=audit.status,
-            audit_type=audit.audit_type,
-            processing_time_seconds=audit.processing_time_seconds,
+        return AuditWithResult(
+            **AuditWithChildrenRelation.model_validate(audit).model_dump(),
             result=result,
-            intermediate_responses=audit.intermediate_responses,
-            findings=audit.findings,
         )
-
-        return audit_response

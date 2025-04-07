@@ -3,14 +3,8 @@ from typing import Optional
 from fastapi import HTTPException
 from pydantic import BaseModel, model_validator
 
-from app.utils.types.models import (
-    AppSchema,
-    AuditSchema,
-    FindingSchema,
-    IntermediateResponseSchema,
-    UserSchema,
-)
 from app.utils.types.enums import AuditTypeEnum
+from app.utils.types.relations import AuditWithChildrenRelation
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.
@@ -50,19 +44,5 @@ class CreatePromptBody(BaseModel):
     is_active: Optional[bool] = False
 
 
-class AdminPermission(BaseModel):
-    can_create_app: bool
-    can_create_api_key: bool
-
-
-class AdminUserPermission(UserSchema):
-    permission: Optional[AdminPermission]
-
-
-class AdminAppPermission(AppSchema):
-    permission: Optional[AdminPermission]
-
-
-class AuditWithChildren(AuditSchema):
-    intermediate_responses: list[IntermediateResponseSchema]
-    findings: list[FindingSchema]
+class AuditWithResult(AuditWithChildrenRelation):
+    result: Optional[str]

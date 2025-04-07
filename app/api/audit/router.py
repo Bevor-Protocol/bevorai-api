@@ -7,7 +7,6 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
-    Response,
     status,
 )
 from tortoise.exceptions import DoesNotExist
@@ -17,7 +16,15 @@ from app.utils.openapi_tags import AUDIT_TAG
 from app.utils.types.shared import BooleanResponse
 from app.utils.types.enums import RoleEnum
 
-from .interface import EvalBody, FeedbackBody, FilterParams
+from .interface import (
+    AuditResponse,
+    AuditsResponse,
+    CreateEvalResponse,
+    EvalBody,
+    FeedbackBody,
+    FilterParams,
+    GetAuditStatusResponse,
+)
 from .openapi import (
     CREATE_AUDIT,
     GET_AUDIT,
@@ -40,6 +47,7 @@ class AuditRouter(APIRouter):
                 Depends(Authentication(required_role=RoleEnum.USER)),
                 Depends(RequireCredits()),
             ],
+            status_code=status.HTTP_201_CREATED,
             **CREATE_AUDIT,
         )
         self.add_api_route(
@@ -47,6 +55,7 @@ class AuditRouter(APIRouter):
             self.list_audits,
             methods=["GET"],
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
+            status_code=status.HTTP_200_OK,
             **GET_AUDITS,
         )
         self.add_api_route(
@@ -54,6 +63,7 @@ class AuditRouter(APIRouter):
             self.get_audit,
             methods=["GET"],
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
+            status_code=status.HTTP_200_OK,
             **GET_AUDIT,
         )
         self.add_api_route(
@@ -61,6 +71,7 @@ class AuditRouter(APIRouter):
             self.get_audit_status,
             methods=["GET"],
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
+            status_code=status.HTTP_200_OK,
             **GET_AUDIT_STATUS,
         )
         self.add_api_route(
@@ -68,30 +79,29 @@ class AuditRouter(APIRouter):
             self.submit_feedback,
             methods=["POST"],
             dependencies=[Depends(Authentication(required_role=RoleEnum.USER))],
+            status_code=status.HTTP_201_CREATED,
             **SUBMIT_FEEDBACK,
         )
         self.add_api_route(
-            "/game",
-            self.game,
-            methods=["POST"],
+            "/game", self.game, methods=["POST"], include_in_schema=False
         )
 
     async def create_audit(
         self,
         request: Request,
         body: Annotated[EvalBody, Body()],
-    ):
+    ) -> CreateEvalResponse:
         audit_service = AuditService()
-        response = await audit_service.process_evaluation(
+        audit = await audit_service.process_evaluation(
             auth=request.state.auth, data=body
         )
-        return Response(response.model_dump_json(), status_code=status.HTTP_201_CREATED)
+        return CreateEvalResponse(id=audit.id, status=audit.status)
 
     async def list_audits(
         self,
         request: Request,
         query_params: Annotated[FilterParams, Query()],
-    ):
+    ) -> AuditsResponse:
         # rate_limit(request=request, user=user)
         audit_service = AuditService()
         response = await audit_service.get_audits(
@@ -99,26 +109,28 @@ class AuditRouter(APIRouter):
             query=query_params,
         )
 
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        return response
 
-    async def get_audit(self, request: Request, id: str):
+    async def get_audit(self, request: Request, id: str) -> AuditResponse:
         audit_service = AuditService()
 
         try:
             audit = await audit_service.get_audit(auth=request.state.auth, id=id)
-            return Response(audit.model_dump_json(), status_code=status.HTTP_200_OK)
+            return audit
         except DoesNotExist:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="this audit does not exist under these credentials",
             )
 
-    async def get_audit_status(self, request: Request, id: str):
+    async def get_audit_status(
+        self, request: Request, id: str
+    ) -> GetAuditStatusResponse:
         audit_service = AuditService()
 
         try:
-            response = await audit_service.get_status(auth=request.state.auth, id=id)
-            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+            statuses = await audit_service.get_status(auth=request.state.auth, id=id)
+            return statuses
         except DoesNotExist:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -127,15 +139,10 @@ class AuditRouter(APIRouter):
 
     async def submit_feedback(
         self, request: Request, body: Annotated[FeedbackBody, Body()], id: str
-    ):
+    ) -> BooleanResponse:
         audit_service = AuditService()
-        response = await audit_service.submit_feedback(
-            data=body, auth=request.state.auth, id=id
-        )
-        return Response(
-            BooleanResponse(success=response).model_dump_json(),
-            status_code=status.HTTP_201_CREATED,
-        )
+        await audit_service.submit_feedback(data=body, auth=request.state.auth, id=id)
+        return BooleanResponse(success=True)
 
     async def game(self):
         from app.lib.clients.agent import worker
@@ -145,7 +152,4 @@ class AuditRouter(APIRouter):
             " contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
         )
 
-        return Response(
-            BooleanResponse(success=True).model_dump_json(),
-            status_code=status.HTTP_201_CREATED,
-        )
+        return BooleanResponse(success=True)

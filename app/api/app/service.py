@@ -4,6 +4,7 @@ from tortoise.transactions import in_transaction
 
 from app.api.permission.service import PermissionService
 from app.db.models import App, Audit, User
+from app.utils.types.models import AppSchema
 from app.utils.types.shared import AuthState
 from app.utils.types.shared import Timeseries
 from app.utils.types.enums import (
@@ -62,9 +63,7 @@ class AppService:
         n_contracts = len(set(map(lambda x: x.contract_id, audits)))
 
         response = AppInfoResponse(
-            id=app.id,
-            created_at=app.created_at,
-            name=app.name,
+            **AppSchema.model_validate(app).model_dump(),
             n_contracts=n_contracts,
             n_audits=n_audits,
         )

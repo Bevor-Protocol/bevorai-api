@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
@@ -11,7 +11,11 @@ from app.utils.types.shared import AuthState
 from app.utils.types.models import ContractSchema
 from app.utils.types.enums import RoleEnum, TransactionTypeEnum
 
-from .interface import ContractScanBody
+from .interface import (
+    ContractScanBody,
+    StaticAnalysisTokenResult,
+    UploadContractResponse,
+)
 from .openapi import GET_CONTRACT, GET_OR_CREATE_CONTRACT
 from .service import ContractService
 
@@ -27,6 +31,7 @@ class ContractRouter(APIRouter):
             dependencies=[
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER))
             ],
+            status_code=status.HTTP_202_ACCEPTED,
             **GET_OR_CREATE_CONTRACT,
         )
         self.add_api_route(
@@ -36,6 +41,7 @@ class ContractRouter(APIRouter):
             dependencies=[
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER))
             ],
+            status_code=status.HTTP_200_OK,
             **GET_CONTRACT,
         )
         self.add_api_route(
@@ -46,27 +52,27 @@ class ContractRouter(APIRouter):
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER)),
                 Depends(RequireCredits()),
             ],
-            # **ANALYZE_TOKEN,
+            status_code=status.HTTP_202_ACCEPTED,
             include_in_schema=False,
         )
 
-    async def upload_contract(self, body: Annotated[ContractScanBody, Body()]):
+    async def upload_contract(
+        self, body: Annotated[ContractScanBody, Body()]
+    ) -> UploadContractResponse:
         contract_service = ContractService()
         response = await contract_service.fetch_from_source(
             address=body.address, network=body.network, code=body.code
         )
 
-        return Response(
-            response.model_dump_json(), status_code=status.HTTP_202_ACCEPTED
-        )
+        return response
 
-    async def get_contract(self, id: str):
+    async def get_contract(self, id: str) -> ContractSchema:
         contract_service = ContractService()
 
         try:
             contract = await contract_service.get(id)
-            response = ContractSchema.from_tortoise(contract)
-            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+            response = ContractSchema.model_validate(contract)
+            return response
         except DoesNotExist:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -77,7 +83,7 @@ class ContractRouter(APIRouter):
         self,
         request: Request,
         body: Annotated[ContractScanBody, Body()],
-    ):
+    ) -> StaticAnalysisTokenResult:
         contract_service = ContractService()
         static_pricing = StaticAnalysis()
         auth: AuthState = request.state.auth
@@ -96,6 +102,4 @@ class ContractRouter(APIRouter):
                 amount=price,
             )
 
-        return Response(
-            response.model_dump_json(), status_code=status.HTTP_202_ACCEPTED
-        )
+        return response

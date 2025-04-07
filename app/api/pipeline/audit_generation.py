@@ -7,7 +7,7 @@ from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
 from app.api.pricing.service import Usage
 from app.config import redis_client
-from app.db.models import Audit, Finding, IntermediateResponse, Prompt
+from app.db.models import Audit, Finding, IntermediateResponse, Prompt, AuditMetadata
 from app.lib.clients import llm_client
 from app.utils.logger import get_logger
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
@@ -124,7 +124,15 @@ class LlmPipeline:
 
         model = self.output_structure(**parsed)
 
+        await AuditMetadata.create(
+            audit=self.audit,
+            introduction=model.introduction,
+            scope=model.scope,
+            conclusion=model.conclusion,
+        )
+
         to_create = []
+        finding: Finding
         for severity in FindingLevelEnum:
             findings = getattr(model.findings, severity.value, None)
             if findings:
@@ -190,7 +198,7 @@ class LlmPipeline:
             )
             return None
 
-    async def generate_candidates(self):
+    async def generate_candidates(self) -> None:
         tasks = []
         candidate_prompts = await Prompt.filter(
             audit_type=self.audit_type, is_active=True, tag__not="reviewer"
@@ -209,7 +217,7 @@ class LlmPipeline:
 
         self.candidate_prompt = constructed_prompt
 
-    async def generate_report(self):
+    async def generate_report(self) -> None:
         if not self.candidate_prompt:
             raise NotImplementedError("must run generate_candidates() first")
 
@@ -258,8 +266,3 @@ class LlmPipeline:
             processing_time=(datetime.now() - now).seconds,
         )
         await self._write_findings(result)
-
-        return result
-
-        return result
-        return result
