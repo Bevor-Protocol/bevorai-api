@@ -29,3 +29,5 @@ RUN chmod +x scripts/pre-deploy.sh
 EXPOSE ${PORT}
 # Echo port for debugging
 RUN echo "Port is set to: ${PORT}"
+
+RUN ls -la /app/scripts
