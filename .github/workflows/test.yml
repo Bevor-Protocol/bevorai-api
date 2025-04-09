@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:latest
@@ -54,6 +54,7 @@ jobs:
         PGSCHEME: postgres
         OPENAI_API_KEY: fake-key
         ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        LOGFIRE_SEND_TO_LOGFIRE: false
+        LOGFIRE_TOKEN : ${{ secrets.LOGFIRE_TOKEN }}
       run: |
         uv run pytest tests/ --cov=app --cov-fail-under=70
-

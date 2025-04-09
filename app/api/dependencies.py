@@ -259,7 +259,7 @@ class AuthenticationWithoutDelegation:
             )
             await self.check_authorization(request=request, auth=auth)
         except Exception as err:
-            logfire.exception(err)
+            logfire.exception(str(err))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)
             )

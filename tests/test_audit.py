@@ -135,7 +135,7 @@ async def test_succeed_if_credits(user_with_auth_and_credits, async_client):
 
     mock_body = EvalBody(contract_id="some-fake-id", audit_type=AuditTypeEnum.SECURITY)
 
-    with patch.object(AuditService, "process_evaluation") as mock_process:
+    with patch.object(AuditService, "initiate_audit") as mock_process:
         # Setup mock return value
         mock_audit_id = "test-audit-id"
         mock_status = AuditStatusEnum.WAITING
@@ -204,9 +204,13 @@ async def test_successfully_creates_audit(user_with_auth_and_credits, async_clie
     mock_body = EvalBody(
         contract_id=str(contract.id), audit_type=AuditTypeEnum.SECURITY
     )
+    mock_trace_context = {"traceparent": "mocked-traceparent-value-00-1234"}
 
     # Mock the redis pool to avoid actual job enqueuing
-    with patch("app.api.audit.service.create_pool") as mock_create_pool:
+    with (
+        patch("app.api.audit.service.create_pool") as mock_create_pool,
+        patch("app.api.audit.service.get_context", return_value=mock_trace_context),
+    ):
         mock_redis_pool = MagicMock()
         mock_redis_pool.enqueue_job = AsyncMock()
         mock_create_pool.return_value = mock_redis_pool
@@ -226,7 +230,7 @@ async def test_successfully_creates_audit(user_with_auth_and_credits, async_clie
 
         # Verify redis job was enqueued
         mock_redis_pool.enqueue_job.assert_called_once_with(
-            "process_eval", _job_id=data["id"]
+            "process_eval", _job_id=data["id"], trace=mock_trace_context
         )
 
         # Verify audit was created in database
@@ -243,8 +247,8 @@ class MockQueue:
     def __init__(self):
         self.job = None
 
-    async def enqueue_job(self, function: str, _job_id: str, *args):
-        self.job = {"job_id": _job_id, "function": function}
+    async def enqueue_job(self, function: str, _job_id: str, trace: None, *args):
+        self.job = {"job_id": _job_id, "function": function, "trace": trace}
 
 
 @pytest.mark.anyio
@@ -370,6 +374,8 @@ async def test_audit_processing_with_intermediate_states(
                 usage=AsyncMock(prompt_tokens=500, completion_tokens=500),
             )
 
+        mock_trace_context = {"traceparent": "mocked-traceparent-value-00-1234"}
+
         # # Mock the LLM client methods
         with patch("app.api.pipeline.audit_generation.llm_client") as mock_llm_client:
             # Configure the mock methods
@@ -377,7 +383,7 @@ async def test_audit_processing_with_intermediate_states(
             mock_llm_client.beta.chat.completions.parse = mock_chat_completions_parse
 
             # Process the evaluation
-            await process_eval(job)
+            await process_eval(job, mock_trace_context)
 
     # Verify the audit status changes
     updated_audit = await Audit.get(id=audit_id)
