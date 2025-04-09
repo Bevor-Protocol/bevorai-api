@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 from datetime import datetime
+import logfire
 
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
@@ -9,12 +10,9 @@ from app.api.pricing.service import Usage
 from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse, Prompt, AuditMetadata
 from app.lib.clients import llm_client
-from app.utils.logger import get_logger
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
 from .types import GasOutputStructure, SecurityOutputStructure
-
-logger = get_logger("worker")
 
 
 class LlmPipeline:
@@ -75,9 +73,9 @@ class LlmPipeline:
             audit_id=self.audit.id, prompt_id=prompt.id
         ).first()
 
-        logger.info(
+        logfire.info(
             "Checkpointing audit intermediate response",
-            extra={
+            **{
                 "audit_id": str(self.audit.id),
                 "status": status,
                 "step": prompt.tag,
@@ -116,9 +114,9 @@ class LlmPipeline:
         try:
             parsed = json.loads(raw_data)
         except Exception:
-            logger.warning(
+            logfire.warning(
                 "unable to parse json for audit findings, skipping",
-                extra={"audit_id": str(self.audit.id)},
+                **{"audit_id": str(self.audit.id)},
             )
             return
 
@@ -189,7 +187,7 @@ class LlmPipeline:
             return result
 
         except Exception as err:
-            logger.warning(err)
+            logfire.warning(str(err))
             await self._publish_event(name=prompt.tag, status="error")
             await self._checkpoint(
                 prompt=prompt,

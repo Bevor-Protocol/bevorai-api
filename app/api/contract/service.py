@@ -4,11 +4,11 @@ from typing import Optional
 
 import httpx
 from fastapi import HTTPException, status
+import logfire
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
 from app.utils.helpers.code_parser import SourceCodeParser
-from app.utils.logger import get_logger
 from app.utils.mappers import networks_by_type
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
 from app.utils.types.models import ContractSchema
@@ -18,8 +18,6 @@ from .interface import (
     StaticAnalysisTokenResult,
     UploadContractResponse,
 )
-
-logger = get_logger("api")
 
 
 class ContractService:
@@ -53,7 +51,7 @@ class ContractService:
         contracts = await Contract.filter(**filter_obj)
 
         if contracts:
-            logger.info(f"early exiting for {address}")
+            logfire.info(f"early exiting for {address}")
             return contracts
 
         if code:

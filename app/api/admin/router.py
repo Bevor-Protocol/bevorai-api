@@ -1,9 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
+import logfire
 
 from app.api.dependencies import Authentication
-from app.utils.logger import get_logger
 from app.utils.types.relations import AppPermissionRelation, UserPermissionRelation
 from app.utils.types.shared import AuthState
 from app.utils.types.models import PromptSchema
@@ -18,8 +18,6 @@ from .interface import (
     UpdatePromptBody,
 )
 from .service import AdminService
-
-logger = get_logger("api")
 
 
 class AdminRouter(APIRouter):
@@ -141,7 +139,7 @@ class AdminRouter(APIRouter):
 
         is_admin = await admin_service.is_admin(auth)
         if not is_admin:
-            logger.warning("unauthenticated attempt at admin access")
+            logfire.warning("unauthenticated attempt at admin access")
 
         return BooleanResponse(success=is_admin)
 

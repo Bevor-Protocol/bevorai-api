@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+import logfire
 
 import httpx
 
@@ -7,7 +8,6 @@ from app.api.blockchain.service import BlockchainService
 from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Auth, Contract, Transaction
 from app.lib.clients import Web3Client
-from app.utils.logger import get_logger
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
@@ -16,8 +16,6 @@ from app.utils.types.enums import (
     NetworkEnum,
     TransactionTypeEnum,
 )
-
-logger = get_logger("worker")
 
 
 async def handle_eval(audit_id: str):
@@ -48,7 +46,7 @@ async def handle_eval(audit_id: str):
         audit.processing_time_seconds = (datetime.now() - now).seconds
         await audit.save()
     except Exception as err:
-        logger.exception(err, extra={"audit_id": str(audit.id)})
+        logfire.exception(str(err), **{"audit_id": str(audit.id)})
         audit.status = AuditStatusEnum.FAILED
         audit.processing_time_seconds = (datetime.now() - now).seconds
         await audit.save()
@@ -72,9 +70,9 @@ async def handle_eval(audit_id: str):
                 user = caller_auth.app.owner
                 user.used_credits += cost
 
-                logger.info(
+                logfire.info(
                     "spending credits for audit as app",
-                    extra={
+                    **{
                         "audit_id": str(audit.id),
                         "cost": cost,
                         "user_id": str(user.id),
@@ -87,9 +85,9 @@ async def handle_eval(audit_id: str):
             user = caller_auth.user
             user.used_credits += cost
 
-            logger.info(
+            logfire.info(
                 "spending credits for audit as user",
-                extra={
+                **{
                     "audit_id": str(audit.id),
                     "cost": cost,
                     "user_id": str(user.id),
@@ -103,13 +101,13 @@ async def handle_eval(audit_id: str):
 
 
 async def get_deployment_contracts(network: NetworkEnum):
-    logger.info(f"RUNNING contract scan for {network}")
+    logfire.info(f"RUNNING contract scan for {network}")
     web3_client = Web3Client()
     current_block = await web3_client.get_block_number()
-    logger.info(f"Network: {network} --- Current block: {current_block}")
+    logfire.info(f"Network: {network} --- Current block: {current_block}")
     receipts = await web3_client.get_block_receipts(current_block)
 
-    logger.info(f"RECEIPTS FOUND {len(receipts)}")
+    logfire.info(f"RECEIPTS FOUND {len(receipts)}")
 
     deployment_addresses = []
     for receipt in receipts:
@@ -120,10 +118,10 @@ async def get_deployment_contracts(network: NetworkEnum):
                 address = initial_log["address"]
                 deployment_addresses.append(address)
 
-    logger.info(f"DEPLOYMENT ADDRESSES {deployment_addresses}")
+    logfire.info(f"DEPLOYMENT ADDRESSES {deployment_addresses}")
 
     if not deployment_addresses:
-        logger.info("no deployment addresses found")
+        logfire.info("no deployment addresses found")
         return
 
     tasks = []
@@ -139,7 +137,7 @@ async def get_deployment_contracts(network: NetworkEnum):
             )
         results: list[dict] = await asyncio.gather(*tasks)
 
-    logger.info(f"RESULTS {results}")
+    logfire.info(f"RESULTS {results}")
 
     to_create = []
     for result in results:
@@ -156,4 +154,4 @@ async def get_deployment_contracts(network: NetworkEnum):
 
     if to_create:
         await Contract.bulk_create(objects=to_create)
-    logger.info(f"Added {len(to_create)} contracts from {network}")
+    logfire.info(f"Added {len(to_create)} contracts from {network}")

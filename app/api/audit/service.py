@@ -1,5 +1,6 @@
 from collections import defaultdict
 import math
+from logfire.propagate import get_context
 
 from arq import create_pool
 from fastapi import HTTPException, status
@@ -184,7 +185,7 @@ class AuditService:
 
         return template_use.format(**formatter, **findings_dict)
 
-    async def process_evaluation(self, auth: AuthState, data: EvalBody) -> Audit:
+    async def initiate_audit(self, auth: AuthState, data: EvalBody) -> Audit:
         if not await Contract.exists(id=data.contract_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -207,9 +208,11 @@ class AuditService:
 
         # the job_id is guaranteed to be unique, make it align with the audit.id
         # for simplicitly.
+        log_context = get_context()
         await redis_pool.enqueue_job(
             "process_eval",
             _job_id=str(audit.id),
+            trace=log_context,
         )
 
         return audit

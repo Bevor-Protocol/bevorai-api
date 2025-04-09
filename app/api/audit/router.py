@@ -92,9 +92,7 @@ class AuditRouter(APIRouter):
         body: Annotated[EvalBody, Body()],
     ) -> CreateEvalResponse:
         audit_service = AuditService()
-        audit = await audit_service.process_evaluation(
-            auth=request.state.auth, data=body
-        )
+        audit = await audit_service.initiate_audit(auth=request.state.auth, data=body)
         return CreateEvalResponse(id=audit.id, status=audit.status)
 
     async def list_audits(

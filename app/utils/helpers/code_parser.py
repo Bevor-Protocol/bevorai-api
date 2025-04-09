@@ -1,13 +1,11 @@
 import json
 import re
+import logfire
 
 from solidity_parser import parser as solidity_parser
 
 from app.api.contract.interface import StaticAnalysisTokenResult
 from app.db.models import Contract
-from app.utils.logger import get_logger
-
-logger = get_logger("api")
 
 
 class SourceCodeParser:
@@ -106,7 +104,7 @@ class SourceCodeParser:
             ast = solidity_parser.parse(code)
             self.ast = ast
         except Exception as err:
-            logger.exception(err)
+            logfire.exception(str(err))
             self.ast = None
 
     # DEPRECATED

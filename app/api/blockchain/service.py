@@ -1,11 +1,9 @@
 import httpx
+import logfire
 
 from app.lib.clients import ExplorerClient, Web3Client
 from app.utils.helpers.code_parser import SourceCodeParser
-from app.utils.logger import get_logger
 from app.utils.types.enums import NetworkEnum
-
-logger = get_logger("api")
 
 
 class BlockchainService:
@@ -26,7 +24,7 @@ class BlockchainService:
     ) -> dict:
         explorer_client = ExplorerClient()
 
-        logger.info(f"SCANNING {network} for address {address}")
+        logfire.info(f"SCANNING {network} for address {address}")
 
         obj = {
             "network": network,
@@ -55,7 +53,7 @@ class BlockchainService:
                 obj["contract_name"] = parser.contract_name
                 obj["is_proxy"] = parser.is_proxy
         except Exception as err:
-            logger.exception(err)
+            logfire.exception(str(err))
         finally:
             return obj
 
