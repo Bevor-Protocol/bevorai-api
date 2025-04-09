@@ -1,17 +1,14 @@
 import json
 import re
+import logfire
 
 from solidity_parser import parser as solidity_parser
 
 from app.api.contract.interface import StaticAnalysisTokenResult
 from app.db.models import Contract
-from app.utils.logger import get_logger
-
-logger = get_logger("api")
 
 
 class SourceCodeParser:
-
     def __init__(self, source_input: dict):
         self.proxy_contract = source_input.get("Implementation", "")
         self.is_proxy = self.proxy_contract != ""
@@ -49,11 +46,11 @@ class SourceCodeParser:
         instance.is_proxy = contract.is_proxy
         instance.contract_name = contract.contract_name
         instance.is_object = False
-        instance.raw_content = contract.raw_code
-        instance.source = contract.raw_code
+        instance.raw_content = contract.code
+        instance.source = contract.code
         return instance
 
-    def extract_raw_code(self):
+    def extract_code(self):
         if not self.is_object:
             self.source = self.raw_content
             return self.source
@@ -107,7 +104,7 @@ class SourceCodeParser:
             ast = solidity_parser.parse(code)
             self.ast = ast
         except Exception as err:
-            logger.exception(err)
+            logfire.exception(str(err))
             self.ast = None
 
     # DEPRECATED

@@ -1,5 +1,3 @@
-# flake8: noqa
-
 security_template = """
 # Smart Contract Security Audit Report
 
@@ -11,10 +9,10 @@ Produced by: BevorAI Agent
 ---
 
 ⚠️ Severity Level Definitions
-- Critical: 🚨 Issues that can lead to contract compromise or significant financial losses.  
-- High: 🔴 Severe bugs that may result in major exploits or disruptions.  
-- Medium: 🟠 Moderate risks with potential functional or security impacts.  
-- Low: 🟢 Minor issues with limited risk or impact.  
+- Critical: 🚨 Issues that can lead to contract compromise or significant financial losses.
+- High: 🔴 Severe bugs that may result in major exploits or disruptions.
+- Medium: 🟠 Moderate risks with potential functional or security impacts.
+- Low: 🟢 Minor issues with limited risk or impact.
 
 ---
 

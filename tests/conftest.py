@@ -30,11 +30,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pytest
 from httpx import ASGITransport, AsyncClient
 from tortoise import Tortoise
+import logfire
 
 from app.db.models import App, Auth, Permission  # Replace with your actual model
 from app.main import app
-from app.utils.schema.dependencies import AuthState
+from app.utils.types.shared import AuthState
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
+
+logfire.configure(local=True, send_to_logfire=False)
 
 TEST_DB_URL = "sqlite://:memory:"
 
@@ -75,7 +78,6 @@ def in_memory_db(request, event_loop):
 
 @pytest.fixture(scope="module")
 async def async_client() -> AsyncGenerator:
-
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:

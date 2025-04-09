@@ -1,12 +1,14 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.analysis.autoImportCompletions": true,
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": "explicit"
-  },
   "editor.tabSize": 4,
+  "ruff.configuration": "${workspaceFolder}/ruff.toml",
+  "ruff.nativeServer": "on",
   "[python]": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  },
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
 }

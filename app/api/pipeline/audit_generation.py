@@ -2,22 +2,20 @@ import asyncio
 import json
 import re
 from datetime import datetime
+import logfire
 
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
 from app.api.pricing.service import Usage
 from app.config import redis_client
-from app.db.models import Audit, Finding, IntermediateResponse, Prompt
+from app.db.models import Audit, Finding, IntermediateResponse, Prompt, AuditMetadata
 from app.lib.clients import llm_client
-from app.utils.logger import get_logger
-from app.utils.schema.output import GasOutputStructure, SecurityOutputStructure
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, FindingLevelEnum
 
-logger = get_logger("worker")
+from .types import GasOutputStructure, SecurityOutputStructure
 
 
 class LlmPipeline:
-
     def __init__(
         self,
         audit: Audit,
@@ -71,14 +69,13 @@ class LlmPipeline:
         result: str | None = None,
         processing_time: int | None = None,
     ):
-
         checkpoint = await IntermediateResponse.filter(
             audit_id=self.audit.id, prompt_id=prompt.id
         ).first()
 
-        logger.info(
+        logfire.info(
             "Checkpointing audit intermediate response",
-            extra={
+            **{
                 "audit_id": str(self.audit.id),
                 "status": status,
                 "step": prompt.tag,
@@ -103,7 +100,6 @@ class LlmPipeline:
         )
 
     async def _write_findings(self, response):
-
         pattern = r"<<(.*?)>>"
 
         # this parsing should not be required, but we'll include it for safety
@@ -118,15 +114,23 @@ class LlmPipeline:
         try:
             parsed = json.loads(raw_data)
         except Exception:
-            logger.warning(
+            logfire.warning(
                 "unable to parse json for audit findings, skipping",
-                extra={"audit_id": str(self.audit.id)},
+                **{"audit_id": str(self.audit.id)},
             )
             return
 
         model = self.output_structure(**parsed)
 
+        await AuditMetadata.create(
+            audit=self.audit,
+            introduction=model.introduction,
+            scope=model.scope,
+            conclusion=model.conclusion,
+        )
+
         to_create = []
+        finding: Finding
         for severity in FindingLevelEnum:
             findings = getattr(model.findings, severity.value, None)
             if findings:
@@ -183,7 +187,7 @@ class LlmPipeline:
             return result
 
         except Exception as err:
-            logger.warning(err)
+            logfire.warning(str(err))
             await self._publish_event(name=prompt.tag, status="error")
             await self._checkpoint(
                 prompt=prompt,
@@ -192,7 +196,7 @@ class LlmPipeline:
             )
             return None
 
-    async def generate_candidates(self):
+    async def generate_candidates(self) -> None:
         tasks = []
         candidate_prompts = await Prompt.filter(
             audit_type=self.audit_type, is_active=True, tag__not="reviewer"
@@ -211,7 +215,7 @@ class LlmPipeline:
 
         self.candidate_prompt = constructed_prompt
 
-    async def generate_report(self):
+    async def generate_report(self) -> None:
         if not self.candidate_prompt:
             raise NotImplementedError("must run generate_candidates() first")
 
@@ -260,5 +264,3 @@ class LlmPipeline:
             processing_time=(datetime.now() - now).seconds,
         )
         await self._write_findings(result)
-
-        return result

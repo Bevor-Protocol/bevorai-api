@@ -6,17 +6,23 @@ from starlette.types import ASGIApp
 
 from app.config import redis_client
 from app.prometheus import prom_logger
-from app.utils.logger import request_url_var
 
-endpoint_groupings = ["/ai", "/analytics", "/auth", "/blockchain", "/status"]
+endpoint_groupings = [
+    "/admin",
+    "/app",
+    "/audit",
+    "/auth",
+    "/blockchain",
+    "/contract",
+    "/platform",
+    "/user",
+]
 
 
 class PrometheusMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         method = request.method
         endpoint = request.url.path
-
-        request_url_var.set(endpoint)
 
         group_use = None
         for grouping in endpoint_groupings:

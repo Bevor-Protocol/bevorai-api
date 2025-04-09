@@ -4,6 +4,7 @@ from app.api.dependencies import AuthState
 from app.api.permission.service import PermissionService
 from app.db.models import App, Audit, Auth, Permission, User
 from app.utils.types.enums import AuditStatusEnum, ClientTypeEnum
+from app.utils.types.models import UserSchema
 
 from .interface import AuthInfo, UserAppInfo, UserInfoResponse
 
@@ -24,21 +25,6 @@ class UserService:
         return user
 
     async def get_info(self, auth: AuthState) -> UserInfoResponse:
-
-        # audit_queryset = Audit.filter(status=AuditStatusEnum.SUCCESS)
-
-        # app_queryset = App.all().prefetch_related("permissions", "auth")
-
-        # audit_pf = Prefetch("audits", queryset=audit_queryset)
-        # apps_pf = Prefetch("apps", queryset=app_queryset)
-
-        # cur_user = await User.get(id=auth.user_id).prefetch_related(
-        #     audit_pf,
-        #     Prefetch("auth", queryset=Auth.all()),
-        #     Prefetch("permissions", queryset=Permission.all()),
-        #     apps_pf,
-        # )
-
         # prefetching caused asyncio.lock errors when running all tests
         # despite each testing module working in isolation. Ill just call
         # each query individually.
@@ -53,16 +39,6 @@ class UserService:
             .first()
         )
         user_permissions = await Permission.get(user_id=auth.user_id)
-
-        # user_audits = cur_user.audits
-        # user_auth = cur_user.auth
-        # user_permissions: Permission = cur_user.permissions
-        # # this is a nullable FK relation, grab the first.
-        # user_app: App | None = cur_user.apps[0] if cur_user.apps else None
-
-        # # this is a nullable FK relation, grab the first.
-        # user_app: App | None = cur_user.apps[0] if cur_user.apps else None
-        # # currently only 1 auth is support per user, but it's not a OneToOne relation
 
         app_info = UserAppInfo(
             exists=user_app is not None,
@@ -81,9 +57,7 @@ class UserService:
         n_contracts = len(set(map(lambda x: x.contract_id, user_audits)))
 
         return UserInfoResponse(
-            id=cur_user.id,
-            address=cur_user.address,
-            created_at=cur_user.created_at,
+            **UserSchema.model_validate(cur_user).model_dump(),
             total_credits=cur_user.total_credits,
             remaining_credits=cur_user.total_credits - cur_user.used_credits,
             auth=AuthInfo(

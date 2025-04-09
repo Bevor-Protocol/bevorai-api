@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:latest
@@ -34,15 +34,16 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
       with:
-        version: 1.8.5
+        python-version-file: ".python-version"
 
     - name: Install dependencies
-      run: |
-        poetry config virtualenvs.create false
-        poetry install --with dev
+      run: uv sync --all-extras --dev
 
     - name: Run tests
       env:
@@ -53,6 +54,7 @@ jobs:
         PGSCHEME: postgres
         OPENAI_API_KEY: fake-key
         ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        LOGFIRE_SEND_TO_LOGFIRE: false
+        LOGFIRE_TOKEN : ${{ secrets.LOGFIRE_TOKEN }}
       run: |
-        poetry run pytest tests/ --cov=app --cov-fail-under=70
-
+        uv run pytest tests/ --cov=app --cov-fail-under=70

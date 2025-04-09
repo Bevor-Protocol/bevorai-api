@@ -1,16 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Request, status
 from fastapi.exceptions import HTTPException
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
-from app.utils.constants.openapi_tags import APP_TAG
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.shared import BooleanResponse
+from app.utils.openapi_tags import APP_TAG
+from app.utils.types.shared import AuthState
+from app.utils.types.shared import BooleanResponse
 from app.utils.types.enums import RoleEnum
 
-from .interface import AppUpsertBody
+from .interface import AllStatsResponse, AppInfoResponse, AppUpsertBody
 from .openapi import GET_APP_INFO
 from .service import AppService
 
@@ -27,6 +27,7 @@ class AppRouter(APIRouter):
                 Depends(Authentication(required_role=RoleEnum.APP_FIRST_PARTY))
             ],
             operation_id="upsert_app",
+            status_code=status.HTTP_202_ACCEPTED,
             include_in_schema=False,
         )
         self.add_api_route(
@@ -36,7 +37,8 @@ class AppRouter(APIRouter):
             dependencies=[
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.APP))
             ],
-            **GET_APP_INFO
+            status_code=status.HTTP_200_OK,
+            **GET_APP_INFO,
         )
         self.add_api_route(
             "/stats",
@@ -49,12 +51,13 @@ class AppRouter(APIRouter):
                     )
                 )
             ],
+            status_code=status.HTTP_200_OK,
             include_in_schema=False,
         )
 
     async def upsert_app(
         self, request: Request, body: Annotated[AppUpsertBody, Body()]
-    ):
+    ) -> BooleanResponse:
         app_service = AppService()
 
         if request.method == "POST":
@@ -64,28 +67,25 @@ class AppRouter(APIRouter):
 
         try:
             await fct(auth=request.state.auth, body=body)
-            return Response(
-                BooleanResponse(success=True).model_dump_json(),
-                status_code=status.HTTP_202_ACCEPTED,
-            )
+            return BooleanResponse(success=True)
         except DoesNotExist as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
 
-    async def get_app_info(self, request: Request):
+    async def get_app_info(self, request: Request) -> AppInfoResponse:
         app_service = AppService()
         auth: AuthState = request.state.auth
 
         try:
             response = await app_service.get_info(auth.app_id)
-            return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+            return response
         except DoesNotExist:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="This app does not exist"
             )
 
-    async def get_stats(self):
+    async def get_stats(self) -> AllStatsResponse:
         app_service = AppService()
 
         response = await app_service.get_stats()
 
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        return response

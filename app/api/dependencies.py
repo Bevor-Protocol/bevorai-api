@@ -6,17 +6,15 @@ used without explicitly needing to whitelist / blacklist routes.
 
 from datetime import datetime
 from typing import Annotated, Optional
+import logfire
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import redis_client
 from app.db.models import Auth, User
-from app.utils.logger import get_logger, state_var
-from app.utils.schema.dependencies import AuthState
+from app.utils.types.shared import AuthState
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
-
-logger = get_logger("api")
 
 security = HTTPBearer(description="API key authorization")
 
@@ -74,8 +72,7 @@ class Authentication:
             app_id=app_id,
         )
 
-        state_var.set(auth_state.model_dump())
-        logger.info(f"{request.method} request to {request.url.path}")
+        logfire.info("user auth state", **auth_state.model_dump())
 
         if auth.revoked_at:
             raise Exception("api key revoked")
@@ -157,7 +154,7 @@ class Authentication:
             await self.check_authorization(request=request, auth=auth)
             await self.check_delegated_scope(user_identifier=bevor_user_identifier)
         except Exception as err:
-            logger.exception(err)
+            logfire.exception(str(err))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)
             )
@@ -210,8 +207,7 @@ class AuthenticationWithoutDelegation:
             app_id=app_id,
         )
 
-        state_var.set(auth_state.model_dump())
-        logger.info(f"{request.method} request to {request.url.path}")
+        logfire.info("user auth state", **auth_state.model_dump())
 
         if auth.revoked_at:
             raise Exception("api key revoked")
@@ -263,7 +259,7 @@ class AuthenticationWithoutDelegation:
             )
             await self.check_authorization(request=request, auth=auth)
         except Exception as err:
-            logger.exception(err)
+            logfire.exception(str(err))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)
             )

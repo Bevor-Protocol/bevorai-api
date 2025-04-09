@@ -1,22 +1,30 @@
+import os
 import asyncio
 import re
 from datetime import datetime
+from dotenv import load_dotenv
 from typing import Optional, TypedDict
+import logfire
 
 from arq import ArqRedis, Retry
 from arq.constants import default_queue_name, health_check_key_suffix
+import logfire.propagate
+import logfire.sampling
 from prometheus_client import start_http_server
 from tortoise import Tortoise
 
 from app.config import TORTOISE_ORM, redis_settings
 from app.prometheus import prom_logger
-from app.utils.logger import get_logger
 from app.utils.types.enums import NetworkEnum
 
 # from app.prometheus import logger
 from .tasks import get_deployment_contracts, handle_eval
 
-logger = get_logger("api")
+load_dotenv()
+logfire.configure(
+    environment=os.getenv("RAILWAY_ENVIRONMENT_NAME", "development"),
+    service_name="worker",
+)
 
 
 class PrometheusMiddleware:
@@ -31,8 +39,10 @@ class PrometheusMiddleware:
     async def start(self):
         try:
             start_http_server(9192, addr="::")
-        except Exception:
-            logger.error("issue starting http server for prometheus")
+        except Exception as err:
+            logfire.exception(
+                str(err), detail="issue starting http server for prometheus"
+            )
             pass
         await self._start_metrics_task()
 
@@ -45,8 +55,8 @@ class PrometheusMiddleware:
             """Wrapper function for a better error mesage when coroutine fails"""
             try:
                 await self._observe_healthcheck()
-            except Exception as e:
-                logger.error(e)
+            except Exception as err:
+                logfire.exception(str(err))
 
         self._metrics_task = asyncio.create_task(func_wrapper())
 
@@ -125,20 +135,13 @@ async def on_job_end(ctx: JobContext):
     ctx["prometheus"].log_process_time(diff.seconds)
 
 
-# @huey.task(retries=3, priority=10)
-# def process_webhook(audit_id: str, audit_status: AuditStatusEnum, webhook_url: str):
-#     anyio.run(
-#         handle_outgoing_webhook,
-#         audit_id,
-#         audit_status,
-#         webhook_url,
-#     )
-
-
-async def process_eval(ctx: JobContext):
+async def process_eval(ctx: JobContext, trace: logfire.propagate.ContextCarrier):
     # job_id was forcefully meant to match the audit_id
-    response = await handle_eval(audit_id=ctx["job_id"])
-    return response
+    audit_id = ctx["job_id"]
+    with logfire.propagate.attach_context(trace):
+        with logfire.span(f"processing audit {audit_id}"):
+            response = await handle_eval(audit_id=audit_id)
+            return response
 
 
 async def mock(ctx: JobContext):

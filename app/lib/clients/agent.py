@@ -16,7 +16,7 @@ from game_sdk.game.worker import Worker
 from app.api.contract.service import ContractService
 from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Finding
-from app.utils.schema.models import FindingSchema
+from app.utils.types.models import FindingSchema
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum
 
 game_api_key = os.environ.get("GAME_API_KEY")
@@ -41,7 +41,6 @@ def get_state_fn(
 
 
 def get_contract_code(address: str, **kwargs) -> Tuple[FunctionResultStatus, str, dict]:
-
     contract_service = ContractService()
 
     try:
@@ -66,7 +65,6 @@ def get_contract_code(address: str, **kwargs) -> Tuple[FunctionResultStatus, str
 def generate_audit(
     contract_id: str, audit_type: AuditTypeEnum, **kwargs
 ) -> Tuple[FunctionResultStatus, str, dict]:
-
     audit = asyncio.run(
         Audit.create(
             contract_id=contract_id,
@@ -77,15 +75,14 @@ def generate_audit(
 
     now = datetime.now()
     pipeline = LlmPipeline(
-        input=audit.contract.raw_code,
+        input=audit.contract.code,
         audit=audit,
         should_publish=False,
     )
 
     try:
         asyncio.run(pipeline.generate_candidates())
-        response = asyncio.run(pipeline.generate_report())
-        audit.raw_output = response
+        asyncio.run(pipeline.generate_report())
         audit.status = AuditStatusEnum.SUCCESS
     except Exception:
         audit.status = AuditStatusEnum.FAILED
@@ -95,7 +92,7 @@ def generate_audit(
 
     if audit.status == AuditStatusEnum.SUCCESS:
         findings = asyncio.run(Finding.filter(audit_id=audit.id).all())
-        findings = list(map(FindingSchema.from_tortoise, findings))
+        findings = list(map(FindingSchema.model_validate, findings))
 
         return (
             FunctionResultStatus.DONE,

@@ -1,9 +1,9 @@
-from typing import Optional
-from uuid import UUID
+from datetime import datetime
+from typing import Optional, TypeVar
 
-from pydantic import Field, field_serializer
+from pydantic import BaseModel, Field
 
-from app.utils.schema.shared import CreatedAtResponse, IdResponse
+from app.utils.types.common import ModelId, NullableModelId
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditStatusEnum,
@@ -14,6 +14,7 @@ from app.utils.types.enums import (
     NetworkEnum,
     TransactionTypeEnum,
 )
+from app.utils.types.mixins import CreatedAtMixin, FkMixin, IdMixin
 
 """
 Models directly are not serializable. Rely on pydantic for response types.
@@ -21,53 +22,45 @@ Models directly are not serializable. Rely on pydantic for response types.
 These also largely help inferring openapi specs + schema.
 """
 
-
-class BaseInstance(IdResponse, CreatedAtResponse):
-    @classmethod
-    def from_tortoise(cls, instance):
-        return cls(**instance.__dict__)
+T = TypeVar("T", bound="BaseModel")
 
 
-class AppSchema(BaseInstance):
-    owner_id: Optional[str | UUID] = None
+class BaseSchema(BaseModel, IdMixin, CreatedAtMixin):
+    id: ModelId
+    created_at: datetime
+    """Base schema with common serialization methods"""
+
+    class Config:
+        from_attributes = True
+
+
+class AppSchema(BaseSchema, FkMixin):
+    owner_id: NullableModelId = None
     name: str
     type: AppTypeEnum
 
-    @field_serializer("owner_id")
-    def convert_owner_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class AuditSchema(BaseInstance):
+class AuditSchema(BaseSchema):
     status: AuditStatusEnum = Field(description="enumerated status of the audit")
     audit_type: AuditTypeEnum = Field(description="enumerated type of audit")
     processing_time_seconds: Optional[int] = Field(
         default=None, description="total processing time, if applicable"
     )
-    result: Optional[str] = Field(default=None, description="audit result in markdown")
 
 
-class UserSchema(BaseInstance):
+class UserSchema(BaseSchema):
     address: str = Field(description="wallet address of user")
 
 
-class PermissionSchema(BaseInstance):
+class PermissionSchema(BaseSchema, FkMixin):
     client_type: ClientTypeEnum
-    user_id: Optional[str | UUID] = None
-    app_id: Optional[str | UUID] = None
+    user_id: NullableModelId = None
+    app_id: NullableModelId = None
     can_create_app: bool
     can_create_api_key: bool
 
-    @field_serializer("user_id", "app_id")
-    def convert_owner_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class PromptSchema(BaseInstance):
+class PromptSchema(BaseSchema):
     audit_type: str
     tag: str
     version: str
@@ -75,20 +68,14 @@ class PromptSchema(BaseInstance):
     is_active: bool
 
 
-class TransactionSchema(BaseInstance):
-    app_id: Optional[str | UUID] = None
-    user_id: Optional[str | UUID] = None
+class TransactionSchema(BaseSchema, FkMixin):
+    app_id: NullableModelId = None
+    user_id: NullableModelId = None
     type: TransactionTypeEnum
     amount: float
 
-    @field_serializer("user_id", "app_id")
-    def convert_owner_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class ContractSchema(BaseInstance):
+class ContractSchema(BaseSchema):
     method: ContractMethodEnum = Field(
         description="method used to upload contract code"
     )
@@ -99,25 +86,22 @@ class ContractSchema(BaseInstance):
         default=None, description="network that the contract is on, if applicable"
     )
     is_available: bool = Field(description="whether source code is available")
-    code: Optional[str] = Field(default=None, alias="raw_code")
+    code: Optional[str] = Field(default=None)
 
 
-class IntermediateResponseSchema(BaseInstance):
-    audit_id: Optional[str | UUID] = None
-    prompt_id: Optional[str | UUID] = None
+class IntermediateResponsePartialSchema(BaseSchema):
     step: str
     status: AuditStatusEnum
+
+
+class IntermediateResponseSchema(IntermediateResponsePartialSchema, FkMixin):
+    audit_id: NullableModelId = None
+    prompt_id: NullableModelId = None
     processing_time_seconds: Optional[int] = None
     result: Optional[str] = None
 
-    @field_serializer("audit_id", "prompt_id")
-    def convert_owner_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class FindingSchema(BaseInstance):
+class FindingSchema(BaseSchema):
     level: FindingLevelEnum
     name: Optional[str] = None
     explanation: Optional[str] = None

@@ -1,7 +1,7 @@
 # flake8: noqa
 
-from app.utils.schema.models import ContractSchema
-from app.utils.schema.shared import ErrorResponse
+from app.utils.types.models import ContractSchema
+from app.utils.types.shared import ErrorResponse
 from app.utils.types.openapi import OpenApiParams
 
 from .interface import StaticAnalysisTokenResult, UploadContractResponse

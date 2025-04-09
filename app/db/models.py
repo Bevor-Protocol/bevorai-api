@@ -139,8 +139,8 @@ class Contract(AbstractModel):
     network = fields.CharEnumField(enum_type=NetworkEnum, null=True, default=None)
     contract_name = fields.TextField(null=True, default=None)
     is_proxy = fields.BooleanField(default=False)
-    raw_code = fields.TextField(null=True, default=None)
-    hash_code = fields.CharField(max_length=255, null=True, default=None)
+    code = fields.TextField(null=True, default=None)
+    hashed_code = fields.CharField(max_length=255, null=True, default=None)
 
     class Meta:
         table = "contract"
@@ -150,15 +150,15 @@ class Contract(AbstractModel):
 
     @classmethod
     async def create(self, *args, **kwargs):
-        raw_code = kwargs.get("raw_code")
-        if raw_code:
-            kwargs["hash_code"] = hashlib.sha256(raw_code.encode()).hexdigest()
+        code = kwargs.get("code")
+        if code:
+            kwargs["hashed_code"] = hashlib.sha256(code.encode()).hexdigest()
         return await super().create(*args, **kwargs)
 
     async def save(self, *args, **kwargs):
-        raw_code = kwargs.get("raw_code")
-        if raw_code:
-            kwargs["hash_code"] = hashlib.sha256(raw_code.encode()).hexdigest()
+        code = kwargs.get("code")
+        if code:
+            kwargs["hashed_code"] = hashlib.sha256(code.encode()).hexdigest()
         await super().save(*args, **kwargs)
 
 
@@ -181,6 +181,7 @@ class Audit(AbstractModel):
 
     intermediate_responses: fields.ReverseRelation["IntermediateResponse"]
     findings: fields.ReverseRelation["Finding"]
+    audit_metadata: fields.ReverseRelation["AuditMetadata"]
 
     class Meta:
         table = "audit"
@@ -190,6 +191,22 @@ class Audit(AbstractModel):
             ("user_id", "audit_type"),
             ("audit_type", "contract_id"),
         )
+
+    def __str__(self):
+        return f"{str(self.id)}"
+
+
+class AuditMetadata(AbstractModel):
+    audit: fields.OneToOneNullableRelation[Audit] = fields.OneToOneField(
+        "models.Audit", on_delete=fields.CASCADE, related_name="audit_metadata"
+    )
+    introduction = fields.TextField(null=True, default=None)
+    scope = fields.TextField(null=True, default=None)
+    conclusion = fields.TextField(null=True, default=None)
+
+    class Meta:
+        table = "audit_metadata"
+        indexes = ("audit_id",)
 
     def __str__(self):
         return f"{str(self.id)}"

@@ -4,8 +4,9 @@ from tortoise.transactions import in_transaction
 
 from app.api.permission.service import PermissionService
 from app.db.models import App, Audit, User
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.shared import Timeseries
+from app.utils.types.models import AppSchema
+from app.utils.types.shared import AuthState
+from app.utils.types.shared import Timeseries
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditTypeEnum,
@@ -19,7 +20,6 @@ from .interface import AllStatsResponse, AppInfoResponse, AppUpsertBody
 
 class AppService:
     async def create(self, auth: AuthState, body: AppUpsertBody) -> None:
-
         app = await App.filter(owner_id=auth.user_id).first()
         if app:
             return
@@ -48,7 +48,6 @@ class AppService:
             )
 
     async def update(self, auth: AuthState, body: AppUpsertBody) -> None:
-
         app = await App.filter(owner_id=auth.user_id).first()
         if not app:
             raise DoesNotExist("this user does not have an app yet")
@@ -56,7 +55,6 @@ class AppService:
         await app.save()
 
     async def get_info(self, app_id: str) -> AppInfoResponse:
-
         app = await App.get(id=app_id).prefetch_related("audits")
 
         audits = app.audits
@@ -65,9 +63,7 @@ class AppService:
         n_contracts = len(set(map(lambda x: x.contract_id, audits)))
 
         response = AppInfoResponse(
-            id=app.id,
-            created_at=app.created_at,
-            name=app.name,
+            **AppSchema.model_validate(app).model_dump(),
             n_contracts=n_contracts,
             n_audits=n_audits,
         )
@@ -75,10 +71,6 @@ class AppService:
         return response
 
     async def get_stats(self) -> AllStatsResponse:
-        """
-        pass an app_id if not the FIRST_PARTY app.
-        """
-
         n_apps = await App.all().count()
 
         audits = await Audit.all().prefetch_related("findings")
@@ -103,8 +95,10 @@ class AppService:
 
         audits_by_date = {}
         contract_set = set()
-        gas_findings = {k.value: 0 for k in FindingLevelEnum}
-        sec_findings = {k.value: 0 for k in FindingLevelEnum}
+        findings = {
+            audit_type: {level: 0 for level in FindingLevelEnum}
+            for audit_type in AuditTypeEnum
+        }
         n_audits = 0
         n_contracts = 0
         for audit in audits:
@@ -116,11 +110,7 @@ class AppService:
             n_audits += 1
 
             for finding in audit.findings:
-                match finding.audit_type:
-                    case AuditTypeEnum.SECURITY:
-                        sec_findings[finding.level] += 1
-                    case AuditTypeEnum.GAS:
-                        gas_findings[finding.level] += 1
+                findings[finding.audit_type][finding.level] += 1
 
         n_contracts = len(contract_set)
         audits_timeseries = sorted(
@@ -130,15 +120,13 @@ class AppService:
             ],
             key=lambda x: x.date,
         )
+
         response = AllStatsResponse(
             n_apps=n_apps,
             n_users=n_users,
             n_contracts=n_contracts,
             n_audits=n_audits,
-            findings={
-                AuditTypeEnum.GAS: gas_findings,
-                AuditTypeEnum.SECURITY: sec_findings,
-            },
+            findings=findings,
             users_timeseries=users_timeseries,
             audits_timeseries=audits_timeseries,
         )

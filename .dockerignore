@@ -1,13 +1,11 @@
-# flyctl launch added from .gitignore
 **
 
 !/app/
 !/scripts/
-!poetry.lock
+!uv.lock
 !pyproject.toml
 !prometheus.yml
 
 # flyctl launch added from .venv/.gitignore
 # created by virtualenv automatically
 .venv/**/*
-fly.toml

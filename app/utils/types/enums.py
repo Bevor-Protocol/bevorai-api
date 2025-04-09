@@ -74,10 +74,6 @@ class AppTypeEnum(str, Enum):
     THIRD_PARTY = "third_party"
 
 
-class WebhookEventEnum(str, Enum):
-    EVAL_UPDATED = "eval.updated"
-
-
 class FindingLevelEnum(str, Enum):
     CRITICAL = "critical"
     HIGH = "high"
