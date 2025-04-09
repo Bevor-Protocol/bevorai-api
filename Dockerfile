@@ -10,15 +10,13 @@ ENV UV_COMPILE_BYTECODE=1
 
 # Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy poetry files
 COPY pyproject.toml uv.lock ./
 
-ADD . /app
 # Use the same cache key source for consistency
 RUN uv sync --frozen --no-dev
-
-ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy application code
 COPY app ./app
