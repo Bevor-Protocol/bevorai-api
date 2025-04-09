@@ -15,7 +15,8 @@ ENV UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock ./
 
 # Install the project's dependencies using the lockfile and settings
-RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
+# Use uv.lock as part of the cache key
+RUN --mount=type=cache,id=uv-deps-cache,target=/root/.cache/uv,source=uv.lock \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
@@ -23,7 +24,8 @@ RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching
 ADD . /app
-RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
+# Use the same cache key source for consistency
+RUN --mount=type=cache,id=uv-deps-cache,target=/root/.cache/uv,source=uv.lock \
     uv sync --frozen --no-dev
 
 ENV PATH="/app/.venv/bin:$PATH"
