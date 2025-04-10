@@ -2,8 +2,8 @@ from tortoise import BaseDBAsyncClient
 from tortoise.transactions import in_transaction
 
 from app.db.models import Audit, IntermediateResponse, Prompt
-from app.lib.gas import structure as gas_structure
-from app.lib.security import structure as sec_structure
+from app.utils.backfill.prompts.gas import gas_candidates
+from app.utils.backfill.prompts.security import sec_candidates
 from app.utils.types.enums import AuditTypeEnum
 
 
@@ -29,8 +29,14 @@ COMMENT ON COLUMN "prompt"."audit_type" IS 'SECURITY: security\nGAS: gas';
 
     await db.execute_script(query)
 
+    n_audits = await Audit.all().count()
+
+    if not n_audits:
+        return """SELECT * FROM "prompt" limit 1;"""
+
     async with in_transaction():
-        for tag, prompt in sec_structure["prompts"]["candidates"].items():
+        sec_reviewer = sec_candidates.pop("reviewer")
+        for tag, prompt in sec_candidates.items():
             prompt_instance = await Prompt.create(
                 audit_type=AuditTypeEnum.SECURITY,
                 tag=tag,
@@ -40,16 +46,19 @@ COMMENT ON COLUMN "prompt"."audit_type" IS 'SECURITY: security\nGAS: gas';
                 using_db=db,
             )
 
-            await IntermediateResponse.filter(step=tag).using_db(db).update(
-                prompt_id=prompt_instance.id,
+            await (
+                IntermediateResponse.filter(step=tag)
+                .using_db(db)
+                .update(
+                    prompt_id=prompt_instance.id,
+                )
             )
 
-        prompt = sec_structure["prompts"]["reviewer"]
         prompt_instance = await Prompt.create(
             audit_type=AuditTypeEnum.SECURITY,
             tag="reviewer",
             version="0.1",
-            content=prompt,
+            content=sec_reviewer,
             is_active=True,
             using_db=db,
         )
@@ -65,7 +74,8 @@ COMMENT ON COLUMN "prompt"."audit_type" IS 'SECURITY: security\nGAS: gas';
                     intermediate_response.prompt_id = prompt_instance.id
                     await intermediate_response.save()
 
-        for tag, prompt in gas_structure["prompts"]["candidates"].items():
+        gas_reviewer = gas_candidates.pop("reviewer")
+        for tag, prompt in gas_candidates.items():
             prompt_instance = await Prompt.create(
                 audit_type=AuditTypeEnum.GAS,
                 tag=tag,
@@ -74,16 +84,17 @@ COMMENT ON COLUMN "prompt"."audit_type" IS 'SECURITY: security\nGAS: gas';
                 is_active=True,
                 using_db=db,
             )
-            await IntermediateResponse.filter(step=tag).using_db(db).update(
-                prompt_id=prompt_instance.id
+            await (
+                IntermediateResponse.filter(step=tag)
+                .using_db(db)
+                .update(prompt_id=prompt_instance.id)
             )
 
-        prompt = gas_structure["prompts"]["reviewer"]
         prompt_instance = await Prompt.create(
             audit_type=AuditTypeEnum.GAS,
             tag="reviewer",
             version="0.1",
-            content=prompt,
+            content=gas_reviewer,
             is_active=True,
             using_db=db,
         )
