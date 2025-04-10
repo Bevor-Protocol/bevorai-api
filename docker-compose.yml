@@ -42,9 +42,6 @@ services:
     container_name: prometheus
     image: prom/prometheus:latest
     restart: always
-    environment:
-      - API_URL=api:8000
-      - WORKER_URL=worker:9192
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
