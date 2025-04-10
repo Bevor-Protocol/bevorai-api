@@ -2,8 +2,8 @@ from tortoise import BaseDBAsyncClient
 from tortoise.transactions import in_transaction
 
 from app.db.models import Audit, IntermediateResponse, Prompt
-from app.utils.backfill.prompts.gas import gas_candidates
-from app.utils.backfill.prompts.security import sec_candidates
+from app.utils.backfill.prompts.gas import candidates as gas_candidates
+from app.utils.backfill.prompts.security import candidates as sec_candidates
 from app.utils.types.enums import AuditTypeEnum
 
 

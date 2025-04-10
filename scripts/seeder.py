@@ -12,8 +12,8 @@ from tortoise import Tortoise
 from app.config import TORTOISE_ORM
 from app.db.models import App, Auth, Prompt
 from app.utils.types.enums import AppTypeEnum, AuditTypeEnum, ClientTypeEnum
-from app.utils.backfill.prompts.gas import gas_candidates
-from app.utils.backfill.prompts.security import sec_candidates
+from app.utils.backfill.prompts.gas import candidates as gas_candidates
+from app.utils.backfill.prompts.security import candidates as sec_candidates
 
 
 async def init():
