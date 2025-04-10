@@ -1,4 +1,4 @@
-from app.utils.schema.llm import VersionDict
+from app.utils.types.shared import VersionDict
 
 from .markdown import template
 from .prompt import prompts

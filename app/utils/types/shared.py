@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -38,3 +38,14 @@ class AuthState(BaseModel, FkMixin):
     credit_consumer_user_id: NullableModelId = None
     is_delegated: bool = False
     role: RoleEnum
+
+
+class Candidates(TypedDict):
+    candidates: dict[str, str]
+    reviewer: str
+
+
+class VersionDict(TypedDict):
+    markdown: str
+    prompts: Candidates
+    response: BaseModel
