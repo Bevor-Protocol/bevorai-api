@@ -46,9 +46,9 @@ async def seed():
     else:
         print("Skipping auth seeder, already exists...")
 
-    prompts = await Prompt.all()
+    n_prompts = await Prompt.all().count()
 
-    if await prompts.count() == 0:
+    if n_prompts == 0:
         for tag, prompt in sec_candidates.items():
             await Prompt.create(
                 audit_type=AuditTypeEnum.SECURITY,
