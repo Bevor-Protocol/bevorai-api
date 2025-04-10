@@ -45,9 +45,18 @@ app.openapi = custom_openapi
 
 logfire.instrument_fastapi(app, excluded_urls=["/metrics"])
 
+db_user = os.getenv("POSTGRES_USER")
+db_pswd = os.getenv("POSTGRES_PASSWORD")
+db_name = os.getenv("POSTGRES_DB")
+db_host = os.getenv("PGHOST", "postgres:5432")
+db_scheme = os.getenv("PGSCHEME", "postgresql")
+
 
 register_tortoise(
-    app=app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
+    app=app,
+    config=TORTOISE_ORM,
+    generate_schemas=False,
+    add_exception_handlers=True,
 )
 
 # # order matters. Runs in reverse order.
