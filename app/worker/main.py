@@ -14,8 +14,8 @@ from prometheus_client import start_http_server
 from tortoise import Tortoise
 
 from app.config import TORTOISE_ORM, redis_settings
-from app.prometheus import prom_logger
 from app.utils.types.enums import NetworkEnum
+from app.metrics import metrics_tasks_duration, metrics_tasks_total
 
 # from app.prometheus import logger
 from .tasks import get_deployment_contracts, handle_eval
@@ -61,10 +61,10 @@ class PrometheusMiddleware:
         self._metrics_task = asyncio.create_task(func_wrapper())
 
     def log_enqueue_time(self, duration: float):
-        prom_logger.tasks_enqueue_duration.observe(duration)
+        metrics_tasks_duration.record(duration)
 
     def log_process_time(self, duration: float):
-        prom_logger.tasks_duration.observe(duration)
+        metrics_tasks_duration.record(duration)
 
     async def _parse(self) -> dict:
         healthcheck = await self.ctx["redis"].get(self.health_check_key)
@@ -90,7 +90,8 @@ class PrometheusMiddleware:
 
         for k, v in data.items():
             value = int(v)
-            prom_logger.tasks_info.labels(type=k).set(value)
+            metrics_tasks_total
+            metrics_tasks_total.set(amount=value, attributes={"type": k})
 
 
 class JobContext(TypedDict):

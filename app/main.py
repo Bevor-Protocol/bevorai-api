@@ -5,7 +5,6 @@ from fastapi.openapi.utils import get_openapi
 import logfire
 from tortoise.contrib.fastapi import register_tortoise
 
-from app.api.middlewares import PrometheusMiddleware
 from app.api.urls import router
 from app.config import TORTOISE_ORM
 from app.openapi import OPENAPI_SCHEMA
@@ -61,6 +60,6 @@ register_tortoise(
 
 # # order matters. Runs in reverse order.
 # app.add_middleware(RateLimitMiddleware)
-app.add_middleware(PrometheusMiddleware)
+# app.add_middleware(PrometheusMiddleware)
 
 app.include_router(router)

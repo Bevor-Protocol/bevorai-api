@@ -5,7 +5,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from app.config import redis_client
-from app.prometheus import prom_logger
 
 endpoint_groupings = [
     "/admin",
@@ -17,34 +16,6 @@ endpoint_groupings = [
     "/platform",
     "/user",
 ]
-
-
-class PrometheusMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        method = request.method
-        endpoint = request.url.path
-
-        group_use = None
-        for grouping in endpoint_groupings:
-            if endpoint.startswith(grouping):
-                group_use = grouping
-                break
-
-        if not group_use:
-            response = await call_next(request)
-            return response
-
-        prom_logger.api_active.inc()
-
-        with prom_logger.api_duration.labels(method=method, endpoint=group_use).time():
-            response = await call_next(request)
-
-        prom_logger.api_requests.labels(
-            method=method, endpoint=group_use, status_code=response.status_code
-        ).inc()
-        prom_logger.api_active.dec()
-
-        return response
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
