@@ -4,7 +4,6 @@
 !/scripts/
 !uv.lock
 !pyproject.toml
-!prometheus.yml
 
 # flyctl launch added from .venv/.gitignore
 # created by virtualenv automatically

@@ -1,8 +1,7 @@
 from arq import create_pool
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, status
 from fastapi.openapi.docs import get_redoc_html
 from fastapi.responses import JSONResponse, RedirectResponse
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from tortoise import Tortoise
 
 from app.config import redis_settings
@@ -48,6 +47,3 @@ class BaseRouter(APIRouter):
 
     async def redirect_to_docs(self):
         return RedirectResponse(url="/docs")
-
-    async def get_metrics(self):
-        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)

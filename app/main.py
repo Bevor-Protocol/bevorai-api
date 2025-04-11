@@ -60,6 +60,5 @@ register_tortoise(
 
 # # order matters. Runs in reverse order.
 # app.add_middleware(RateLimitMiddleware)
-# app.add_middleware(PrometheusMiddleware)
 
 app.include_router(router)
