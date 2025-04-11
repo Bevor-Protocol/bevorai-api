@@ -52,10 +52,10 @@ class LoggingMiddleware:
         self._metrics_task = asyncio.create_task(func_wrapper())
 
     def log_enqueue_time(self, duration: float):
-        metrics_tasks_duration.record(duration)
+        metrics_tasks_duration.set(duration)
 
     def log_process_time(self, duration: float):
-        metrics_tasks_duration.record(duration)
+        metrics_tasks_duration.set(duration)
 
     async def _parse(self) -> dict:
         healthcheck = await self.ctx["redis"].get(self.health_check_key)
