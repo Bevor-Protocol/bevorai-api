@@ -13,7 +13,6 @@ class BaseRouter(APIRouter):
 
         self.add_api_route("/", self.read_root, methods=["GET"])
         self.add_api_route("/health", self.health_check, methods=["GET"])
-        self.add_api_route("/metrics", self.get_metrics, methods=["GET"])
         self.add_api_route("/test", self.test, methods=["GET"])
         self.add_api_route("/docs", self.redoc, methods=["GET"])
         self.add_api_route("/redoc", self.redirect_to_docs, methods=["GET"])
