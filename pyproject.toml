@@ -9,7 +9,6 @@ dependencies = [
     "redis<6.0.0,>=5.2.1",
     "web3<8.0.0,>=7.6.1",
     "openai<2.0.0,>=1.59.2",
-    "prometheus-client<1.0.0,>=0.21.1",
     "arq<1.0.0,>=0.26.3",
     "hypercorn<1.0.0,>=0.17.3",
     "solidity-parser<1.0.0,>=0.1.1",
