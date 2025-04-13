@@ -4,9 +4,6 @@ from tortoise.transactions import in_transaction
 
 from app.api.permission.service import PermissionService
 from app.db.models import App, Audit, User
-from app.utils.types.models import AppSchema
-from app.utils.types.shared import AuthState
-from app.utils.types.shared import Timeseries
 from app.utils.types.enums import (
     AppTypeEnum,
     AuditTypeEnum,
@@ -14,6 +11,8 @@ from app.utils.types.enums import (
     FindingLevelEnum,
     PermissionEnum,
 )
+from app.utils.types.models import AppSchema
+from app.utils.types.shared import AuthState, Timeseries
 
 from .interface import AllStatsResponse, AppInfoResponse, AppUpsertBody
 

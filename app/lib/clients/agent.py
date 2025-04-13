@@ -16,8 +16,8 @@ from game_sdk.game.worker import Worker
 from app.api.contract.service import ContractService
 from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Finding
-from app.utils.types.models import FindingSchema
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum
+from app.utils.types.models import FindingSchema
 
 game_api_key = os.environ.get("GAME_API_KEY")
 

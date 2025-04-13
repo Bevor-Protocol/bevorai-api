@@ -3,8 +3,8 @@ from typing import Optional
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
-from app.utils.types.models import ContractSchema
 from app.utils.types.enums import NetworkEnum
+from app.utils.types.models import ContractSchema
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.

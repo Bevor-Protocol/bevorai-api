@@ -11,9 +11,8 @@ add the prompt relation for new observations.
 
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
-
-    await IntermediateResponse.filter(step="report").using_db(db).update(
-        step="reviewer"
+    await (
+        IntermediateResponse.filter(step="report").using_db(db).update(step="reviewer")
     )
 
     intermediate_responses = (

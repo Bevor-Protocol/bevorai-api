@@ -4,13 +4,13 @@ from tortoise.transactions import in_transaction
 
 from app.api.audit.service import AuditService
 from app.db.models import App, Audit, Auth, Permission, Prompt, User
+from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
 from app.utils.types.relations import (
     AppPermissionRelation,
     AuditWithChildrenRelation,
     UserPermissionRelation,
 )
 from app.utils.types.shared import AuthState
-from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum
 
 from .interface import (
     AuditWithResult,

@@ -1,11 +1,10 @@
 import asyncio
 from datetime import datetime
-import logfire
 
 import httpx
+import logfire
 
 from app.api.blockchain.service import BlockchainService
-from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Auth, Contract, Transaction
 from app.lib.clients import Web3Client
 from app.utils.types.enums import (
@@ -16,6 +15,8 @@ from app.utils.types.enums import (
     NetworkEnum,
     TransactionTypeEnum,
 )
+
+from .pipelines.audit_generation import LlmPipeline
 
 
 async def handle_eval(audit_id: str):
@@ -30,7 +31,6 @@ async def handle_eval(audit_id: str):
         caller_auth = await Auth.get(user_id=audit.user_id).select_related("user")
 
     pipeline = LlmPipeline(
-        input=audit.contract.code,
         audit=audit,
         should_publish=False,
     )

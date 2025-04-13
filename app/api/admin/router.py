@@ -1,14 +1,18 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 import logfire
+from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 
 from app.api.dependencies import Authentication
-from app.utils.types.relations import AppPermissionRelation, UserPermissionRelation
-from app.utils.types.shared import AuthState
-from app.utils.types.models import PromptSchema
-from app.utils.types.shared import BooleanResponse, IdResponse, ResultsResponse
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
+from app.utils.types.models import PromptSchema
+from app.utils.types.relations import AppPermissionRelation, UserPermissionRelation
+from app.utils.types.shared import (
+    AuthState,
+    BooleanResponse,
+    IdResponse,
+    ResultsResponse,
+)
 
 from .interface import (
     AdminQuerySearch,

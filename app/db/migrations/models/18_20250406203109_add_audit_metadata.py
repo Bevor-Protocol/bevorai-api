@@ -1,10 +1,10 @@
 import json
 import re
+
 from tortoise import BaseDBAsyncClient
 
-from app.api.pipeline.types import GasOutputStructure, SecurityOutputStructure
 from app.db.models import Audit, AuditMetadata
-from app.utils.types.enums import AuditTypeEnum
+from app.utils.types.llm import OutputStructure
 
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
@@ -40,13 +40,7 @@ CREATE INDEX IF NOT EXISTS "idx_audit_metad_audit_i_0df71a" ON "audit_metadata" 
 
         parsed = json.loads(raw_data)
 
-        output_structure = (
-            GasOutputStructure
-            if audit.audit_type == AuditTypeEnum.GAS
-            else SecurityOutputStructure
-        )
-
-        model = output_structure(**parsed)
+        model = OutputStructure(**parsed)
 
         metadatas.append(
             AuditMetadata(

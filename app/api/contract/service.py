@@ -3,8 +3,8 @@ import hashlib
 from typing import Optional
 
 import httpx
-from fastapi import HTTPException, status
 import logfire
+from fastapi import HTTPException, status
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract

@@ -6,9 +6,8 @@ from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.utils.openapi_tags import APP_TAG
-from app.utils.types.shared import AuthState
-from app.utils.types.shared import BooleanResponse
 from app.utils.types.enums import RoleEnum
+from app.utils.types.shared import AuthState, BooleanResponse
 
 from .interface import AllStatsResponse, AppInfoResponse, AppUpsertBody
 from .openapi import GET_APP_INFO

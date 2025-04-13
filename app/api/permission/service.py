@@ -3,7 +3,6 @@ from app.utils.types.enums import ClientTypeEnum, PermissionEnum
 
 
 class PermissionService:
-
     async def has_permission(
         self,
         client_type: ClientTypeEnum,

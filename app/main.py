@@ -1,16 +1,14 @@
 import os
+
+import logfire
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-import logfire
 from tortoise.contrib.fastapi import register_tortoise
 
 from app.api.urls import router
 from app.config import TORTOISE_ORM
 from app.openapi import OPENAPI_SCHEMA
-
-# from app.api.middlewares.auth import AuthenticationMiddleware
-# from app.api.middlewares.rate_limit import RateLimitMiddleware
 
 load_dotenv()
 logfire.configure(

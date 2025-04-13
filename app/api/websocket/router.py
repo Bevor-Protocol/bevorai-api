@@ -6,8 +6,8 @@ import os
 from collections import defaultdict
 from datetime import datetime
 from typing import List
-import logfire
 
+import logfire
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException
 
 from app.config import redis_client

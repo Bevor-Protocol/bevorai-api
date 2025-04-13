@@ -7,11 +7,6 @@ import pytest_asyncio
 from app.api.audit.interface import CreateEvalResponse, EvalBody
 from app.api.audit.service import AuditService
 from app.api.auth.service import AuthService
-from app.api.pipeline.types import (
-    GasOutputStructure,
-    GasFindingsStructure,
-    GasFindingType,
-)
 from app.api.user.service import UserService
 from app.db.models import (
     Audit,
@@ -24,7 +19,6 @@ from app.db.models import (
     Prompt,
     User,
 )
-from app.utils.types.shared import AuthState
 from app.utils.types.enums import (
     AuditStatusEnum,
     AuditTypeEnum,
@@ -34,6 +28,8 @@ from app.utils.types.enums import (
     NetworkEnum,
     RoleEnum,
 )
+from app.utils.types.llm import FindingsStructure, FindingType, OutputStructure
+from app.utils.types.shared import AuthState
 from tests.constants import THIRD_PARTY_APP_API_KEY, USER_API_KEY
 
 USER_WITH_CREDITS_ADDRESS = "0xuserwithcredits"
@@ -304,13 +300,13 @@ async def test_audit_processing_with_intermediate_states(
         audit_id_job = job["job_id"]
         assert audit_id == audit_id_job
 
-        mock_structure = GasOutputStructure(
+        mock_structure = OutputStructure(
             introduction="test intro",
             scope="mock scope",
             conclusion="mock conclusion",
-            findings=GasFindingsStructure(
+            findings=FindingsStructure(
                 critical=[
-                    GasFindingType(
+                    FindingType(
                         name="fake name",
                         explanation="fake exp",
                         recommendation="fake ex",
@@ -320,7 +316,7 @@ async def test_audit_processing_with_intermediate_states(
                 high=[],
                 medium=[],
                 low=[
-                    GasFindingType(
+                    FindingType(
                         name="fake name",
                         explanation="fake exp",
                         recommendation="fake ex",

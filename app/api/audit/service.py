@@ -1,19 +1,19 @@
-from collections import defaultdict
 import math
-from logfire.propagate import get_context
+from collections import defaultdict
 
 from arq import create_pool
 from fastapi import HTTPException, status
+from logfire.propagate import get_context
 from tortoise.timezone import now
 
 from app.config import redis_settings
 from app.db.models import Audit, AuditMetadata, Contract, Finding
-from app.utils.types.models import AuditSchema
-from app.utils.types.relations import AuditRelation, AuditWithFindingsRelation
-from app.utils.types.shared import AuthState
 from app.utils.templates.gas import gas_template
 from app.utils.templates.security import security_template
 from app.utils.types.enums import AuditTypeEnum, FindingLevelEnum, RoleEnum
+from app.utils.types.models import AuditSchema
+from app.utils.types.relations import AuditRelation, AuditWithFindingsRelation
+from app.utils.types.shared import AuthState
 
 from .interface import (
     AuditIndex,
