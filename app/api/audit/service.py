@@ -7,7 +7,7 @@ from logfire.propagate import get_context
 from tortoise.timezone import now
 
 from app.config import redis_settings
-from app.db.models import Audit, AuditMetadata, Contract, Finding
+from app.db.models import Audit, Contract, Finding
 from app.utils.templates.gas import gas_template
 from app.utils.templates.security import security_template
 from app.utils.types.enums import AuditTypeEnum, FindingLevelEnum, RoleEnum
@@ -155,16 +155,15 @@ class AuditService:
         """parse audit and findings into markdown format"""
         template_use = self.template_map[audit.audit_type]
 
-        metadata: AuditMetadata | None = audit.audit_metadata
-        if not metadata:
+        if not audit.raw_output:
             return
 
         formatter = {
             "address": audit.contract.address,
             "date": audit.created_at.strftime("%Y-%m-%d"),
-            "introduction": metadata.introduction,  # audit-level intro
-            "scope": metadata.scope,  # audit-level scope
-            "conclusion": metadata.conclusion,  # audit-level conclusion
+            "introduction": audit.introduction,  # audit-level intro
+            "scope": audit.scope,  # audit-level scope
+            "conclusion": audit.conclusion,  # audit-level conclusion
         }
 
         findings_dict = defaultdict(str)
