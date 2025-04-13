@@ -6,7 +6,7 @@ from typing import Any, Coroutine, Protocol
 import logfire
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
-from app.api.pricing.service import Usage
+from app.api.pricing.service import CreditCosts
 from app.config import redis_client
 from app.db.models import Audit, AuditMetadata, Finding, IntermediateResponse, Prompt
 from app.lib.clients.llm import agent
@@ -32,7 +32,7 @@ class LlmPipeline:
     ):
         self.audit = audit
         self.audit_type = audit.audit_type
-        self.usage = Usage()
+        self.usage = CreditCosts()
 
         self.should_publish = should_publish
         self.candidate_responses = ""
@@ -197,8 +197,8 @@ class LlmPipeline:
             runtime = (datetime.now() - now).seconds
 
             usage = result.usage()
-            self.usage.add_input(usage.request_tokens)
-            self.usage.add_output(usage.response_tokens)
+            self.usage.add_input(usage.request_tokens or 0)
+            self.usage.add_output(usage.response_tokens or 0)
         except Exception as err:
             runtime = (datetime.now() - now).seconds
             await self._publish_event(name=prompt.tag, status="error")

@@ -1,7 +1,7 @@
 import math
 
 
-class Usage:
+class CreditCosts:
     INPUT_COST = 0.15  # cost per X input token
     OUTPUT_COST = 0.6  # cost per X output token
     BASE_FACTOR = 1_000_000  # number of tokens for pricing
