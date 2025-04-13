@@ -22,6 +22,7 @@ load_dotenv()
 logfire.configure(
     environment=os.getenv("RAILWAY_ENVIRONMENT_NAME", "development"),
     service_name="worker",
+    scrubbing=False,
 )
 
 

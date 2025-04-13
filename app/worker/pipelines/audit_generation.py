@@ -1,27 +1,19 @@
 import asyncio
 import json
 from datetime import datetime
-from typing import Any, Coroutine, Protocol
+from typing import Any, Coroutine
 
 import logfire
 from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
 from app.api.pricing.service import CreditCosts
 from app.config import redis_client
-from app.db.models import Audit, AuditMetadata, Finding, IntermediateResponse, Prompt
+from app.db.models import Audit, Finding, IntermediateResponse, Prompt
 from app.lib.clients.llm import agent
 from app.utils.types.enums import AuditStatusEnum, FindingLevelEnum
 from app.utils.types.llm import OutputStructure
 
 logfire.instrument_pydantic_ai()
-
-
-# generic use of either Output Structure
-class AuditOutputProtocol(Protocol):
-    introduction: str
-    scope: str
-    conclusion: str
-    findings: Any
 
 
 class LlmPipeline:
@@ -90,35 +82,6 @@ class LlmPipeline:
             processing_time_seconds=processing_time,
         )
 
-    async def _write_findings(self, response: AuditOutputProtocol):
-        await AuditMetadata.create(
-            audit=self.audit,
-            introduction=response.introduction,
-            scope=response.scope,
-            conclusion=response.conclusion,
-        )
-
-        to_create = []
-        finding: Finding
-        for severity in FindingLevelEnum:
-            findings = getattr(response.findings, severity.value, None)
-            if findings:
-                for finding in findings:
-                    to_create.append(
-                        Finding(
-                            audit=self.audit,
-                            audit_type=self.audit_type,
-                            level=severity,
-                            name=finding.name,
-                            explanation=finding.explanation,
-                            recommendation=finding.recommendation,
-                            reference=finding.reference,
-                        )
-                    )
-
-        if to_create:
-            await Finding.bulk_create(objects=to_create)
-
     async def _generate_candidate(self, prompt: Prompt):
         await self._publish_event(name=prompt.tag, status="start")
         await self._checkpoint(prompt=prompt, status=AuditStatusEnum.PROCESSING)
@@ -172,7 +135,7 @@ class LlmPipeline:
 
         await asyncio.gather(*tasks)
 
-    async def generate_report(self) -> None:
+    async def generate_report(self) -> OutputStructure:
         if not self.candidate_responses:
             raise NotImplementedError("must run generate_candidates() first")
 
@@ -216,4 +179,48 @@ class LlmPipeline:
             result=result.data.model_dump_json(),
             processing_time=runtime,
         )
-        await self._write_findings(result.data)
+
+        return result.data
+
+    async def write_results(
+        self,
+        response: OutputStructure | None,
+        status: AuditStatusEnum,
+        processing_time_seconds: int,
+    ):
+        self.audit.status = status
+        self.audit.processing_time_seconds = processing_time_seconds
+
+        self.audit.input_tokens = self.usage.input_tokens
+        self.audit.output_tokens = self.usage.output_tokens
+
+        if not response:
+            await self.audit.save()
+            return
+
+        self.audit.introduction = response.introduction
+        self.audit.scope = response.scope
+        self.audit.conclusion = response.conclusion
+
+        await self.audit.save()
+
+        to_create = []
+        finding: Finding
+        for severity in FindingLevelEnum:
+            findings = getattr(response.findings, severity.value, None)
+            if findings:
+                for finding in findings:
+                    to_create.append(
+                        Finding(
+                            audit=self.audit,
+                            audit_type=self.audit_type,
+                            level=severity,
+                            name=finding.name,
+                            explanation=finding.explanation,
+                            recommendation=finding.recommendation,
+                            reference=finding.reference,
+                        )
+                    )
+
+        if to_create:
+            await Finding.bulk_create(objects=to_create)

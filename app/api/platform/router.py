@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import AuthenticationWithoutDelegation
-from app.api.pricing.service import Usage
+from app.api.pricing.service import CreditCosts
 from app.utils.openapi_tags import PLATFORM_TAG
 from app.utils.types.enums import RoleEnum
 
@@ -25,6 +25,6 @@ class PlatformRouter(APIRouter):
         )
 
     async def get_credit_estimate(self) -> GetCostEstimateResponse:
-        usage = Usage()
+        usage = CreditCosts()
         estimate = usage.estimate_pricing()
         return GetCostEstimateResponse(credits=estimate)
