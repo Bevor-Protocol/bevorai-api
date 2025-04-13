@@ -2,6 +2,7 @@
 
 # Define OpenAPI spec as a plain dictionary (no instantiation required)
 
+from fastapi import FastAPI
 from app.utils.openapi_tags import (
     APP_TAG,
     AUDIT_TAG,
@@ -275,3 +276,24 @@ OPENAPI_SCHEMA = {
         },
     },
 }
+
+
+def customize_openapi(app: FastAPI):
+    from fastapi.openapi.utils import get_openapi
+
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        **OPENAPI_SCHEMA["core"],
+        routes=app.routes,
+    )
+
+    for k, v in OPENAPI_SCHEMA["other"].items():
+        if isinstance(v, dict):
+            openapi_schema.setdefault(k, {}).update(v)
+        elif isinstance(v, list):
+            openapi_schema.setdefault(k, []).extend(v)
+        else:
+            openapi_schema[k] = v
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
