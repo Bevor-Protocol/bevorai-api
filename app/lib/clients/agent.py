@@ -67,6 +67,8 @@ def generate_audit(
 ) -> Tuple[FunctionResultStatus, str, dict]:
     audit = asyncio.run(
         Audit.create(
+            # NOTE: depending on how this is called we can make a FIXED user, or actually pass
+            # a user through.
             contract_id=contract_id,
             audit_type=audit_type,
             status=AuditStatusEnum.PROCESSING,
@@ -75,17 +77,28 @@ def generate_audit(
 
     now = datetime.now()
     pipeline = LlmPipeline(
-        input=audit.contract.code,
         audit=audit,
         should_publish=False,
     )
 
     try:
         asyncio.run(pipeline.generate_candidates())
-        asyncio.run(pipeline.generate_report())
-        audit.status = AuditStatusEnum.SUCCESS
+        result = asyncio.run(pipeline.generate_report())
+        asyncio.run(
+            pipeline.write_results(
+                response=result,
+                status=AuditStatusEnum.SUCCESS,
+                processing_time_seconds=(datetime.now() - now).seconds,
+            )
+        )
     except Exception:
-        audit.status = AuditStatusEnum.FAILED
+        asyncio.run(
+            pipeline.write_results(
+                response=None,
+                status=AuditStatusEnum.FAILED,
+                processing_time_seconds=(datetime.now() - now).seconds,
+            )
+        )
     finally:
         audit.processing_time_seconds = (datetime.now() - now).seconds
         asyncio.run(audit.save())
