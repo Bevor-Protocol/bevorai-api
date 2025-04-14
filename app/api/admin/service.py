@@ -133,7 +133,7 @@ class AdminService:
         audit = (
             await Audit.get(id=id)
             .select_related("contract", "user")
-            .prefetch_related("intermediate_responses", "findings", "audit_metadata")
+            .prefetch_related("intermediate_responses", "findings")
         )
 
         audit_service = AuditService()

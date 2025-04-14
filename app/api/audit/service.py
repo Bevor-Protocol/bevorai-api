@@ -97,7 +97,7 @@ class AuditService:
         audit = (
             await Audit.get(**obj_filter)
             .select_related("contract", "user")
-            .prefetch_related("findings", "audit_metadata")
+            .prefetch_related("findings")
         )
 
         result = self._parse_branded_markdown(audit=audit)
