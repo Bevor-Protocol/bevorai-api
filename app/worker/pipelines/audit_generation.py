@@ -12,8 +12,6 @@ from app.lib.clients.llm import agent
 from app.utils.types.enums import AuditStatusEnum, FindingLevelEnum
 from app.utils.types.llm import OutputStructure
 
-logfire.instrument_pydantic_ai()
-
 
 class LlmPipeline:
     def __init__(

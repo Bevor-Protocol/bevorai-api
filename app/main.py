@@ -22,6 +22,7 @@ app = FastAPI(debug=False, docs_url=None, redoc_url=None)
 app.openapi = customize_openapi(app)
 
 logfire.instrument_fastapi(app, excluded_urls=["/metrics"])
+logfire.instrument_pydantic_ai()
 
 register_tortoise(
     app=app,

@@ -24,6 +24,7 @@ logfire.configure(
     service_name="worker",
     scrubbing=False,
 )
+logfire.instrument_pydantic_ai()
 
 
 class LoggingMiddleware:
