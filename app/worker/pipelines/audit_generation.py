@@ -198,6 +198,7 @@ class LlmPipeline:
             await self.audit.save()
             return
 
+        self.audit.raw_output = response.model_dump_json()
         self.audit.introduction = response.introduction
         self.audit.scope = response.scope
         self.audit.conclusion = response.conclusion

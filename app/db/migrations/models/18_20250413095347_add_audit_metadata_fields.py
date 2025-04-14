@@ -20,6 +20,8 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
     audits = await Audit.all(using_db=db)
 
     for audit in audits:
+        if not audit.raw_output:
+            continue
         pattern = r"<<(.*?)>>"
         raw_data = re.sub(pattern, r"`\1`", audit.raw_output)
 
@@ -37,6 +39,8 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
         audit.conclusion = model.conclusion
 
         await audit.save()
+
+    return """SELECT * FROM AUDIT LIMIT 1;"""
 
 
 async def downgrade(db: BaseDBAsyncClient) -> str:
