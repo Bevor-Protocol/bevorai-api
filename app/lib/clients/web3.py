@@ -1,6 +1,6 @@
 import os
-import logfire
 
+import logfire
 from eth_typing import BlockNumber
 from web3 import AsyncWeb3
 from web3.types import BlockReceipts

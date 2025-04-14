@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 
+from app.utils.types.enums import AuditTypeEnum, FindingLevelEnum
 from app.utils.types.models import AppSchema
 from app.utils.types.shared import Timeseries
-from app.utils.types.enums import AuditTypeEnum, FindingLevelEnum
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.

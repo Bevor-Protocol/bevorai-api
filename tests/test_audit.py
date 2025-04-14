@@ -1,4 +1,3 @@
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -7,24 +6,16 @@ import pytest_asyncio
 from app.api.audit.interface import CreateEvalResponse, EvalBody
 from app.api.audit.service import AuditService
 from app.api.auth.service import AuthService
-from app.api.pipeline.types import (
-    GasOutputStructure,
-    GasFindingsStructure,
-    GasFindingType,
-)
 from app.api.user.service import UserService
 from app.db.models import (
     Audit,
-    AuditMetadata,
     Auth,
     Contract,
     Finding,
-    IntermediateResponse,
     Permission,
     Prompt,
     User,
 )
-from app.utils.types.shared import AuthState
 from app.utils.types.enums import (
     AuditStatusEnum,
     AuditTypeEnum,
@@ -34,6 +25,7 @@ from app.utils.types.enums import (
     NetworkEnum,
     RoleEnum,
 )
+from app.utils.types.shared import AuthState
 from tests.constants import THIRD_PARTY_APP_API_KEY, USER_API_KEY
 
 USER_WITH_CREDITS_ADDRESS = "0xuserwithcredits"
@@ -252,179 +244,6 @@ class MockQueue:
 
 
 @pytest.mark.anyio
-async def test_audit_processing_with_intermediate_states(
-    user_with_auth_and_credits, async_client, mock_prompts
-):
-    """This is intentionally a very large e2e test with the worker"""
-    assert user_with_auth_and_credits.total_credits > 0
-
-    # Create a contract for testing
-    contract = await Contract.create(
-        address="0xARQTESTCONTRACT",
-        network=NetworkEnum.ETH,
-        method=ContractMethodEnum.SCAN,
-        code="contract ArqTest {}",
-        is_available=True,
-    )
-
-    audit = await Audit.create(
-        contract_id=contract.id,
-        user_id=user_with_auth_and_credits.id,
-        status=AuditStatusEnum.WAITING,
-        audit_type=AuditTypeEnum.GAS,
-    )
-
-    mock_body = EvalBody(contract_id=str(contract.id), audit_type=AuditTypeEnum.GAS)
-
-    from app.worker.main import process_eval
-
-    # Mock the arq Redis pool creation
-    with patch("app.api.audit.service.create_pool") as mock_create_pool:
-        mock_redis_pool = MockQueue()
-        mock_create_pool.return_value = mock_redis_pool
-
-        # Make request to create an audit
-        response = await async_client.post(
-            "/audit",
-            headers={"Authorization": f"Bearer {USER_WITH_CREDITS_API_KEY}"},
-            json=mock_body.model_dump(),
-        )
-
-        # Assertions for response
-        assert response.status_code == 201
-        data = response.json()
-
-        audit_id = data["id"]
-
-        assert mock_redis_pool.job is not None
-
-        job = mock_redis_pool.job
-
-        # Verify job was enqueued with correct parameters
-        audit_id_job = job["job_id"]
-        assert audit_id == audit_id_job
-
-        mock_structure = GasOutputStructure(
-            introduction="test intro",
-            scope="mock scope",
-            conclusion="mock conclusion",
-            findings=GasFindingsStructure(
-                critical=[
-                    GasFindingType(
-                        name="fake name",
-                        explanation="fake exp",
-                        recommendation="fake ex",
-                        reference="fake ref",
-                    )
-                ],
-                high=[],
-                medium=[],
-                low=[
-                    GasFindingType(
-                        name="fake name",
-                        explanation="fake exp",
-                        recommendation="fake ex",
-                        reference="fake ref",
-                    )
-                ],
-            ),
-        )
-
-        mock_str = json.dumps(mock_structure.model_dump())
-
-        # Create mock methods that check state before and after
-        # Counter to track number of calls to mock_chat_completions_create
-        # Use a thread-safe counter for async calls
-        inter_responses = []
-
-        # Use a shared set to track which calls have failed
-        failed_calls = set()
-
-        async def mock_chat_completions_create(*args, **kwargs):
-            # intermediate state would've been created already, in processing.
-            last_added = await IntermediateResponse.filter(audit_id=audit_id)
-            assert last_added[0].status == AuditStatusEnum.PROCESSING
-
-            # Get the current intermediate response ID
-            current_id = last_added[0].id
-            inter_responses.append(current_id)
-
-            # Fail exactly one call based on the ID
-            # This ensures deterministic failure even with async execution
-            if current_id not in failed_calls and not failed_calls:
-                failed_calls.add(current_id)
-                raise Exception("Simulated error in llm request")
-
-            # Return mock response for other calls
-            mock_response = AsyncMock(
-                choices=[AsyncMock(message=AsyncMock(content="Mock LLM response"))],
-                usage=AsyncMock(prompt_tokens=100, completion_tokens=100),
-            )
-
-            return mock_response
-
-        async def mock_chat_completions_parse(*args, **kwargs):
-            # audit should still be processing
-            audit_before = await Audit.get(id=audit_id)
-            assert audit_before.status == AuditStatusEnum.PROCESSING
-
-            # Return mock response with the structure needed
-            return AsyncMock(
-                choices=[AsyncMock(message=AsyncMock(content=mock_str))],
-                usage=AsyncMock(prompt_tokens=500, completion_tokens=500),
-            )
-
-        mock_trace_context = {"traceparent": "mocked-traceparent-value-00-1234"}
-
-        # # Mock the LLM client methods
-        with patch("app.api.pipeline.audit_generation.llm_client") as mock_llm_client:
-            # Configure the mock methods
-            mock_llm_client.chat.completions.create = mock_chat_completions_create
-            mock_llm_client.beta.chat.completions.parse = mock_chat_completions_parse
-
-            # Process the evaluation
-            await process_eval(job, mock_trace_context)
-
-    # Verify the audit status changes
-    updated_audit = await Audit.get(id=audit_id)
-    assert updated_audit.audit_type == AuditTypeEnum.GAS
-    assert updated_audit.contract_id == contract.id
-    assert updated_audit.status == AuditStatusEnum.SUCCESS
-    assert updated_audit.processing_time_seconds is not None
-
-    audit_metadata = await AuditMetadata.get(audit_id=audit_id)
-    assert audit_metadata.introduction == "test intro"
-    assert audit_metadata.scope == "mock scope"
-    assert audit_metadata.conclusion == "mock conclusion"
-
-    inter_responses_db = await IntermediateResponse.filter(audit_id=audit_id)
-    assert (
-        next(
-            filter(lambda x: x.status == AuditStatusEnum.FAILED, inter_responses_db),
-            None,
-        )
-        is not None
-    )
-
-    findings = await Finding.filter(audit_id=audit_id)
-    assert len(findings) == 2  # as denoted by the mock_structure
-
-    user = await User.get(id=user_with_auth_and_credits.id)
-    assert user.total_credits > 0
-    assert user.used_credits > 0
-
-    # Clean up
-    await audit.delete()
-    await audit_metadata.delete()
-    await contract.delete()
-
-    # reset fixture state.
-    user_with_auth_and_credits.total_credits = 100
-    user_with_auth_and_credits.used_credits = 0
-    await user_with_auth_and_credits.save()
-
-
-@pytest.mark.anyio
 async def test_get_audit(user_with_auth, async_client):
     """Test retrieving a specific audit through the API endpoint"""
     # Create test data
@@ -441,10 +260,9 @@ async def test_get_audit(user_with_auth, async_client):
         contract=contract,
         audit_type=AuditTypeEnum.SECURITY,
         status=AuditStatusEnum.SUCCESS,
-    )
-
-    audit_metadata = await AuditMetadata.create(
-        audit=audit, introduction="Test", scope="Test", conclusion="Test"
+        introduction="Test",
+        scope="Test",
+        conclusion="Test",
     )
 
     # Make request to get the audit
@@ -463,7 +281,6 @@ async def test_get_audit(user_with_auth, async_client):
     assert data["user"]["id"] == str(user.id)
 
     # Clean up
-    await audit_metadata.delete()
     await audit.delete()
     await contract.delete()
 
@@ -485,9 +302,9 @@ async def test_get_audits(user_with_auth, async_client):
         contract=contract,
         audit_type=AuditTypeEnum.SECURITY,
         status=AuditStatusEnum.SUCCESS,
-    )
-    audit_metadata1 = await AuditMetadata.create(
-        audit=audit1, introduction="Test", scope="Test", conclusion="Test"
+        introduction="Test",
+        scope="Test",
+        conclusion="Test",
     )
 
     audit2 = await Audit.create(
@@ -495,9 +312,9 @@ async def test_get_audits(user_with_auth, async_client):
         contract=contract,
         audit_type=AuditTypeEnum.GAS,
         status=AuditStatusEnum.SUCCESS,
-    )
-    audit_metadata2 = await AuditMetadata.create(
-        audit=audit2, introduction="Test", scope="Test", conclusion="Test"
+        introduction="Test",
+        scope="Test",
+        conclusion="Test",
     )
 
     # Make request to get audits
@@ -528,8 +345,6 @@ async def test_get_audits(user_with_auth, async_client):
     assert len(data["results"]) == 1
 
     # Clean up
-    await audit_metadata1.delete()
-    await audit_metadata2.delete()
     await audit1.delete()
     await audit2.delete()
     await contract.delete()

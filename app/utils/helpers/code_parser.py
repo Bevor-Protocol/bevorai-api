@@ -1,7 +1,7 @@
 import json
 import re
-import logfire
 
+import logfire
 from solidity_parser import parser as solidity_parser
 
 from app.api.contract.interface import StaticAnalysisTokenResult

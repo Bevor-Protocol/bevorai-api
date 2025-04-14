@@ -6,15 +6,15 @@ used without explicitly needing to whitelist / blacklist routes.
 
 from datetime import datetime
 from typing import Annotated, Optional
-import logfire
 
+import logfire
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import redis_client
 from app.db.models import Auth, User
-from app.utils.types.shared import AuthState
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
+from app.utils.types.shared import AuthState
 
 security = HTTPBearer(description="API key authorization")
 

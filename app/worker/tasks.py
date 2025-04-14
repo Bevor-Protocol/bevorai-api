@@ -1,11 +1,10 @@
 import asyncio
 from datetime import datetime
-import logfire
 
 import httpx
+import logfire
 
 from app.api.blockchain.service import BlockchainService
-from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Auth, Contract, Transaction
 from app.lib.clients import Web3Client
 from app.utils.types.enums import (
@@ -17,20 +16,19 @@ from app.utils.types.enums import (
     TransactionTypeEnum,
 )
 
+from .pipelines.audit_generation import LlmPipeline
+
 
 async def handle_eval(audit_id: str):
     now = datetime.now()
     audit = await Audit.get(id=audit_id).select_related("contract")
 
     if audit.app_id:
-        # was called via an App, whether 1st or 3rd party
         caller_auth = await Auth.get(app_id=audit.app_id).select_related("app__owner")
     else:
-        # was called directly by a user via api.
         caller_auth = await Auth.get(user_id=audit.user_id).select_related("user")
 
     pipeline = LlmPipeline(
-        input=audit.contract.code,
         audit=audit,
         should_publish=False,
     )
@@ -40,16 +38,20 @@ async def handle_eval(audit_id: str):
 
     try:
         await pipeline.generate_candidates()
-        await pipeline.generate_report()
-        audit.status = AuditStatusEnum.SUCCESS
+        result = await pipeline.generate_report()
 
-        audit.processing_time_seconds = (datetime.now() - now).seconds
-        await audit.save()
+        await pipeline.write_results(
+            response=result,
+            status=AuditStatusEnum.SUCCESS,
+            processing_time_seconds=(datetime.now() - now).seconds,
+        )
     except Exception as err:
         logfire.exception(str(err), **{"audit_id": str(audit.id)})
-        audit.status = AuditStatusEnum.FAILED
-        audit.processing_time_seconds = (datetime.now() - now).seconds
-        await audit.save()
+        await pipeline.write_results(
+            response=None,
+            status=AuditStatusEnum.FAILED,
+            processing_time_seconds=(datetime.now() - now).seconds,
+        )
         raise err
 
     # NOTE: could remove this if condition in the future. Free via the app.

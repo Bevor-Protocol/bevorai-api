@@ -5,8 +5,8 @@ from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, AuthenticationWithoutDelegation
 from app.utils.openapi_tags import USER_TAG
-from app.utils.types.shared import IdResponse
 from app.utils.types.enums import RoleEnum
+from app.utils.types.shared import IdResponse
 
 from .interface import UserInfoResponse, UserUpsertBody
 from .openapi import GET_OR_CREATE_USER, GET_USER_INFO

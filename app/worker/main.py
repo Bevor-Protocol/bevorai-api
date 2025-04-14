@@ -1,20 +1,20 @@
-import os
 import asyncio
+import os
 import re
 from datetime import datetime
-from dotenv import load_dotenv
 from typing import Optional, TypedDict
-import logfire
 
-from arq import ArqRedis, Retry
-from arq.constants import default_queue_name, health_check_key_suffix
+import logfire
 import logfire.propagate
 import logfire.sampling
+from arq import ArqRedis, Retry
+from arq.constants import default_queue_name, health_check_key_suffix
+from dotenv import load_dotenv
 from tortoise import Tortoise
 
 from app.config import TORTOISE_ORM, redis_settings
-from app.utils.types.enums import NetworkEnum
 from app.metrics import metrics_tasks_duration, metrics_tasks_total
+from app.utils.types.enums import NetworkEnum
 
 from .tasks import get_deployment_contracts, handle_eval
 
@@ -22,6 +22,7 @@ load_dotenv()
 logfire.configure(
     environment=os.getenv("RAILWAY_ENVIRONMENT_NAME", "development"),
     service_name="worker",
+    scrubbing=False,
 )
 
 

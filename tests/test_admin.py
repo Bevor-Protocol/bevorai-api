@@ -4,8 +4,8 @@ import pytest_asyncio
 from app.api.auth.service import AuthService
 from app.api.user.service import UserService
 from app.db.models import Auth, Permission
-from app.utils.types.shared import AuthState
 from app.utils.types.enums import AuthScopeEnum, ClientTypeEnum, RoleEnum
+from app.utils.types.shared import AuthState
 from tests.constants import FIRST_PARTY_APP_API_KEY
 
 USER_WITH_ADMIN_ADDRESS = "0xuserwithadmin"

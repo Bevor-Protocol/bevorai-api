@@ -1,5 +1,7 @@
 from typing import Optional
+
 from pydantic import Field
+
 from app.utils.types.models import (
     AppSchema,
     AuditSchema,

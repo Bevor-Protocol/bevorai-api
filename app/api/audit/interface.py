@@ -3,14 +3,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
+from app.utils.types.mixins import FkMixin
 from app.utils.types.models import (
     AuditSchema,
     IntermediateResponsePartialSchema,
 )
 from app.utils.types.relations import AuditRelation, AuditWithFindingsRelation
 from app.utils.types.shared import IdResponse
-from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
-from app.utils.types.mixins import FkMixin
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.

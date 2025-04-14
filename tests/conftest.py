@@ -24,18 +24,15 @@ from tests.constants import (
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# flake8: noqa E402
-
-# tests/conftest.py
+import logfire
 import pytest
 from httpx import ASGITransport, AsyncClient
 from tortoise import Tortoise
-import logfire
 
-from app.db.models import App, Auth, Permission  # Replace with your actual model
+from app.db.models import App, Auth, Permission, User  # Replace with your actual model
 from app.main import app
-from app.utils.types.shared import AuthState
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
+from app.utils.types.shared import AuthState
 
 logfire.configure(local=True, send_to_logfire=False)
 
@@ -92,7 +89,7 @@ If I do need to manipulate them, they'll be scoped within a module.
 
 
 @pytest_asyncio.fixture(scope="session")
-async def first_party_app():
+async def first_party_app() -> App:
     """does not require a user (app owner)"""
     app = await App.create(name=FIRST_PARTY_APP_NAME, type=AppTypeEnum.FIRST_PARTY)
     hashed_key = Auth.hash_key(FIRST_PARTY_APP_API_KEY)
@@ -107,7 +104,7 @@ async def first_party_app():
 
 
 @pytest_asyncio.fixture(scope="session")
-async def standard_user():
+async def standard_user() -> User:
     """Create a standard user"""
     user_service = UserService()
 
@@ -121,7 +118,7 @@ async def standard_user():
 
 
 @pytest_asyncio.fixture(scope="session")
-async def user_with_permission():
+async def user_with_permission() -> User:
     """Create a user where permissions were whitelisted"""
     user_service = UserService()
 
@@ -138,7 +135,7 @@ async def user_with_permission():
 
 
 @pytest_asyncio.fixture(scope="session")
-async def user_with_auth():
+async def user_with_auth() -> User:
     """Create a user who requested an API key"""
     user_service = UserService()
     auth_service = AuthService()
@@ -175,7 +172,7 @@ async def user_with_auth():
 
 
 @pytest_asyncio.fixture(scope="session")
-async def user_with_app():
+async def user_with_app() -> User:
     """Create a user who created an App"""
     user_service = UserService()
     auth_service = AuthService()
@@ -212,7 +209,7 @@ async def user_with_app():
 
 
 @pytest_asyncio.fixture(scope="session")
-async def third_party_app(user_with_app):
+async def third_party_app(user_with_app) -> App:
     app_service = AppService()
     auth_service = AuthService()
 

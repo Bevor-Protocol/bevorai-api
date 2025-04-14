@@ -7,9 +7,9 @@ from app.api.dependencies import AuthenticationWithoutDelegation, RequireCredits
 from app.api.pricing.service import StaticAnalysis
 from app.db.models import Transaction, User
 from app.utils.openapi_tags import CONTRACT_TAG
-from app.utils.types.shared import AuthState
-from app.utils.types.models import ContractSchema
 from app.utils.types.enums import RoleEnum, TransactionTypeEnum
+from app.utils.types.models import ContractSchema
+from app.utils.types.shared import AuthState
 
 from .interface import (
     ContractScanBody,
