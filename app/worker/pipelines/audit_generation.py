@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Any, Coroutine
 
 import logfire
-from openai.types.chat import ChatCompletionMessageParam, ParsedChoice
 
 from app.api.pricing.service import CreditCosts
 from app.config import redis_client
@@ -28,16 +27,6 @@ class LlmPipeline:
 
         self.should_publish = should_publish
         self.candidate_responses = ""
-
-    def _parse_candidates(
-        self, choices: list[ParsedChoice]
-    ) -> ChatCompletionMessageParam:
-        constructed_prompt = ""
-
-        for choice in choices:
-            constructed_prompt += f"\n\n{choice.message.content}"
-
-        return {"role": "assistant", "content": choice.message.content}
 
     async def _publish_event(self, name: str, status: str):
         if not self.should_publish:

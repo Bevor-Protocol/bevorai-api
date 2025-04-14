@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from typing import TYPE_CHECKING
+from typing import AsyncGenerator
 
 import pytest_asyncio
 
@@ -33,9 +33,6 @@ from app.db.models import App, Auth, Permission, User  # Replace with your actua
 from app.main import app
 from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
 from app.utils.types.shared import AuthState
-
-if TYPE_CHECKING:
-    from typing import AsyncGenerator
 
 logfire.configure(local=True, send_to_logfire=False)
 
@@ -76,7 +73,7 @@ def in_memory_db(request, event_loop):
     request.addfinalizer(finalizer)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 async def async_client() -> AsyncGenerator:
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
