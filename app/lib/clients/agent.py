@@ -14,10 +14,10 @@ from game_sdk.game.custom_types import (
 from game_sdk.game.worker import Worker
 
 from app.api.contract.service import ContractService
-from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Finding
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum
 from app.utils.types.models import FindingSchema
+from app.worker.pipelines.audit_generation import LlmPipeline
 
 game_api_key = os.environ.get("GAME_API_KEY")
 
