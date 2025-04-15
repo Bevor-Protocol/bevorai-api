@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import logfire
 from fastapi import (
     APIRouter,
     Body,
@@ -12,6 +13,7 @@ from fastapi import (
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, RequireCredits
+from app.lib.clients.agent import worker as game_worker
 from app.utils.openapi_tags import AUDIT_TAG
 from app.utils.types.enums import RoleEnum
 from app.utils.types.shared import BooleanResponse
@@ -143,11 +145,12 @@ class AuditRouter(APIRouter):
         return BooleanResponse(success=True)
 
     async def game(self):
-        from app.lib.clients.agent import worker
-
-        worker.run(
-            "generate a smart contract audit for mainnet"
-            " contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-        )
-
-        return BooleanResponse(success=True)
+        try:
+            game_worker.run(
+                "generate a smart contract audit for mainnet"
+                " contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            )
+            return BooleanResponse(success=True)
+        except Exception as err:
+            logfire.exception(str(err))
+            return BooleanResponse(success=False)
