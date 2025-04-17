@@ -14,10 +14,10 @@ from game_sdk.game.custom_types import (
 from game_sdk.game.worker import Worker
 
 from app.api.contract.service import ContractService
-from app.api.pipeline.audit_generation import LlmPipeline
 from app.db.models import Audit, Finding
-from app.utils.schema.models import FindingSchema
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum
+from app.utils.types.models import FindingSchema
+from app.worker.pipelines.audit_generation import LlmPipeline
 
 game_api_key = os.environ.get("GAME_API_KEY")
 
@@ -41,7 +41,6 @@ def get_state_fn(
 
 
 def get_contract_code(address: str, **kwargs) -> Tuple[FunctionResultStatus, str, dict]:
-
     contract_service = ContractService()
 
     try:
@@ -66,9 +65,10 @@ def get_contract_code(address: str, **kwargs) -> Tuple[FunctionResultStatus, str
 def generate_audit(
     contract_id: str, audit_type: AuditTypeEnum, **kwargs
 ) -> Tuple[FunctionResultStatus, str, dict]:
-
     audit = asyncio.run(
         Audit.create(
+            # NOTE: depending on how this is called we can make a FIXED user, or actually pass
+            # a user through.
             contract_id=contract_id,
             audit_type=audit_type,
             status=AuditStatusEnum.PROCESSING,
@@ -77,25 +77,35 @@ def generate_audit(
 
     now = datetime.now()
     pipeline = LlmPipeline(
-        input=audit.contract.raw_code,
         audit=audit,
         should_publish=False,
     )
 
     try:
         asyncio.run(pipeline.generate_candidates())
-        response = asyncio.run(pipeline.generate_report())
-        audit.raw_output = response
-        audit.status = AuditStatusEnum.SUCCESS
+        result = asyncio.run(pipeline.generate_report())
+        asyncio.run(
+            pipeline.write_results(
+                response=result,
+                status=AuditStatusEnum.SUCCESS,
+                processing_time_seconds=(datetime.now() - now).seconds,
+            )
+        )
     except Exception:
-        audit.status = AuditStatusEnum.FAILED
+        asyncio.run(
+            pipeline.write_results(
+                response=None,
+                status=AuditStatusEnum.FAILED,
+                processing_time_seconds=(datetime.now() - now).seconds,
+            )
+        )
     finally:
         audit.processing_time_seconds = (datetime.now() - now).seconds
         asyncio.run(audit.save())
 
     if audit.status == AuditStatusEnum.SUCCESS:
         findings = asyncio.run(Finding.filter(audit_id=audit.id).all())
-        findings = list(map(FindingSchema.from_tortoise, findings))
+        findings = list(map(FindingSchema.model_validate, findings))
 
         return (
             FunctionResultStatus.DONE,

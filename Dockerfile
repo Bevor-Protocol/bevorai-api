@@ -1,20 +1,22 @@
-FROM python:3.11-slim
+# based on python3.13-alpine, pre-built with uv
+FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
 ARG PORT=8000
 
 WORKDIR /app
 
-# Install poetry
-RUN pip install poetry==1.8.5
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
+
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy poetry files
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml uv.lock ./
 
-# Configure poetry to not create virtual environment
-RUN poetry config virtualenvs.create false
-
-# Install dependencies
-RUN poetry install --no-dev
+# Use the same cache key source for consistency
+RUN uv sync --frozen --no-dev
 
 # Copy application code
 COPY app ./app
@@ -27,3 +29,5 @@ RUN chmod +x scripts/pre-deploy.sh
 EXPOSE ${PORT}
 # Echo port for debugging
 RUN echo "Port is set to: ${PORT}"
+
+RUN ls -la scripts/

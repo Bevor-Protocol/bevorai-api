@@ -1,4 +1,3 @@
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -13,13 +12,10 @@ from app.db.models import (
     Auth,
     Contract,
     Finding,
-    IntermediateResponse,
     Permission,
     Prompt,
     User,
 )
-from app.lib.gas.v1.response import FindingsStructure, FindingType, OutputStructure
-from app.utils.schema.dependencies import AuthState
 from app.utils.types.enums import (
     AuditStatusEnum,
     AuditTypeEnum,
@@ -29,6 +25,7 @@ from app.utils.types.enums import (
     NetworkEnum,
     RoleEnum,
 )
+from app.utils.types.shared import AuthState
 from tests.constants import THIRD_PARTY_APP_API_KEY, USER_API_KEY
 
 USER_WITH_CREDITS_ADDRESS = "0xuserwithcredits"
@@ -130,7 +127,7 @@ async def test_succeed_if_credits(user_with_auth_and_credits, async_client):
 
     mock_body = EvalBody(contract_id="some-fake-id", audit_type=AuditTypeEnum.SECURITY)
 
-    with patch.object(AuditService, "process_evaluation") as mock_process:
+    with patch.object(AuditService, "initiate_audit") as mock_process:
         # Setup mock return value
         mock_audit_id = "test-audit-id"
         mock_status = AuditStatusEnum.WAITING
@@ -192,16 +189,20 @@ async def test_successfully_creates_audit(user_with_auth_and_credits, async_clie
         address="0xTESTCONTRACT",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
+        code="contract Test {}",
         is_available=True,
     )
 
     mock_body = EvalBody(
         contract_id=str(contract.id), audit_type=AuditTypeEnum.SECURITY
     )
+    mock_trace_context = {"traceparent": "mocked-traceparent-value-00-1234"}
 
     # Mock the redis pool to avoid actual job enqueuing
-    with patch("app.api.audit.service.create_pool") as mock_create_pool:
+    with (
+        patch("app.api.audit.service.create_pool") as mock_create_pool,
+        patch("app.api.audit.service.get_context", return_value=mock_trace_context),
+    ):
         mock_redis_pool = MagicMock()
         mock_redis_pool.enqueue_job = AsyncMock()
         mock_create_pool.return_value = mock_redis_pool
@@ -221,7 +222,7 @@ async def test_successfully_creates_audit(user_with_auth_and_credits, async_clie
 
         # Verify redis job was enqueued
         mock_redis_pool.enqueue_job.assert_called_once_with(
-            "process_eval", _job_id=data["id"]
+            "process_eval", _job_id=data["id"], trace=mock_trace_context
         )
 
         # Verify audit was created in database
@@ -238,174 +239,8 @@ class MockQueue:
     def __init__(self):
         self.job = None
 
-    async def enqueue_job(self, function: str, _job_id: str, *args):
-        self.job = {"job_id": _job_id, "function": function}
-
-
-@pytest.mark.anyio
-async def test_audit_processing_with_intermediate_states(
-    user_with_auth_and_credits, async_client, mock_prompts
-):
-    """This is intentionally a very large e2e test with the worker"""
-    assert user_with_auth_and_credits.total_credits > 0
-
-    # Create a contract for testing
-    contract = await Contract.create(
-        address="0xARQTESTCONTRACT",
-        network=NetworkEnum.ETH,
-        method=ContractMethodEnum.SCAN,
-        raw_code="contract ArqTest {}",
-        is_available=True,
-    )
-
-    audit = await Audit.create(
-        contract_id=contract.id,
-        user_id=user_with_auth_and_credits.id,
-        status=AuditStatusEnum.WAITING,
-        audit_type=AuditTypeEnum.GAS,
-    )
-
-    mock_body = EvalBody(contract_id=str(contract.id), audit_type=AuditTypeEnum.GAS)
-
-    from app.worker.main import process_eval
-
-    # Mock the arq Redis pool creation
-    with patch("app.api.audit.service.create_pool") as mock_create_pool:
-        mock_redis_pool = MockQueue()
-        mock_create_pool.return_value = mock_redis_pool
-
-        # Make request to create an audit
-        response = await async_client.post(
-            "/audit",
-            headers={"Authorization": f"Bearer {USER_WITH_CREDITS_API_KEY}"},
-            json=mock_body.model_dump(),
-        )
-
-        # Assertions for response
-        assert response.status_code == 201
-        data = response.json()
-
-        audit_id = data["id"]
-
-        assert mock_redis_pool.job is not None
-
-        job = mock_redis_pool.job
-
-        # Verify job was enqueued with correct parameters
-        audit_id_job = job["job_id"]
-        assert audit_id == audit_id_job
-
-        mock_structure = OutputStructure(
-            introduction="test intro",
-            scope="mock scope",
-            conclusion="mock conclusion",
-            findings=FindingsStructure(
-                critical=[
-                    FindingType(
-                        name="fake name",
-                        explanation="fake exp",
-                        recommendation="fake ex",
-                        reference="fake ref",
-                    )
-                ],
-                high=[],
-                medium=[],
-                low=[
-                    FindingType(
-                        name="fake name",
-                        explanation="fake exp",
-                        recommendation="fake ex",
-                        reference="fake ref",
-                    )
-                ],
-            ),
-        )
-
-        mock_str = json.dumps(mock_structure.model_dump())
-
-        # Create mock methods that check state before and after
-        # Counter to track number of calls to mock_chat_completions_create
-        # Use a thread-safe counter for async calls
-        inter_responses = []
-
-        # Use a shared set to track which calls have failed
-        failed_calls = set()
-
-        async def mock_chat_completions_create(*args, **kwargs):
-            # intermediate state would've been created already, in processing.
-            last_added = await IntermediateResponse.filter(audit_id=audit_id)
-            assert last_added[0].status == AuditStatusEnum.PROCESSING
-
-            # Get the current intermediate response ID
-            current_id = last_added[0].id
-            inter_responses.append(current_id)
-
-            # Fail exactly one call based on the ID
-            # This ensures deterministic failure even with async execution
-            if current_id not in failed_calls and not failed_calls:
-                failed_calls.add(current_id)
-                raise Exception("Simulated error in llm request")
-
-            # Return mock response for other calls
-            mock_response = AsyncMock(
-                choices=[AsyncMock(message=AsyncMock(content="Mock LLM response"))],
-                usage=AsyncMock(prompt_tokens=100, completion_tokens=100),
-            )
-
-            return mock_response
-
-        async def mock_chat_completions_parse(*args, **kwargs):
-            # audit should still be processing
-            audit_before = await Audit.get(id=audit_id)
-            assert audit_before.status == AuditStatusEnum.PROCESSING
-
-            # Return mock response with the structure needed
-            return AsyncMock(
-                choices=[AsyncMock(message=AsyncMock(content=mock_str))],
-                usage=AsyncMock(prompt_tokens=500, completion_tokens=500),
-            )
-
-        # # Mock the LLM client methods
-        with patch("app.api.pipeline.audit_generation.llm_client") as mock_llm_client:
-            # Configure the mock methods
-            mock_llm_client.chat.completions.create = mock_chat_completions_create
-            mock_llm_client.beta.chat.completions.parse = mock_chat_completions_parse
-
-            # Process the evaluation
-            await process_eval(job)
-
-    # Verify the audit status changes
-    updated_audit = await Audit.get(id=audit_id)
-    assert updated_audit.audit_type == AuditTypeEnum.GAS
-    assert updated_audit.contract_id == contract.id
-    assert updated_audit.status == AuditStatusEnum.SUCCESS
-    assert updated_audit.raw_output is not None
-    assert updated_audit.processing_time_seconds is not None
-
-    inter_responses_db = await IntermediateResponse.filter(audit_id=audit_id)
-    assert (
-        next(
-            filter(lambda x: x.status == AuditStatusEnum.FAILED, inter_responses_db),
-            None,
-        )
-        is not None
-    )
-
-    findings = await Finding.filter(audit_id=audit_id)
-    assert len(findings) == 2  # as denoted by the mock_structure
-
-    user = await User.get(id=user_with_auth_and_credits.id)
-    assert user.total_credits > 0
-    assert user.used_credits > 0
-
-    # Clean up
-    await audit.delete()
-    await contract.delete()
-
-    # reset fixture state.
-    user_with_auth_and_credits.total_credits = 100
-    user_with_auth_and_credits.used_credits = 0
-    await user_with_auth_and_credits.save()
+    async def enqueue_job(self, function: str, _job_id: str, trace: None, *args):
+        self.job = {"job_id": _job_id, "function": function, "trace": trace}
 
 
 @pytest.mark.anyio
@@ -417,21 +252,7 @@ async def test_get_audit(user_with_auth, async_client):
         address="0xAUDITGET",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
-    )
-
-    output_json = json.dumps(
-        {
-            "introduction": "Test",
-            "scope": "Test",
-            "conclusion": "Test",
-            "findings": {
-                FindingLevelEnum.CRITICAL.value: [],
-                FindingLevelEnum.HIGH.value: [],
-                FindingLevelEnum.MEDIUM.value: [],
-                FindingLevelEnum.LOW.value: [],
-            },
-        }
+        code="contract Test {}",
     )
 
     audit = await Audit.create(
@@ -439,7 +260,9 @@ async def test_get_audit(user_with_auth, async_client):
         contract=contract,
         audit_type=AuditTypeEnum.SECURITY,
         status=AuditStatusEnum.SUCCESS,
-        raw_output=output_json,
+        introduction="Test",
+        scope="Test",
+        conclusion="Test",
     )
 
     # Make request to get the audit
@@ -470,21 +293,7 @@ async def test_get_audits(user_with_auth, async_client):
         address="0xAUDITLIST",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
-    )
-
-    output_json = json.dumps(
-        {
-            "introduction": "Test",
-            "scope": "Test",
-            "conclusion": "Test",
-            "findings": {
-                FindingLevelEnum.CRITICAL.value: [],
-                FindingLevelEnum.HIGH.value: [],
-                FindingLevelEnum.MEDIUM.value: [],
-                FindingLevelEnum.LOW.value: [],
-            },
-        }
+        code="contract Test {}",
     )
 
     # Create multiple audits
@@ -493,7 +302,9 @@ async def test_get_audits(user_with_auth, async_client):
         contract=contract,
         audit_type=AuditTypeEnum.SECURITY,
         status=AuditStatusEnum.SUCCESS,
-        raw_output=output_json,
+        introduction="Test",
+        scope="Test",
+        conclusion="Test",
     )
 
     audit2 = await Audit.create(
@@ -501,7 +312,9 @@ async def test_get_audits(user_with_auth, async_client):
         contract=contract,
         audit_type=AuditTypeEnum.GAS,
         status=AuditStatusEnum.SUCCESS,
-        raw_output=output_json,
+        introduction="Test",
+        scope="Test",
+        conclusion="Test",
     )
 
     # Make request to get audits
@@ -545,21 +358,7 @@ async def test_submit_feedback(user_with_auth, async_client):
         address="0xAUDITFEEDBACK",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
-    )
-
-    output_json = json.dumps(
-        {
-            "introduction": "Test",
-            "scope": "Test",
-            "conclusion": "Test",
-            "findings": {
-                FindingLevelEnum.CRITICAL.value: [],
-                FindingLevelEnum.HIGH.value: [],
-                FindingLevelEnum.MEDIUM.value: [],
-                FindingLevelEnum.LOW.value: [],
-            },
-        }
+        code="contract Test {}",
     )
 
     audit = await Audit.create(
@@ -567,7 +366,6 @@ async def test_submit_feedback(user_with_auth, async_client):
         contract=contract,
         audit_type=AuditTypeEnum.SECURITY,
         status=AuditStatusEnum.SUCCESS,
-        raw_output=output_json,
     )
 
     # Create a finding
@@ -615,21 +413,7 @@ async def test_get_audit_with_delegation(user_with_auth, third_party_app, async_
         address="0xAUDITGET",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
-    )
-
-    output_json = json.dumps(
-        {
-            "introduction": "Test",
-            "scope": "Test",
-            "conclusion": "Test",
-            "findings": {
-                FindingLevelEnum.CRITICAL.value: [],
-                FindingLevelEnum.HIGH.value: [],
-                FindingLevelEnum.MEDIUM.value: [],
-                FindingLevelEnum.LOW.value: [],
-            },
-        }
+        code="contract Test {}",
     )
 
     audit = await Audit.create(
@@ -637,7 +421,6 @@ async def test_get_audit_with_delegation(user_with_auth, third_party_app, async_
         contract=contract,
         audit_type=AuditTypeEnum.SECURITY,
         status=AuditStatusEnum.SUCCESS,
-        raw_output=output_json,
     )
 
     # Make request to get the audit
@@ -656,7 +439,6 @@ async def test_get_audit_with_delegation(user_with_auth, third_party_app, async_
         contract=contract,
         audit_type=AuditTypeEnum.SECURITY,
         status=AuditStatusEnum.SUCCESS,
-        raw_output=output_json,
     )
 
     response = await async_client.get(

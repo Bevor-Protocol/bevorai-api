@@ -1,17 +1,16 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from app.utils.schema.models import (
-    AuditSchema,
-    ContractSchema,
-    FindingSchema,
-    IntermediateResponseSchema,
-    UserSchema,
-)
-from app.utils.schema.shared import CreatedAtResponse, IdResponse
 from app.utils.types.enums import AuditStatusEnum, AuditTypeEnum, NetworkEnum
+from app.utils.types.mixins import FkMixin
+from app.utils.types.models import (
+    AuditSchema,
+    IntermediateResponsePartialSchema,
+)
+from app.utils.types.relations import AuditRelation, AuditWithFindingsRelation
+from app.utils.types.shared import IdResponse
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.
@@ -32,12 +31,11 @@ class FeedbackBody(BaseModel):
     verified: bool
 
 
-class FilterParams(BaseModel):
+class FilterParams(BaseModel, FkMixin):
     user_id: Optional[str | UUID] = None
     user_address: Optional[str] = None
     page: int = 0
     page_size: int = 20
-    search: Optional[str] = Field(default=None, description="search the audit result")
     audit_type: list[AuditTypeEnum] = Field(default_factory=list)
     status: Optional[AuditStatusEnum] = None
     network: list[NetworkEnum] = Field(default_factory=list)
@@ -77,23 +75,13 @@ class FilterParams(BaseModel):
             return value.split(",")
         return value
 
-    @field_serializer("user_id")
-    def convert_uuid_to_string(self, id):
-        if isinstance(id, UUID):
-            return str(id)
-        return id
 
-
-class AuditMetadata(IdResponse, CreatedAtResponse):
+class AuditIndex(AuditRelation):
     n: int
-    audit_type: AuditTypeEnum
-    status: AuditStatusEnum
-    contract: ContractSchema
-    user: UserSchema
 
 
 class AuditsResponse(BaseModel):
-    results: list[AuditMetadata] = Field(
+    results: list[AuditIndex] = Field(
         default_factory=lambda: [], description="array of audits"
     )
     more: bool = Field(
@@ -102,14 +90,9 @@ class AuditsResponse(BaseModel):
     total_pages: int = Field(description="total pages, given page_size")
 
 
-class AuditResponse(AuditSchema):
-    findings: list[FindingSchema] = Field(default_factory=lambda: [])
-    contract: ContractSchema
-    user: UserSchema
+class AuditResponse(AuditWithFindingsRelation):
+    result: Optional[str] = Field(default=None, description="audit result in markdown")
 
 
-class GetAuditStatusResponse(BaseModel):
-    status: AuditStatusEnum = Field(
-        description="status of entire audit, depends on steps"
-    )
-    steps: list[IntermediateResponseSchema] = Field(default_factory=lambda: [])
+class GetAuditStatusResponse(AuditSchema):
+    steps: list[IntermediateResponsePartialSchema] = Field(default_factory=lambda: [])

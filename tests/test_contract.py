@@ -10,8 +10,8 @@ from app.api.contract.interface import ContractScanBody
 from app.api.user.service import UserService
 from app.db.models import Auth, Contract, Permission
 from app.lib.clients import ExplorerClient
-from app.utils.schema.dependencies import AuthState
 from app.utils.types.enums import ClientTypeEnum, NetworkEnum, RoleEnum
+from app.utils.types.shared import AuthState
 from tests.constants import USER_API_KEY
 
 USER_WITH_CREDITS_ADDRESS = "0xuserwithcredits"
@@ -246,7 +246,7 @@ async def test_contract_scan_clean(user_with_auth, async_client):
 
     assert eth_contract is not None
     assert eth_contract.is_available is True
-    assert eth_contract.raw_code is not None
+    assert eth_contract.code is not None
 
     assert arb_contract is not None
     assert arb_contract.is_available is False
@@ -314,7 +314,7 @@ async def test_contract_scan_multiple_found(user_with_auth, async_client):
 
     for contract in contracts:
         assert contract.is_available is True
-        assert contract.raw_code is not None
+        assert contract.code is not None
 
     non_eth_contract = next(
         (
@@ -379,7 +379,7 @@ async def test_contract_scan_different_responses(user_with_auth, async_client):
 
             for contract in contracts:
                 assert contract.is_available is True
-                assert contract.raw_code is not None
+                assert contract.code is not None
 
             non_eth_contract = next(
                 (

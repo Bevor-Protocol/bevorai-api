@@ -10,8 +10,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tortoise import Tortoise
 
 from app.config import TORTOISE_ORM
-from app.db.models import App, Auth
-from app.utils.types.enums import AppTypeEnum, ClientTypeEnum
+from app.db.models import App, Auth, Prompt
+from app.utils.backfill.prompts.gas import candidates as gas_candidates
+from app.utils.backfill.prompts.security import candidates as sec_candidates
+from app.utils.types.enums import AppTypeEnum, AuditTypeEnum, ClientTypeEnum
 
 
 async def init():
@@ -42,7 +44,30 @@ async def seed():
         print(f"\nApp created with ID: {app.id}")
         print(f"API Key (unhashed): {api_key}")
     else:
-        print("Skipping seeder, already exists...")
+        print("Skipping auth seeder, already exists...")
+
+    n_prompts = await Prompt.all().count()
+
+    if n_prompts == 0:
+        for tag, prompt in sec_candidates.items():
+            await Prompt.create(
+                audit_type=AuditTypeEnum.SECURITY,
+                tag=tag,
+                version="0.1",
+                content=prompt,
+                is_active=True,
+            )
+        for tag, prompt in gas_candidates.items():
+            await Prompt.create(
+                audit_type=AuditTypeEnum.GAS,
+                tag=tag,
+                version="0.1",
+                content=prompt,
+                is_active=True,
+            )
+        print("Seeded placeholder prompts")
+    else:
+        print("Skipping prompt seeder, at least 1 already exists...")
 
     await Tortoise.close_connections()
 

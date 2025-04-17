@@ -3,15 +3,15 @@ import hashlib
 from typing import Optional
 
 import httpx
+import logfire
 from fastapi import HTTPException, status
 
 from app.api.blockchain.service import BlockchainService
 from app.db.models import Contract
-from app.utils.constants.mappers import networks_by_type
 from app.utils.helpers.code_parser import SourceCodeParser
-from app.utils.logger import get_logger
-from app.utils.schema.models import ContractSchema
+from app.utils.mappers import networks_by_type
 from app.utils.types.enums import ContractMethodEnum, NetworkEnum, NetworkTypeEnum
+from app.utils.types.models import ContractSchema
 
 from .interface import (
     ContractScanBody,
@@ -19,11 +19,8 @@ from .interface import (
     UploadContractResponse,
 )
 
-logger = get_logger("api")
-
 
 class ContractService:
-
     def __init__(
         self,
         allow_testnet: bool = False,
@@ -41,7 +38,7 @@ class ContractService:
         Otherwise get from source
         """
 
-        filter_obj = {"is_available": True, "raw_code__isnull": False}
+        filter_obj = {"is_available": True, "code__isnull": False}
 
         if address:
             filter_obj["address"] = address
@@ -49,19 +46,19 @@ class ContractService:
             filter_obj["network"] = network
         if code:
             hashed_content = hashlib.sha256(code.encode()).hexdigest()
-            filter_obj["hash_code"] = hashed_content
+            filter_obj["hashed_code"] = hashed_content
 
         contracts = await Contract.filter(**filter_obj)
 
         if contracts:
-            logger.info(f"early exiting for {address}")
+            logfire.info(f"early exiting for {address}")
             return contracts
 
         if code:
             contract = await Contract.create(
                 method=ContractMethodEnum.UPLOAD,
                 network=network,
-                raw_code=code,
+                code=code,
             )
             return [contract]
 
@@ -100,7 +97,7 @@ class ContractService:
                     network=result["network"],
                     is_proxy=result["is_proxy"],
                     contract_name=result["contract_name"],
-                    raw_code=result["code"],
+                    code=result["code"],
                 )
                 if contract.is_available:
                     contracts_return.append(contract)
@@ -113,17 +110,13 @@ class ContractService:
         address: Optional[str] = None,
         network: Optional[NetworkEnum] = None,
     ) -> UploadContractResponse:
-
-        if not code and not address:
-            raise ValueError("Either contract code or address must be provided")
-
         contracts = await self._get_or_create_contract(
             code=code, address=address, network=network
         )
 
         first_candidate = next(filter(lambda x: x.is_available, contracts), None)
         if first_candidate:
-            first_candidate = ContractSchema.from_tortoise(first_candidate)
+            first_candidate = ContractSchema.model_validate(first_candidate)
 
         return UploadContractResponse(
             exact_match=len(contracts) == 1,
@@ -132,7 +125,6 @@ class ContractService:
         )
 
     async def get(self, id: str) -> Contract:
-
         contract = await Contract.get(id=id)
 
         return contract
@@ -140,7 +132,6 @@ class ContractService:
     async def process_static_eval_token(
         self, body: ContractScanBody
     ) -> StaticAnalysisTokenResult:
-
         contracts = await self._get_or_create_contract(
             code=body.code, address=body.address, network=body.network
         )

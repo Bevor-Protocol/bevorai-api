@@ -1,5 +1,5 @@
-from app.utils.schema.shared import ErrorResponse
 from app.utils.types.openapi import OpenApiParams
+from app.utils.types.shared import ErrorResponse
 
 from .interface import AppInfoResponse
 

@@ -1,6 +1,6 @@
 # flake8: noqa
 
-from app.utils.schema.shared import ErrorResponse, IdResponse
+from app.utils.types.shared import ErrorResponse, IdResponse
 from app.utils.types.openapi import OpenApiParams
 
 from .interface import UserInfoResponse

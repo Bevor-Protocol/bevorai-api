@@ -1,25 +1,33 @@
 import asyncio
+import os
 import re
 from datetime import datetime
 from typing import Optional, TypedDict
 
+import logfire
+import logfire.propagate
+import logfire.sampling
 from arq import ArqRedis, Retry
 from arq.constants import default_queue_name, health_check_key_suffix
-from prometheus_client import start_http_server
+from dotenv import load_dotenv
 from tortoise import Tortoise
 
 from app.config import TORTOISE_ORM, redis_settings
-from app.prometheus import prom_logger
-from app.utils.logger import get_logger
+from app.metrics import metrics_tasks_duration, metrics_tasks_total
 from app.utils.types.enums import NetworkEnum
 
-# from app.prometheus import logger
 from .tasks import get_deployment_contracts, handle_eval
 
-logger = get_logger("api")
+load_dotenv()
+logfire.configure(
+    environment=os.getenv("RAILWAY_ENVIRONMENT_NAME", "development"),
+    service_name="worker",
+    scrubbing=False,
+)
+logfire.instrument_pydantic_ai()
 
 
-class PrometheusMiddleware:
+class LoggingMiddleware:
     HEALTH_REGEX = "j_complete=(?P<completed>[0-9]+).j_failed=(?P<failed>[0-9]+).j_retried=(?P<retried>[0-9]+).j_ongoing=(?P<ongoing>[0-9]+).queued=(?P<queued>[0-9]+)"  # noqa
 
     def __init__(self, ctx: dict):
@@ -29,11 +37,6 @@ class PrometheusMiddleware:
         self._metrics_task: Optional[asyncio.Task] = None
 
     async def start(self):
-        try:
-            start_http_server(9192, addr="::")
-        except Exception:
-            logger.error("issue starting http server for prometheus")
-            pass
         await self._start_metrics_task()
 
     def stop(self):
@@ -45,16 +48,16 @@ class PrometheusMiddleware:
             """Wrapper function for a better error mesage when coroutine fails"""
             try:
                 await self._observe_healthcheck()
-            except Exception as e:
-                logger.error(e)
+            except Exception as err:
+                logfire.exception(str(err))
 
         self._metrics_task = asyncio.create_task(func_wrapper())
 
     def log_enqueue_time(self, duration: float):
-        prom_logger.tasks_enqueue_duration.observe(duration)
+        metrics_tasks_duration.set(duration)
 
     def log_process_time(self, duration: float):
-        prom_logger.tasks_duration.observe(duration)
+        metrics_tasks_duration.set(duration)
 
     async def _parse(self) -> dict:
         healthcheck = await self.ctx["redis"].get(self.health_check_key)
@@ -80,7 +83,8 @@ class PrometheusMiddleware:
 
         for k, v in data.items():
             value = int(v)
-            prom_logger.tasks_info.labels(type=k).set(value)
+            metrics_tasks_total
+            metrics_tasks_total.set(amount=value, attributes={"queue.type": k})
 
 
 class JobContext(TypedDict):
@@ -89,19 +93,19 @@ class JobContext(TypedDict):
     enqueue_time: datetime
     score: int
     redis: ArqRedis
-    prometheus: PrometheusMiddleware
+    logging: LoggingMiddleware
     job_start_time: datetime
 
 
 async def on_startup(ctx: JobContext):
     await Tortoise.init(config=TORTOISE_ORM)
-    ctx["prometheus"] = PrometheusMiddleware(ctx)
-    await ctx["prometheus"].start()
+    ctx["logging"] = LoggingMiddleware(ctx)
+    await ctx["logging"].start()
 
 
 async def on_shutdown(ctx: JobContext):
     await Tortoise.close_connections()
-    ctx["prometheus"].stop()
+    ctx["logging"].stop()
 
 
 async def scan_contracts(ctx: JobContext):
@@ -116,29 +120,22 @@ async def on_job_start(ctx: JobContext):
     # Gather the enqueue time (job_start_time - enqueue_time)
     ctx["job_start_time"] = datetime.now(tz=ctx["enqueue_time"].tzinfo)
     diff = ctx["job_start_time"] - ctx["enqueue_time"]
-    ctx["prometheus"].log_enqueue_time(diff.seconds)
+    ctx["logging"].log_enqueue_time(diff.seconds)
 
 
 async def on_job_end(ctx: JobContext):
     # gather the processing time (end_time - job_start_time)
     diff = datetime.now(tz=ctx["enqueue_time"].tzinfo) - ctx["job_start_time"]
-    ctx["prometheus"].log_process_time(diff.seconds)
+    ctx["logging"].log_process_time(diff.seconds)
 
 
-# @huey.task(retries=3, priority=10)
-# def process_webhook(audit_id: str, audit_status: AuditStatusEnum, webhook_url: str):
-#     anyio.run(
-#         handle_outgoing_webhook,
-#         audit_id,
-#         audit_status,
-#         webhook_url,
-#     )
-
-
-async def process_eval(ctx: JobContext):
+async def process_eval(ctx: JobContext, trace: logfire.propagate.ContextCarrier):
     # job_id was forcefully meant to match the audit_id
-    response = await handle_eval(audit_id=ctx["job_id"])
-    return response
+    audit_id = ctx["job_id"]
+    with logfire.propagate.attach_context(trace):
+        with logfire.span(f"processing audit {audit_id}"):
+            response = await handle_eval(audit_id=audit_id)
+            return response
 
 
 async def mock(ctx: JobContext):

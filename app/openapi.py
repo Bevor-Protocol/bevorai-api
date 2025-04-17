@@ -2,7 +2,8 @@
 
 # Define OpenAPI spec as a plain dictionary (no instantiation required)
 
-from app.utils.constants.openapi_tags import (
+from fastapi import FastAPI
+from app.utils.openapi_tags import (
     APP_TAG,
     AUDIT_TAG,
     CODE_EXAMPLE_APP_TAG,
@@ -17,7 +18,7 @@ from app.utils.constants.openapi_tags import (
 )
 
 _description = """
-We're in private Beta. Reach out to our team if you'd like access. Once granted access, 
+We're in private Beta. Reach out to our team if you'd like access. Once granted access,
 go to <a href='https://app.bevor.ai/dashboard' target='_blank'>BevorAI App</a> to create your API key.
 
 ### Authentication
@@ -275,3 +276,24 @@ OPENAPI_SCHEMA = {
         },
     },
 }
+
+
+def customize_openapi(app: FastAPI):
+    from fastapi.openapi.utils import get_openapi
+
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        **OPENAPI_SCHEMA["core"],
+        routes=app.routes,
+    )
+
+    for k, v in OPENAPI_SCHEMA["other"].items():
+        if isinstance(v, dict):
+            openapi_schema.setdefault(k, {}).update(v)
+        elif isinstance(v, list):
+            openapi_schema.setdefault(k, []).extend(v)
+        else:
+            openapi_schema[k] = v
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema

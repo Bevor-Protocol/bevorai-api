@@ -1,9 +1,10 @@
 from typing import Optional
 
+from fastapi import HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
-from app.utils.schema.models import ContractSchema
 from app.utils.types.enums import NetworkEnum
+from app.utils.types.models import ContractSchema
 
 """
 Used for HTTP request validation, response Serialization, and arbitrary typing.
@@ -20,12 +21,16 @@ class ContractScanBody(BaseModel):
     @model_validator(mode="after")
     def validate_params(self):
         if not self.code and not self.address:
-            raise ValueError("must provide at least one of address or code")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="must provide at least one of address or code",
+            )
 
         if self.network:
             if not self.address and not self.code:
-                raise ValueError(
-                    "when using network, you must provide the address or code"
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="when using network, you must provide the address or code",
                 )
         return self
 

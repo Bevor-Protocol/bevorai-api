@@ -1,29 +1,24 @@
-import json
 import math
-import re
+from collections import defaultdict
 
 from arq import create_pool
 from fastapi import HTTPException, status
+from logfire.propagate import get_context
 from tortoise.timezone import now
 
 from app.config import redis_settings
 from app.db.models import Audit, Contract, Finding
-from app.utils.schema.dependencies import AuthState
-from app.utils.schema.models import (
-    ContractSchema,
-    FindingSchema,
-    IntermediateResponseSchema,
-    UserSchema,
-)
 from app.utils.templates.gas import gas_template
 from app.utils.templates.security import security_template
-from app.utils.types.enums import AuditTypeEnum, RoleEnum
+from app.utils.types.enums import AuditTypeEnum, FindingLevelEnum, RoleEnum
+from app.utils.types.models import AuditSchema
+from app.utils.types.relations import AuditRelation, AuditWithFindingsRelation
+from app.utils.types.shared import AuthState
 
 from .interface import (
-    AuditMetadata,
+    AuditIndex,
     AuditResponse,
     AuditsResponse,
-    CreateEvalResponse,
     EvalBody,
     FeedbackBody,
     FilterParams,
@@ -32,17 +27,18 @@ from .interface import (
 
 
 class AuditService:
+    template_map: dict[AuditTypeEnum, str] = {
+        AuditTypeEnum.GAS: gas_template,
+        AuditTypeEnum.SECURITY: security_template,
+    }
 
     async def get_audits(self, auth: AuthState, query: FilterParams) -> AuditsResponse:
-
         limit = query.page_size
         offset = query.page * limit
 
         filter = {}
-        if query.search:
-            filter["status"] = query.search
-        if query.search:
-            filter["raw_output__icontains"] = query.search
+        if query.status:
+            filter["status"] = query.status
         if query.audit_type:
             filter["audit_type__in"] = query.audit_type
         if query.network:
@@ -65,39 +61,29 @@ class AuditService:
         audit_query = Audit.filter(**filter)
 
         total = await audit_query.count()
-
         total_pages = math.ceil(total / limit)
 
         if total <= offset:
-            return AuditsResponse(results=[], more=False, total_pages=total_pages)
+            return AuditsResponse(more=False, total_pages=total_pages)
 
-        results = (
+        audits = (
             await audit_query.order_by("-created_at")
             .offset(offset)
             .limit(limit + 1)
             .select_related("user", "contract")
         )
 
-        results_trimmed = results[:-1] if len(results) > limit else results
+        audits_trimmed = audits[:-1] if len(audits) > limit else audits
 
         data = []
-        for i, result in enumerate(results_trimmed):
-            contract = ContractSchema.from_tortoise(result.contract)
-            contract.code = result.contract.raw_code
-            user = UserSchema.from_tortoise(result.user)
-            response = AuditMetadata(
-                id=result.id,
-                created_at=result.created_at,
-                n=i + offset,
-                audit_type=result.audit_type,
-                status=result.status,
-                user=user,
-                contract=contract,
+        for i, audit in enumerate(audits_trimmed):
+            response = AuditIndex(
+                **AuditRelation.model_validate(audit).model_dump(), n=i + offset
             )
             data.append(response)
 
         return AuditsResponse(
-            results=data, more=len(results) > query.page_size, total_pages=total_pages
+            results=data, more=len(audits) > query.page_size, total_pages=total_pages
         )
 
     async def get_audit(self, auth: AuthState, id: str) -> AuditResponse:
@@ -114,24 +100,11 @@ class AuditService:
             .prefetch_related("findings")
         )
 
-        result = None
-        if audit.raw_output:
-            result = self.sanitize_data(audit=audit, as_markdown=True)
-
-        findings = list(map(FindingSchema.from_tortoise, audit.findings))
-        contract = ContractSchema.from_tortoise(audit.contract)
-        user = UserSchema.from_tortoise(audit.user)
+        result = self._parse_branded_markdown(audit=audit)
 
         return AuditResponse(
-            id=audit.id,
-            created_at=audit.created_at,
-            status=audit.status,
-            audit_type=audit.audit_type,
-            processing_time_seconds=audit.processing_time_seconds,
+            **AuditWithFindingsRelation.model_validate(audit).model_dump(),
             result=result,
-            findings=findings,
-            contract=contract,
-            user=user,
         )
 
     async def get_status(self, auth: AuthState, id: str) -> GetAuditStatusResponse:
@@ -143,18 +116,16 @@ class AuditService:
 
         audit = await Audit.get(**obj_filter).prefetch_related("intermediate_responses")
 
-        steps = []
-        for step in audit.intermediate_responses:
-            steps.append(IntermediateResponseSchema.from_tortoise(step))
-
-        response = GetAuditStatusResponse(status=audit.status, steps=steps)
+        response = GetAuditStatusResponse(
+            **AuditSchema.model_validate(audit).model_dump(),
+            steps=audit.intermediate_responses,
+        )
 
         return response
 
     async def submit_feedback(
         self, data: FeedbackBody, auth: AuthState, id: str
-    ) -> bool:
-
+    ) -> None:
         finding = await Finding.get(id=id).select_related("audit")
 
         user_id = finding.audit.user_id
@@ -180,69 +151,40 @@ class AuditService:
 
         await finding.save()
 
-        return True
+    def _parse_branded_markdown(self, audit: Audit) -> str | None:
+        """parse audit and findings into markdown format"""
+        template_use = self.template_map[audit.audit_type]
 
-    def sanitize_data(self, audit: Audit, as_markdown: bool):
-        # sanitizing backslashes/escapes for code blocks
-        pattern = r"<<(.*?)>>"
-
-        # this parsing should not be required, but we'll include it for safety
-        raw_data = re.sub(pattern, r"`\1`", audit.raw_output)
-
-        # corrects for occassional leading non-json text...
-        pattern = r"\{.*\}"
-        match = re.search(pattern, raw_data, re.DOTALL)
-        if match:
-            raw_data = match.group(0)
-
-        parsed = json.loads(raw_data)
-
-        if as_markdown:
-            parsed = self.parse_branded_markdown(audit=audit, findings=parsed)
-
-        return parsed
-
-    def parse_branded_markdown(self, audit: Audit, findings: dict) -> str:
-        # See if i can cast it back to the expected Pydantic struct.
-        template_use = (
-            gas_template if audit.audit_type == AuditTypeEnum.GAS else security_template
-        )
-        result = template_use
+        if not audit.raw_output:
+            return
 
         formatter = {
             "address": audit.contract.address,
             "date": audit.created_at.strftime("%Y-%m-%d"),
-            "introduction": findings["introduction"],
-            "scope": findings["scope"],
-            "conclusion": findings["conclusion"],
+            "introduction": audit.introduction,  # audit-level intro
+            "scope": audit.scope,  # audit-level scope
+            "conclusion": audit.conclusion,  # audit-level conclusion
         }
 
-        pattern = r"<<(.*?)>>"
+        findings_dict = defaultdict(str)
+        for finding in audit.findings:
+            key = f"findings_{finding.level.value}"
 
-        for k, v in findings["findings"].items():
-            key = f"findings_{k}"
-            finding_str = ""
-            if not v:
-                finding_str = "None Identified"
+            findings_dict[key] += f"**{finding.name}**\n"
+            findings_dict[key] += f"- **Explanation**: {finding.explanation}\n"
+            findings_dict[key] += f"- **Recommendation**: {finding.recommendation}\n"
+            findings_dict[key] += f"- **Code Reference**: {finding.reference}\n\n"
+
+        for level in FindingLevelEnum:
+            key = f"findings_{level.value}"
+            if key not in findings_dict:
+                findings_dict[key] = "None Identified"
             else:
-                for finding in v:
-                    name = re.sub(pattern, r"`\1`", finding["name"])
-                    explanation = re.sub(pattern, r"`\1`", finding["explanation"])
-                    recommendation = re.sub(pattern, r"`\1`", finding["recommendation"])
-                    reference = re.sub(pattern, r"`\1`", finding["reference"])
+                findings_dict[key] = findings_dict[key].strip()
 
-                    finding_str += f"**{name}**\n"
-                    finding_str += f"- **Explanation**: {explanation}\n"
-                    finding_str += f"- **Recommendation**: {recommendation}\n"
-                    finding_str += f"- **Code Reference**: {reference}\n\n"
+        return template_use.format(**formatter, **findings_dict)
 
-            formatter[key] = finding_str.strip()
-
-        return result.format(**formatter)
-
-    async def process_evaluation(
-        self, auth: AuthState, data: EvalBody
-    ) -> CreateEvalResponse:
+    async def initiate_audit(self, auth: AuthState, data: EvalBody) -> Audit:
         if not await Contract.exists(id=data.contract_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -265,9 +207,11 @@ class AuditService:
 
         # the job_id is guaranteed to be unique, make it align with the audit.id
         # for simplicitly.
+        log_context = get_context()
         await redis_pool.enqueue_job(
             "process_eval",
             _job_id=str(audit.id),
+            trace=log_context,
         )
 
-        return CreateEvalResponse(id=audit.id, status=audit.status)
+        return audit

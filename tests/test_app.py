@@ -161,7 +161,7 @@ async def test_get_app_info_extended(third_party_app, async_client):
         address="0xTESTCONTRACT",
         network=NetworkEnum.ETH,
         method=ContractMethodEnum.SCAN,
-        raw_code="contract Test {}",
+        code="contract Test {}",
         is_available=True,
     )
     await Audit.create(

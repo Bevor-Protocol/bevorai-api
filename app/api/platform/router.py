@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import AuthenticationWithoutDelegation
-from app.api.pricing.service import Usage
-from app.utils.constants.openapi_tags import PLATFORM_TAG
+from app.api.pricing.service import CreditCosts
+from app.utils.openapi_tags import PLATFORM_TAG
 from app.utils.types.enums import RoleEnum
 
 from .interface import GetCostEstimateResponse
@@ -20,11 +20,11 @@ class PlatformRouter(APIRouter):
             dependencies=[
                 Depends(AuthenticationWithoutDelegation(required_role=RoleEnum.USER))
             ],
-            **GET_COST_ESTIMATE
+            status_code=status.HTTP_200_OK,
+            **GET_COST_ESTIMATE,
         )
 
-    async def get_credit_estimate(self):
-        usage = Usage()
+    async def get_credit_estimate(self) -> GetCostEstimateResponse:
+        usage = CreditCosts()
         estimate = usage.estimate_pricing()
-        response = GetCostEstimateResponse(credits=estimate)
-        return Response(response.model_dump_json(), status_code=status.HTTP_200_OK)
+        return GetCostEstimateResponse(credits=estimate)
