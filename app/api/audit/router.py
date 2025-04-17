@@ -13,7 +13,7 @@ from fastapi import (
 from tortoise.exceptions import DoesNotExist
 
 from app.api.dependencies import Authentication, RequireCredits
-from app.lib.clients.agent import worker as game_worker
+from app.api.virtuals.service import game_worker
 from app.utils.openapi_tags import AUDIT_TAG
 from app.utils.types.enums import RoleEnum
 from app.utils.types.shared import BooleanResponse

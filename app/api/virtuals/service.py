@@ -26,6 +26,16 @@ from app.worker.pipelines.audit_generation import LlmPipeline
 
 game_api_key = os.environ.get("GAME_API_KEY")
 
+"""
+GAME runs synchronous python, which doesn't play well in async environments, needing to wait
+for execution without being able to explicitly await functions.
+
+This run_async_sync decorator should spin up execution in their own thread, with their own DB
+connection.
+
+TODO: attempt trace logging in each thread. Ensure this works in prod environment.
+"""
+
 
 def run_async_sync(func):
     """
@@ -303,7 +313,7 @@ action_space = [
 ]
 
 
-worker = Worker(
+game_worker = Worker(
     api_key=game_api_key,
     description="You are a smart contract auditor",
     instruction=(
@@ -313,3 +323,29 @@ worker = Worker(
     action_space=action_space,
     model_name="Llama-3.3-70B-Instruct",
 )
+
+# game_acp_pluging = AcpPlugin(
+#     options = AcpPluginOptions(
+#         api_key = "<your-GAME-dev-api-key-here>",
+#         acp_token_client = AcpToken(
+#             "<your-whitelisted-wallet-private-key>",
+#             "<your-agent-wallet-address>",
+#             "<your-chain-here>",
+#             "<your-acp-base-url>"
+#         ),
+#         cluster = "<cluster>",
+#         twitter_plugin = "<twitter_plugin_instance>",
+#         evaluator_cluster = "<evaluator_cluster>",
+#         on_evaluate = "<on_evaluate_function>"
+#     )
+# )
+
+# game_agent = Agent(
+#     api_key=game_api_key,
+#     name="BevorAI smart contract auditor",
+#     agent_goal="Given a smart contract address, conduct a smart contract audit",
+#     agent_description="BevorAI smart contract auditor",
+#     get_agent_state_fn: (...) -> FixtureFunction[SimpleFixtureFunction@FixtureFunction, FactoryFixtureFunction@FixtureFunction],
+#     workers: List[WorkerConfig] | None = None,
+#     model_name="Llama-3.3-70B-Instruct"
+# )

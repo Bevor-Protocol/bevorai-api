@@ -19,6 +19,7 @@ dependencies = [
     "aerich[toml]<1.0.0,>=0.8.1",
     "logfire[fastapi]>=3.12.0",
     "pydantic-ai-slim[openai]>=0.0.55",
+    "acp-plugin-gamesdk>=0.1.5",
 ]
 name = "bevor-ai-api"
 version = "0.1.0"
