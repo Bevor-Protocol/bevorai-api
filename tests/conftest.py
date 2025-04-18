@@ -1,14 +1,20 @@
 import asyncio
-import os
-import sys
 from typing import AsyncGenerator
 
+import logfire
+import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from tortoise import Tortoise
 
 from app.api.app.interface import AppUpsertBody
 from app.api.app.service import AppService
 from app.api.auth.service import AuthService
 from app.api.user.service import UserService
+from app.db.models import App, Auth, Permission, User  # Replace with your actual model
+from app.main import app
+from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
+from app.utils.types.shared import AuthState
 from tests.constants import (
     FIRST_PARTY_APP_API_KEY,
     FIRST_PARTY_APP_NAME,
@@ -21,18 +27,6 @@ from tests.constants import (
     USER_WITH_AUTH_ADDRESS,
     USER_WITH_PERMISSION_ADDRESS,
 )
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import logfire
-import pytest
-from httpx import ASGITransport, AsyncClient
-from tortoise import Tortoise
-
-from app.db.models import App, Auth, Permission, User  # Replace with your actual model
-from app.main import app
-from app.utils.types.enums import AppTypeEnum, AuthScopeEnum, ClientTypeEnum, RoleEnum
-from app.utils.types.shared import AuthState
 
 logfire.configure(local=True, send_to_logfire=False)
 

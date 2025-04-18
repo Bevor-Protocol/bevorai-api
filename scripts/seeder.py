@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import asyncio
-import os
 import sys
 
 # Add the parent directory to Python path so we can import app modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa: E402
 from tortoise import Tortoise
 

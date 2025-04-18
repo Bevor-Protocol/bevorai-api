@@ -9,6 +9,7 @@ from app.utils.types.enums import (
     AuditStatusEnum,
     AuditTypeEnum,
     AuthScopeEnum,
+    ChatRoleEnum,
     ClientTypeEnum,
     ContractMethodEnum,
     CreditTierEnum,
@@ -282,3 +283,34 @@ class Permission(AbstractModel):
 
     def __str__(self):
         return f"{str(self.id)} | {str(self.client_type)}"
+
+
+class Chat(AbstractModel):
+    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+        "models.User", on_delete=fields.CASCADE, related_name="chats"
+    )
+    audit: fields.ForeignKeyRelation[Audit] = fields.ForeignKeyField(
+        "models.Audit", on_delete=fields.CASCADE, related_name="chats"
+    )
+    is_visible = fields.BooleanField(default=True)
+    total_messages = fields.IntField(default=0)
+
+    messages: fields.ReverseRelation["ChatMessage"]
+
+    class Meta:
+        table = "chat"
+        indexes = (("user_id",), ("audit_id",), ("is_visible", "user_id"))
+
+    def __str__(self):
+        return str(self.id)
+
+
+class ChatMessage(AbstractModel):
+    chat: fields.ForeignKeyRelation[Chat] = fields.ForeignKeyField(
+        "models.Chat", on_delete=fields.CASCADE, related_name="messages"
+    )
+    chat_role = fields.CharEnumField(enum_type=ChatRoleEnum)
+    message = fields.TextField()
+    n_tokens = fields.IntField()  # n_tokens of the response output, stored in `message`
+    model_name = fields.TextField()  # model used to generate embeddings
+    embedding = fields.JSONField(null=True)  # we'll store a vector here.

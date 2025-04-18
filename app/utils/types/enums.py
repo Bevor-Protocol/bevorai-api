@@ -97,3 +97,8 @@ class RoleEnum(str, Enum):
     APP_FIRST_PARTY = "app-first-party"
     APP = "app"
     USER = "user"
+
+
+class ChatRoleEnum(str, Enum):
+    USER = "user"
+    SYSTEM = "system"

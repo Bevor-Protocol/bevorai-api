@@ -28,3 +28,18 @@ agent: Agent[Union[str, OutputStructure]] = Agent(model, model_settings=model_se
 @agent.system_prompt
 def inject_prompt(ctx: RunContext[str]) -> str:
     return ctx.deps
+
+
+chat_model_settings = ModelSettings(
+    max_tokens=500,
+    temperature=0.2,
+)
+
+chat_agent = Agent(
+    model,
+    model_settings=chat_model_settings,
+    system_prompt=(
+        "You are a smart contract auditor, who produced a series of findings for a provided smart contract."
+        "Be confident in your original findings, but also be understanding and responsive to the user's requests."
+    ),
+)
