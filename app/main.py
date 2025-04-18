@@ -12,7 +12,9 @@ from .openapi import customize_openapi
 
 load_dotenv()
 logfire.configure(
-    environment=os.getenv("RAILWAY_ENVIRONMENT_NAME", "development"), service_name="api"
+    environment=os.getenv("RAILWAY_ENVIRONMENT_NAME", "development"),
+    service_name="api",
+    scrubbing=False,
 )
 
 

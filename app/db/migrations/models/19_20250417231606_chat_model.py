@@ -15,7 +15,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
 CREATE INDEX IF NOT EXISTS "idx_chat_user_id_587b99" ON "chat" ("user_id");
 CREATE INDEX IF NOT EXISTS "idx_chat_audit_i_754664" ON "chat" ("audit_id");
 CREATE INDEX IF NOT EXISTS "idx_chat_is_visi_efd46d" ON "chat" ("is_visible", "user_id");
-        CREATE TABLE IF NOT EXISTS "chatmessage" (
+        CREATE TABLE IF NOT EXISTS "chat_message" (
     "id" UUID NOT NULL PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -26,10 +26,11 @@ CREATE INDEX IF NOT EXISTS "idx_chat_is_visi_efd46d" ON "chat" ("is_visible", "u
     "embedding" JSONB,
     "chat_id" UUID NOT NULL REFERENCES "chat" ("id") ON DELETE CASCADE
 );
-COMMENT ON COLUMN "chatmessage"."chat_role" IS 'USER: user\nSYSTEM: system';"""
+CREATE INDEX IF NOT EXISTS "idx_chat_messag_chat_id_e94634" ON "chat_message" ("chat_id");
+COMMENT ON COLUMN "chat_message"."chat_role" IS 'USER: user\nSYSTEM: system';"""
 
 
 async def downgrade(db: BaseDBAsyncClient) -> str:
     return """
-        DROP TABLE IF EXISTS "chat";
-        DROP TABLE IF EXISTS "chatmessage";"""
+        DROP TABLE IF EXISTS "chat_message";
+        DROP TABLE IF EXISTS "chat";"""

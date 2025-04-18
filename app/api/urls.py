@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app.api.chat.router import ChatRouter
+
 from .admin.router import AdminRouter
 from .app.router import AppRouter
 from .audit.router import AuditRouter
@@ -23,6 +25,7 @@ def construct_router():
     router.include_router(ContractRouter())
     router.include_router(PlatformRouter())
     router.include_router(UserRouter())
+    router.include_router(ChatRouter())
 
     return router
 

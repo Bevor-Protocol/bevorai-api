@@ -46,6 +46,9 @@ class AuditSchema(BaseSchema):
     processing_time_seconds: Optional[int] = Field(
         default=None, description="total processing time, if applicable"
     )
+    introduction: Optional[str] = None
+    scope: Optional[str] = None
+    conclusion: Optional[str] = None
 
 
 class UserSchema(BaseSchema):
@@ -110,3 +113,10 @@ class FindingSchema(BaseSchema):
     is_attested: bool = False
     is_verified: bool = False
     feedback: Optional[str] = None
+
+
+class ChatSchema(BaseSchema, FkMixin):
+    user_id: ModelId
+    audit_id: ModelId
+    is_visible: bool
+    total_messages: int

@@ -1,13 +1,15 @@
 import json
-from typing import AsyncGenerator, Optional
+from ast import literal_eval
+from typing import AsyncGenerator
 
 import numpy as np
-import tiktoken
+
+# import tiktoken
 from numpy.typing import NDArray
+from pydantic import ConfigDict, TypeAdapter
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
-    ModelMessagesTypeAdapter,
     ModelRequest,
     ModelResponse,
     SystemPromptPart,
@@ -17,10 +19,15 @@ from pydantic_ai.messages import (
 from pydantic_core import to_json
 from tortoise.query_utils import Prefetch
 
-from app.db.models import Chat, ChatMessage
+from app.api.chat.interface import ChatMessageDict
+from app.db.models import Audit, Chat, ChatMessage
 from app.lib.clients.llm import chat_agent, llm_client
-from app.utils.types.enums import ChatRoleEnum
+from app.utils.types.enums import ChatRoleEnum, FindingLevelEnum
 from app.utils.types.shared import AuthState
+
+ModelMessageAdapter = TypeAdapter(
+    ModelMessage, config=ConfigDict(defer_build=True, ser_json_bytes="base64")
+)
 
 
 class ChatService:
@@ -69,7 +76,7 @@ class ChatService:
 
         return similarities  # shape: (n_vectors,)
 
-    async def _get_top_k_indices(
+    def _get_top_k_indices(
         self, cur_embedding: list[float], existing_embeddings: list[list[float]]
     ) -> list[int]:
         """
@@ -86,7 +93,7 @@ class ChatService:
 
         return top_k_indices
 
-    def _prepare_context(
+    async def _prepare_context(
         self, embedding: list[float], chat: Chat
     ) -> list[ModelMessage]:
         """
@@ -95,12 +102,61 @@ class ChatService:
 
         chat_messages: list[ChatMessage] = chat.messages_sorted
 
-        if not chat_messages:
-            return []
+        audit = (
+            await Audit.get(id=chat.audit_id)
+            .select_related("contract")
+            .prefetch_related("findings")
+        )
 
-        messages = list(
+        audit_findings_prompt = ""
+        audit_findings_prompt += f"Introduction:\n{audit.introduction}"
+        audit_findings_prompt += f"\nScope:\n{audit.scope}"
+        findings = {}
+        for finding in audit.findings:
+            if finding.level not in findings:
+                findings[finding.level] = []
+            findings[finding.level].append(
+                f"Explanation: {finding.explanation}\nRecommendation: {finding.recommendation}\nReference: {finding.reference}"
+            )
+
+        for level in [
+            FindingLevelEnum.CRITICAL,
+            FindingLevelEnum.HIGH,
+            FindingLevelEnum.MEDIUM,
+            FindingLevelEnum.LOW,
+        ]:
+            if level.value not in findings:
+                audit_findings_prompt += f"No {level} severity vulnerabilities"
+                continue
+            audit_findings_prompt += f"{level} severity vulnerabilities:"
+            for f in findings[level]:
+                audit_findings_prompt += f"\n{f}"
+
+        audit_findings_prompt += f"\nConclusion:\n{audit.conclusion}"
+
+        context_messages = [
+            ModelRequest(
+                parts=[
+                    SystemPromptPart(
+                        content=f"Code that was audited:\n {audit.contract.code}"
+                    )
+                ]
+            ),
+            ModelRequest(
+                parts=[
+                    SystemPromptPart(
+                        content=f"Audit findings:\n{audit_findings_prompt}"
+                    )
+                ]
+            ),
+        ]
+
+        if not chat_messages:
+            return context_messages
+
+        messages: list[ModelMessage] = list(
             map(
-                lambda x: ModelMessagesTypeAdapter.validate_json(x.message)[0],
+                lambda x: ModelMessageAdapter.validate_json(literal_eval(x.message)),
                 chat_messages,
             )
         )
@@ -109,36 +165,31 @@ class ChatService:
         similar_indices = self._get_top_k_indices(
             cur_embedding=embedding, existing_embeddings=embeddings
         )
+
         similar_messages_dedup = [
-            messages[i] for i in similar_indices if i > self.recency_k
+            messages[i] for i in similar_indices if (len(messages) - i) > self.recency_k
         ]
 
-        context_messages = [
-            ModelRequest(parts=[SystemPromptPart(content=chat.audit.contract.code)]),
-            ModelRequest(parts=[SystemPromptPart(content=chat.audit.raw_output)]),
-        ]
-        context_messages.append(
-            ModelRequest(
-                parts=[SystemPromptPart(content="these are the most recent messages:")]
-            )
-        )
-
-        context_messages.extend(messages[: self.recency_k])
+        # I was having issues with ordering in pydanticAI
         if similar_messages_dedup:
+            relevant_context = "These are the most relevant past messages:"
+            for m in similar_messages_dedup:
+                writer = "Assistant" if m.kind == "response" else "User"
+                relevant_context += f"\n{writer}: {m.parts[0].content}"
             context_messages.append(
-                ModelRequest(
-                    parts=[
-                        SystemPromptPart(
-                            content="and these are the most relevant past messages:"
-                        )
-                    ]
-                )
+                ModelRequest(parts=[SystemPromptPart(content=relevant_context)])
             )
-            context_messages.extend(similar_messages_dedup)
+        historical_context = "These are the most recent messages:"
+        for m in messages[-self.recency_k :]:
+            writer = "Assistant" if m.kind == "response" else "User"
+            historical_context += f"\n{writer}: {m.parts[0].content}"
+        context_messages.append(
+            ModelRequest(parts=[SystemPromptPart(content=historical_context)])
+        )
 
         return context_messages
 
-    def _to_chat_message(m: ModelMessage) -> ChatMessage:
+    def _to_chat_message(self, m: ModelMessage) -> dict:
         first_part = m.parts[0]
         if isinstance(m, ModelRequest):
             if isinstance(first_part, UserPromptPart):
@@ -151,28 +202,28 @@ class ChatService:
         elif isinstance(m, ModelResponse):
             if isinstance(first_part, TextPart):
                 return {
-                    "role": "model",
+                    "role": "system",
                     "timestamp": m.timestamp.isoformat(),
                     "content": first_part.content,
                 }
 
         raise UnexpectedModelBehavior(f"Unexpected message type for chat app: {m}")
 
-    def _get_token_count(self, text: str, model: Optional[str] = None) -> int:
-        encoding = tiktoken.encoding_for_model(model or self.embedding_model)
-        return len(encoding.encode(text))
+    # def _get_token_count(self, text: str, model: Optional[str] = None) -> int:
+    #     encoding = tiktoken.encoding_for_model(model or self.embedding_model)
+    #     return len(encoding.encode(text))
 
     async def chat(
         self, auth: AuthState, chat_id: str, message: str
     ) -> AsyncGenerator[bytes, None]:
-        message_queryset = ChatMessage.all().order_by("-created_at")
-        message_pf = Prefetch(queryset=message_queryset, to_attr="messages_sorted")
-
-        existing_chat = (
-            await Chat.get(id=chat_id, user_id=auth.user_id)
-            .select_related("audit__contract")
-            .prefetch_related(message_pf)
+        message_queryset = ChatMessage.all().order_by("created_at")
+        message_pf = Prefetch(
+            relation="messages", queryset=message_queryset, to_attr="messages_sorted"
         )
+
+        existing_chat = await Chat.get(
+            id=chat_id, user_id=auth.user_id
+        ).prefetch_related(message_pf)
 
         cur_embedding = await self._create_embedding(message)
 
@@ -188,7 +239,8 @@ class ChatService:
             chat_id=chat_id,
             chat_role=ChatRoleEnum.USER,
             message=to_json(encoded_message),
-            n_tokens=self._get_token_count(message),
+            # n_tokens=self._get_token_count(message),
+            n_tokens=0,
             model_name=self.embedding_model,
             embedding=cur_embedding,
         )
@@ -218,3 +270,36 @@ class ChatService:
             model_name=self.embedding_model,
             embedding=response_embedding,
         )
+
+    async def get_chats(self, auth: AuthState) -> list[Chat]:
+        chats = await Chat.filter(user_id=auth.user_id, is_visible=True).select_related(
+            "audit__contract"
+        )
+
+        return chats
+
+    async def get_chat_messages(
+        self, auth: AuthState, chat_id: str
+    ) -> list[ChatMessageDict]:
+        message_queryset = ChatMessage.all().order_by("created_at")
+        message_pf = Prefetch(
+            relation="messages", queryset=message_queryset, to_attr="messages_sorted"
+        )
+
+        existing_chat = await Chat.get(
+            id=chat_id, user_id=auth.user_id
+        ).prefetch_related(message_pf)
+
+        messages: list[ChatMessage] = existing_chat.messages_sorted
+
+        messages_structured = []
+        for m in messages:
+            structured = self._to_chat_message(
+                ModelMessageAdapter.validate_json(
+                    # x.message[1:] if x.message.startswith("b'") else x.message
+                    literal_eval(m.message)
+                )
+            )
+            messages_structured.append({"id": str(m.id), **structured})
+
+        return messages_structured

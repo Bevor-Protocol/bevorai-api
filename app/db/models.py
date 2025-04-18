@@ -187,6 +187,7 @@ class Audit(AbstractModel):
 
     intermediate_responses: fields.ReverseRelation["IntermediateResponse"]
     findings: fields.ReverseRelation["Finding"]
+    chats: fields.ReverseRelation["Chat"]
 
     class Meta:
         table = "audit"
@@ -314,3 +315,7 @@ class ChatMessage(AbstractModel):
     n_tokens = fields.IntField()  # n_tokens of the response output, stored in `message`
     model_name = fields.TextField()  # model used to generate embeddings
     embedding = fields.JSONField(null=True)  # we'll store a vector here.
+
+    class Meta:
+        table = "chat_message"
+        indexes = ("chat_id",)

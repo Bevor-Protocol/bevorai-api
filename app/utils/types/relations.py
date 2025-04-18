@@ -5,6 +5,7 @@ from pydantic import Field
 from app.utils.types.models import (
     AppSchema,
     AuditSchema,
+    ChatSchema,
     ContractSchema,
     FindingSchema,
     IntermediateResponseSchema,
@@ -13,8 +14,11 @@ from app.utils.types.models import (
 )
 
 
-class AuditRelation(AuditSchema):
+class AuditWithContractRelation(AuditSchema):
     contract: ContractSchema
+
+
+class AuditRelation(AuditWithContractRelation):
     user: UserSchema
 
 
@@ -34,3 +38,7 @@ class UserPermissionRelation(UserSchema):
 
 class AppPermissionRelation(AppSchema):
     permissions: Optional[PermissionSchema]
+
+
+class ChatRelation(ChatSchema):
+    audit: AuditWithContractRelation
