@@ -270,6 +270,8 @@ class ChatService:
             model_name=self.embedding_model,
             embedding=response_embedding,
         )
+        existing_chat.total_messages += 2
+        await existing_chat.save()
 
     async def get_chats(self, auth: AuthState) -> list[Chat]:
         chats = await Chat.filter(user_id=auth.user_id, is_visible=True).select_related(
