@@ -8,7 +8,7 @@ import logfire
 from app.api.pricing.service import CreditCosts
 from app.config import redis_client
 from app.db.models import Audit, Finding, IntermediateResponse, Prompt
-from app.lib.clients.llm import agent
+from app.lib.agents.auditor import agent
 from app.utils.types.enums import AuditStatusEnum, FindingLevelEnum
 from app.utils.types.llm import OutputStructure
 

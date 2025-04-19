@@ -21,7 +21,8 @@ from tortoise.query_utils import Prefetch
 
 from app.api.chat.interface import ChatMessageDict
 from app.db.models import Audit, Chat, ChatMessage
-from app.lib.clients.llm import chat_agent, llm_client
+from app.lib.agents.chat import chat_agent
+from app.lib.clients.llm import llm_client
 from app.utils.types.enums import ChatRoleEnum, FindingLevelEnum
 from app.utils.types.shared import AuthState
 
